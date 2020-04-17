@@ -1,0 +1,13 @@
+#!/bin/bash
+# config
+# https://github.com/kaiwan/vasu_grapher.git
+#
+# Configuration file for the vasu_grapher project.
+set -a  # export all
+EMB=0  # set to 1 for 'embedded' systems; simpler [no float point, etc]
+DEBUG=0
+gDELIM=","
+PAGE_SIZE=4096
+NULL_TRAP_SHOW=1
+SPARSE_SHOW=1
+STATS_SHOW=1

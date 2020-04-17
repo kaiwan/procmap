@@ -1,0 +1,131 @@
+#!/bin/bash
+# procmap
+# https://github.com/kaiwan/vasu_grapher.git
+#
+# Part of the 'procmap' project.
+# This bash script forms the userspace component of the 'procmap' project.
+#
+# The procmap project's intention is simply this: given a process's PID, it will
+# display (in a CLI/console output format only for now) a complete 'memory map'
+# of the process VAS (virtual address space).
+# The memory map will consist of two major parts, ordered by descending virtual
+# address:
+#
+#  Kernel VAS / kernel segment
+#  Userspace mappings (or segments)
+#
+# The kernel segment details will be realized by inserting (insmod(8)) the kernel
+# component of this project, the LKM (Loadable Kernel Module) named procmap. It's
+# output will then be parsed in and 'drawn' first.
+#
+# The usermode mappings (or 'segments') will be realized and displayed by the
+# majority of the code of this bash script.
+#
+# Thus, we obtain a full 'picture', a COMPLETE MEMORY MAP of the given process's
+# VAS (Virtual Address Space)!
+#
+# Note:- BSD has a utility by the same name: procmap(1), this project isn't
+# the same, though (quite obviously) some aspects are similar.
+#  (it's man page: https://man.openbsd.org/procmap.1)
+#
+# https://github.com/kaiwan/vasu_grapher.git
+#
+# Run this program; it invokes the other scripts as required.
+# Author:
+# Kaiwan N Billimoria
+# kaiwan -at- kaiwantech -dot- com
+# kaiwan -dot- billimoria -at- gmail -dot- com
+# kaiwanTECH
+#
+# License: MIT.
+name=$(basename $0)
+DEBUG=0
+
+logfile_post_process()
+{
+sed -i.bkp "/###\:\:\:/d" ${1}  # take a backup & get rid of the signature line
+sed -i "s/\x1b....//g" ${1}    # get rid of the ^[(B^[[m characters !
+      # '\x1b' is ESC ! Find it, and then delete it and the following 4 chars
+      # (the 4 .'s that follow specify this)
+sed -i "s/\x1m.//g" ${1}
+# get rid of the color characters !
+sed -i "s/^\;166m//g" ${1}
+sed -i "s/^mm//g" ${1}
+sed -i "s/^5\;166m//g" ${1}
+sed -i "s/47m//g" ${1}
+}
+
+usage()
+{
+ echo "Usage: ${name} [options] -p PID-to-show-memory-map-of
+Options:
+ -u : show ONLY the usermode mappings or segments (not kernel VAS)
+ -d : debug mode
+" 1>&2
+}
+
+
+#--- 'main' here
+
+[ $# -lt 1 ] && {
+ usage
+ exit 1
+}
+
+while getopts "h?udp:" opt; do
+    case "${opt}" in
+	h|\?) usage ; exit 0
+		;;
+        p)
+	    PID=${OPTARG}
+	    #echo "-p passed; PID=${PID}"
+            ;;
+        u)
+	    echo "[+] -u: will display ONLY user VAS"
+            ;;
+        d)
+	    DEBUG=1
+	    echo "[+] -d: running in DEBUG mode"
+            ;;
+        *)
+            usage
+            ;;
+    esac
+done
+shift $((OPTIND-1))
+
+PFX=$(dirname $(which $0))    # dir in which 'vasu_grapher' and tools reside
+[ ! -f ${PFX}/do_vgraph.sh ] && {
+ echo "${name}: ${PFX}/do_vgraph.sh missing? Aborting..."
+ exit 1
+}
+[ ! -f ${PFX}/prep_mapsfile.sh ] && {
+ echo "${name}: ${PFX}/prep_mapsfile.sh missing? Aborting..."
+ exit 1
+}
+# Check for process existence
+sudo kill -0 ${PID} >/dev/null 2>&1 || {
+ echo "${name}: process with PID \"$1\" invalid (or dead now?) Aborting..."
+ exit 1
+}
+# Verify it's not a kernel thread
+sudo readlink /proc/${PID}/exe >/dev/null || {
+ echo "${name}: process with PID \"${PID}\" invalid; we believe it's a kernel thread. Aborting..."
+ exit 1
+}
+
+LOG=log_vasu.txt
+TMPCSV=/tmp/vgrph.csv
+
+${PFX}/prep_mapsfile.sh ${PID} ${TMPCSV} || exit 1
+[ ${DEBUG} -eq 1 ] && {
+  ${PFX}/do_vgraph.sh ${PID} ${TMPCSV} -d | tee -a ${LOG} 
+} || {
+  ${PFX}/do_vgraph.sh ${PID} ${TMPCSV} | tee -a ${LOG}
+}
+
+rm -f ${TMPCSV}
+logfile_post_process ${LOG}
+echo "$(date): output logged (appended) here :"
+ls -lh ${LOG}
+exit 0
