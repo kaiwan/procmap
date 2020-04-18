@@ -39,7 +39,11 @@
 #
 # License: MIT.
 name=$(basename $0)
-DEBUG=0
+PFX=$(dirname $(which $0))    # dir in which this script and tools reside
+source ${PFX}/config || {
+ echo "${name}: fatal: could not source configuration in file '${PFX}/config', aborting..."
+ exit 1
+}
 
 logfile_post_process()
 {
@@ -60,6 +64,7 @@ usage()
  echo "Usage: ${name} [options] -p PID-to-show-memory-map-of
 Options:
  -u : show ONLY the usermode mappings or segments (not kernel VAS)
+ -s : show the VAS in ascending order by virtual address (default is descending)
  -d : debug mode
 " 1>&2
 }
@@ -67,12 +72,13 @@ Options:
 
 #--- 'main' here
 
-[ $# -lt 1 ] && {
+[ $# -lt 2 ] && {
  usage
  exit 1
 }
 
-while getopts "h?udp:" opt; do
+PID=0
+while getopts "p:h?uds" opt; do
     case "${opt}" in
 	h|\?) usage ; exit 0
 		;;
@@ -82,6 +88,10 @@ while getopts "h?udp:" opt; do
             ;;
         u)
 	    echo "[+] -u: will display ONLY user VAS"
+            ;;
+        s)
+	    ORDER_BY_DESC_VA=0
+	    echo "[+] -s: display in ascending order of va (virt addr)"
             ;;
         d)
 	    DEBUG=1
@@ -93,6 +103,12 @@ while getopts "h?udp:" opt; do
     esac
 done
 shift $((OPTIND-1))
+
+[ ${PID} -eq 0 ] && {
+ echo "Specifying the PID with -p is mandatory"
+ usage
+ exit 1
+}
 
 PFX=$(dirname $(which $0))    # dir in which 'vasu_grapher' and tools reside
 [ ! -f ${PFX}/do_vgraph.sh ] && {
@@ -117,14 +133,24 @@ sudo readlink /proc/${PID}/exe >/dev/null || {
 LOG=log_vasu.txt
 TMPCSV=/tmp/vgrph.csv
 
-${PFX}/prep_mapsfile.sh ${PID} ${TMPCSV} || exit 1
-[ ${DEBUG} -eq 1 ] && {
-  ${PFX}/do_vgraph.sh ${PID} ${TMPCSV} -d | tee -a ${LOG} 
-} || {
-  ${PFX}/do_vgraph.sh ${PID} ${TMPCSV} | tee -a ${LOG}
-}
+# Invoke the script to prep the memory map file
+if [ ${ORDER_BY_DESC_VA} -eq 1 ] ; then
+  ${PFX}/prep_mapsfile.sh ${PID} ${TMPCSV} || exit 1
+else
+  ${PFX}/prep_mapsfile.sh -s ${PID} ${TMPCSV} || exit 1
+fi
 
-rm -f ${TMPCSV}
+# Invoke the worker script to 'draw' the memory map
+#  Usage: do_vgraph [-s] [-d] -p PID-of-process -f input-CSV-filename(5 column format)
+#  -s : show in ascending order by va (virtual address)
+#  -d : run in debug mode"
+dovg_cmdline="-p ${PID} -f ${TMPCSV}"
+[ ${DEBUG} -eq 1 ] && dovg_cmdline="${dovg_cmdline} -d"
+[ ${ORDER_BY_DESC_VA} -eq 1 ] && dovg_cmdline="${dovg_cmdline} -s"
+
+${PFX}/do_vgraph.sh ${dovg_cmdline} | tee -a ${LOG} 
+
+[ ${DEBUG} -eq 0 ] && rm -f ${TMPCSV}
 logfile_post_process ${LOG}
 echo "$(date): output logged (appended) here :"
 ls -lh ${LOG}

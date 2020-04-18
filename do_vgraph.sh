@@ -67,7 +67,7 @@ source ${PFX}/common.sh || {
  exit 1
 }
 source ${PFX}/config || {
- echo "${name}: fatal: could not source configuration in file '${PFX}/config', aborting..."
+ echo "${name}: fatal: could not source ${PFX}/config , aborting..."
  exit 1
 }
 
@@ -152,7 +152,7 @@ done
 LIMIT_SCALE_SZ=10
 
 #---------------------- g r a p h i t ---------------------------------
-# Iterates over the global '4d' array gArr[] 'drawing' the vgraph.
+# Iterates over the global '6d' array gArr[] 'drawing' the vgraph.
 # Data driven tech!
 graphit()
 {
@@ -364,6 +364,29 @@ gNumSparse=0
 gTotalSparseSize=0
 gTotalSegSize=0
 
+setup_nulltrap_page()
+{
+  #let gRow=gRow+6
+
+#echo "gRow = ${gRow}"
+
+  gArray[${gRow}]="${NULLTRAP_STR}"
+  let gRow=gRow+1
+  gArray[${gRow}]=${PAGE_SIZE}
+  let gRow=gRow+1
+  gArray[${gRow}]=0
+  let gRow=gRow+1
+  gArray[${gRow}]=$(printf "%x" ${PAGE_SIZE})
+  let gRow=gRow+1
+  gArray[${gRow}]="----"
+  let gRow=gRow+1
+  gArray[${gRow}]=0
+  let gRow=gRow+1
+}
+
+NULLTRAP_STR="< NULL trap >"
+SPARSE_ENTRY="<... Sparse Region ...>"
+
 #------------------ i n t e r p r e t _ r e c -------------------------
 # Interpret a record: a CSV 'line' from the input stream:
 # Format:
@@ -375,7 +398,7 @@ gTotalSegSize=0
 # Parameters:
 #  $1 : the above CSV format string of 5 fields {start_uva,end_uva,mode,off,segname}
 #  $2 : loop index
-# Populate the global '4d' array gArray.
+# Populate the global 'n-dim' (n=6) array gArray.
 interpret_rec()
 {
 local gap=0
@@ -399,42 +422,39 @@ local seg_sz=$(printf "%llu" $((end_dec-start_dec)))  # in bytes
 #          col0     col1      col2       col3   col4    col5
 # row'n' [segname],[size],[start_uva],[end_uva],[mode],[offset]
 
+decho "gRow=${gRow} gFileLines=${gFileLines} curr_row=$2"
+
 # Show null trap, vpage 0
-NULLTRAP_STR="< NULL trap >"
-if [ ${NULL_TRAP_SHOW} -eq 1 -a $2 -eq 0 ]; then
-  gArray[${gRow}]="${NULLTRAP_STR}"
-  let gRow=gRow+1
-  gArray[${gRow}]=${PAGE_SIZE}
-  let gRow=gRow+1
-  gArray[${gRow}]=0
-  let gRow=gRow+1
-  gArray[${gRow}]=$(printf "%x" ${PAGE_SIZE})
-  let gRow=gRow+1
-  gArray[${gRow}]="----"
-  let gRow=gRow+1
-  gArray[${gRow}]=0
-  let gRow=gRow+1
+local n=$((gFileLines-1))
+if [ ${NULL_TRAP_SHOW} -eq 1 -a ${ORDER_BY_DESC_VA} -eq 0 -a $2 -eq 0 ]; then
+  # very first entry
+  setup_nulltrap_page
 fi
 
 #------------ Sparse Detection
 if [ ${SPARSE_SHOW} -eq 1 ]; then
 
 DetectedSparse=0
-SPARSE_ENTRY="<... Sparse Region ...>"
 
-[ $2 -eq 0 ] && prevseg_end_uva=${PAGE_SIZE}
+[ $2 -eq 0 ] && prevseg_start_uva=${PAGE_SIZE}
 
 # Detect sparse region, and if present, insert into the gArr[].
 # Sparse region detected by condition:
 #  gap = this-segment-start - prev-segment-end > 1 page
+# Wait! With order by Descending va, we should take the prev segment's
+# start uva (not the end uva)!
+#  gap = this-segment-end - prev-segment-start > 1 page
+
+# TODO / RELOOK !
 if [ $2 -eq 0 ] ; then   # first segment in the process
   [ ${start_dec} -gt 0 ] && {
     gap=${start_dec}
     DetectedSparse=1
   }
 else
-  decho "start_dec=${start_dec} prevseg_end_uva=${prevseg_end_uva}"
-  gap=$((${start_dec} - ${prevseg_end_uva}))
+  decho "end_dec=${end_dec} prevseg_start_uva=${prevseg_start_uva}"
+  gap=$((${end_dec} - ${prevseg_start_uva}))
+  #gap=$((${start_dec} - ${prevseg_end_uva}))
   [ ${gap} -gt ${PAGE_SIZE} ] && {
     decho "gap = ${gap}"
     DetectedSparse=1
@@ -464,8 +484,10 @@ fi
     if [ $2 -eq 0 ]; then  # first entry
       [ ${NULL_TRAP_SHOW} -eq 0 ] && gArray[${gRow}]=0 || gArray[${gRow}]=1000
     else
-      local prevseg_end_uva_hex=$(printf "%x" ${prevseg_end_uva})
-      gArray[${gRow}]=${prevseg_end_uva_hex}
+      local prevseg_start_uva_hex=$(printf "%x" ${prevseg_start_uva})
+      #local prevseg_end_uva_hex=$(printf "%x" ${prevseg_end_uva})
+      gArray[${gRow}]=${prevseg_start_uva_hex}
+      #gArray[${gRow}]=${prevseg_end_uva_hex}
     fi
     let gRow=gRow+1
 
@@ -474,11 +496,11 @@ fi
     gArray[${gRow}]=$(printf "%x" $((0x${start_uva} - 0x1000)))
     let gRow=gRow+1
 
-	# mode+flag
+    # mode+flag
     gArray[${gRow}]="----"
     let gRow=gRow+1
 
-	# file off
+    # file off
     gArray[${gRow}]=0
     let gRow=gRow+1
 
@@ -488,7 +510,8 @@ fi
       let gTotalSparseSize=gTotalSparseSize+gap
     }
 }
-prevseg_end_uva=${end_dec}
+prevseg_start_uva=${start_dec}
+#prevseg_end_uva=${end_dec}
 fi
 #--------------
 
@@ -585,7 +608,7 @@ proc_start()
 
  disp_fmt
 
- # Loop over the 'infile', populating the global '4d' array gArray
+ # Loop over the 'infile', populating the global 'n-d' array gArray
  local REC
  for REC in $(cat ${gINFILE})
  do 
@@ -595,8 +618,38 @@ proc_start()
    let i=i+1
  done 1>&2
 
-#showArray
+# By now, we've populated the gArr[] ;
+# If order is by descending va's (the default), then check for and insert
+# the last two entries: a sparse region and the NULL trap page
+
+# Sparse region before NULL trap page:
+decho "prevseg_start_uva = ${prevseg_start_uva}"
+#decho "prevseg_end_uva = ${prevseg_end_uva}"
+# row'n' [segname],[size],[start_uva],[end_uva],[mode],[offset]
+gArray[${gRow}]="${SPARSE_ENTRY}"
+let gRow=gRow+1
+
+local gap=$((prevseg_start_uva-PAGE_SIZE))
+gArray[${gRow}]="${gap}"
+let gRow=gRow+1
+gArray[${gRow}]=${PAGE_SIZE} # start va
+let gRow=gRow+1
+gArray[${gRow}]="${prevseg_start_uva}"  # end (higher) va
+let gRow=gRow+1
+gArray[${gRow}]="----"
+let gRow=gRow+1
+gArray[${gRow}]="0"
+let gRow=gRow+1
+
+# The NULL trap page:
+if [ ${NULL_TRAP_SHOW} -eq 1 -a ${ORDER_BY_DESC_VA} -eq 1 ]; then
+  # very last entry
+  setup_nulltrap_page
+fi
+
+showArray
 #exit 0
+
 graphit
 disp_fmt
 
@@ -636,6 +689,12 @@ TB_128=$(bc <<< "scale=6; 128.0*1024.0*1024.0*1024.0*1024.0")
  } # stats show
 } # end proc_start()
 
+usage()
+{
+  echo "Usage: ${name} [-s] [-d] -p PID-of-process -f input-CSV-filename(5 column format)
+  -s : show in ascending order by va (virtual address)
+  -d : run in debug mode"
+}
 
 ##### 'main' : execution starts here #####
 
@@ -645,19 +704,62 @@ which bc >/dev/null || {
 }
 
 [ $# -lt 2 ] && {
-  echo "Usage: ${name} PID-of-process input-CSV-filename(3 column format)"
+  usage
   exit 1
 }
-[ ! -f $2 ] && {
-  echo "${name}: input-CSV-filename \"$2\" invalid? Aborting..."
+
+ORDER_BY_DESC_VA=1
+
+while getopts "p:f:h?sd" opt; do
+    case "${opt}" in
+        h|\?) usage ; exit 0
+                ;;
+        p)
+            PID=${OPTARG}
+            #echo "-p passed; PID=${PID}"
+            ;;
+        f)
+            gINFILE=${OPTARG}
+            #echo "-p passed; PID=${PID}"
+            ;;
+        s)
+            echo "[+] -s: will display in ascending order by va"
+	    ORDER_BY_DESC_VA=0
+            ;;
+        d)
+            echo "[+] -d: run in debug mode"
+            DEBUG=1
+            ;;
+        *)
+            usage
+            ;;
+    esac
+done
+shift $((OPTIND-1))
+
+proc_start ${PID}
+exit 0
+
+
+###############################
+[ 0 -eq 1 ] && {
+if [ $# -eq 2 ] ; then
+  PID=$1
+  gINFILE=$2
+elif [ $# -eq 3 ] ; then
+  [ "$1" = "-s" ] && ORDER_BY_DESC_VA=0
+  PID=$2
+  gINFILE=$3
+fi
+
+[ ! -f ${gINFILE} ] && {
+  echo "${name}: input-CSV-filename \"${gINFILE}\" invalid? Aborting..."
   exit 1
 }
-[ ! -r $2 ] && {
-  echo "${name}: input-CSV-filename \"$2\" not readable? Aborting..."
+[ ! -r ${gINFILE} ] && {
+  echo "${name}: input-CSV-filename \"${gINFILE}\" not readable? Aborting..."
   exit 1
 }
 [ $# -eq 3 -a "$3" = "-d" ] && export DEBUG=1
+}
 
-gINFILE=$2
-proc_start $1
-exit 0

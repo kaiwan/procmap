@@ -6,6 +6,7 @@
 set -a  # export all
 EMB=0  # set to 1 for 'embedded' systems; simpler [no float point, etc]
 DEBUG=0
+ORDER_BY_DESC_VA=1  # display in descending va order
 gDELIM=","
 PAGE_SIZE=4096
 NULL_TRAP_SHOW=1
