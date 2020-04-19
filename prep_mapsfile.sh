@@ -65,5 +65,4 @@ fi
   decho "${name}: !WARNING! \"${outfile}\" exists, will be overwritten!"
 }
 gencsv
-echo "outfile = ${outfile}"
 exit 0

@@ -366,10 +366,6 @@ gTotalSegSize=0
 
 setup_nulltrap_page()
 {
-  #let gRow=gRow+6
-
-#echo "gRow = ${gRow}"
-
   gArray[${gRow}]="${NULLTRAP_STR}"
   let gRow=gRow+1
   gArray[${gRow}]=${PAGE_SIZE}
@@ -382,7 +378,7 @@ setup_nulltrap_page()
   let gRow=gRow+1
   gArray[${gRow}]=0
   let gRow=gRow+1
-}
+} # end setup_nulltrap_page()
 
 NULLTRAP_STR="< NULL trap >"
 SPARSE_ENTRY="<... Sparse Region ...>"
@@ -422,7 +418,16 @@ local seg_sz=$(printf "%llu" $((end_dec-start_dec)))  # in bytes
 #          col0     col1      col2       col3   col4    col5
 # row'n' [segname],[size],[start_uva],[end_uva],[mode],[offset]
 
-decho "gRow=${gRow} gFileLines=${gFileLines} curr_row=$2"
+
+# NOTE-
+# The '[vsyscall]' page is in kernel-space; hence, we only show it if
+# our config requires us to...; default is No
+if [ "${segment}" = "[vsyscall]" -a ${SHOW_VSYSCALL_PAGE} -eq 0 ]; then
+   decho "skipping [vsyscall] page..."
+   prevseg_start_uva=${start_dec}
+   prevseg_name="[vsyscall]"
+   return
+fi
 
 # Show null trap, vpage 0
 local n=$((gFileLines-1))
@@ -438,6 +443,8 @@ DetectedSparse=0
 
 [ $2 -eq 0 ] && prevseg_start_uva=${PAGE_SIZE}
 
+decho "$2: seg=${segment} prevseg_name=${prevseg_name} ,  gRow=${gRow} "
+
 # Detect sparse region, and if present, insert into the gArr[].
 # Sparse region detected by condition:
 #  gap = this-segment-start - prev-segment-end > 1 page
@@ -446,12 +453,14 @@ DetectedSparse=0
 #  gap = this-segment-end - prev-segment-start > 1 page
 
 # TODO / RELOOK !
-if [ $2 -eq 0 ] ; then   # first segment in the process
-  [ ${start_dec} -gt 0 ] && {
-    gap=${start_dec}
-    DetectedSparse=1
-  }
-else
+#if [ $2 -eq 0 ] ; then   # first segment in the process
+#   [ ${start_dec} -gt 0 ] && {
+#      gap=${start_dec}
+#      DetectedSparse=1
+#   }
+#else
+
+if [ "${segment}" != "[vsyscall]" ]; then
   decho "end_dec=${end_dec} prevseg_start_uva=${prevseg_start_uva}"
   gap=$((${end_dec} - ${prevseg_start_uva}))
   #gap=$((${start_dec} - ${prevseg_end_uva}))
@@ -461,13 +470,12 @@ else
   }
 fi
 
-[ ${DetectedSparse} -eq 1 ] && {
+if [ ${DetectedSparse} -eq 1 -a "${prevseg_name}" != "[vsyscall]" ]; then
     # name / label
 	# The global 6d-array's format is:
 	#          col0     col1      col2       col3   col4    col5
 	# row'n' [segname],[size],[start_uva],[end_uva],[mode],[offset]
 
-    # TODO : on 32-bit, the very last 'sparse' area is actually the kernel segment
     gArray[${gRow}]="${SPARSE_ENTRY}"
     let gRow=gRow+1
 
@@ -509,7 +517,8 @@ fi
       let gNumSparse=gNumSparse+1
       let gTotalSparseSize=gTotalSparseSize+gap
     }
-}
+fi
+
 prevseg_start_uva=${start_dec}
 #prevseg_end_uva=${end_dec}
 fi
@@ -533,6 +542,9 @@ let gRow=gRow+1
   let gTotalSegSize=${gTotalSegSize}+${seg_sz}
   # does NOT include the null trap; that's correct
 }
+
+prevseg_name=${segment}
+decho "prevseg_name = ${prevseg_name}"
 } # end interpret_rec()
 
 # Display the number passed in a human-readable fashion
@@ -620,34 +632,37 @@ proc_start()
 
 # By now, we've populated the gArr[] ;
 # If order is by descending va's (the default), then check for and insert
-# the last two entries: a sparse region and the NULL trap page
+# the last two entries: a conditional/possible  sparse region and the NULL
+# trap page
 
-# Sparse region before NULL trap page:
+# Setup the Sparse region before NULL trap page:
 decho "prevseg_start_uva = ${prevseg_start_uva}"
-#decho "prevseg_end_uva = ${prevseg_end_uva}"
-# row'n' [segname],[size],[start_uva],[end_uva],[mode],[offset]
-gArray[${gRow}]="${SPARSE_ENTRY}"
-let gRow=gRow+1
-
 local gap=$((prevseg_start_uva-PAGE_SIZE))
-gArray[${gRow}]="${gap}"
-let gRow=gRow+1
-gArray[${gRow}]=${PAGE_SIZE} # start va
-let gRow=gRow+1
-gArray[${gRow}]="${prevseg_start_uva}"  # end (higher) va
-let gRow=gRow+1
-gArray[${gRow}]="----"
-let gRow=gRow+1
-gArray[${gRow}]="0"
-let gRow=gRow+1
+#decho "prevseg_end_uva = ${prevseg_end_uva}"
 
-# The NULL trap page:
+if [ ${gap} -gt ${PAGE_SIZE} ]; then
+  # row'n' [segname],[size],[start_uva],[end_uva],[mode],[offset]
+  gArray[${gRow}]="${SPARSE_ENTRY}"
+  let gRow=gRow+1
+  gArray[${gRow}]="${gap}"
+  let gRow=gRow+1
+  gArray[${gRow}]=${PAGE_SIZE} # start va
+  let gRow=gRow+1
+  gArray[${gRow}]="${prevseg_start_uva}"  # end (higher) va
+  let gRow=gRow+1
+  gArray[${gRow}]="----"
+  let gRow=gRow+1
+  gArray[${gRow}]="0"
+  let gRow=gRow+1
+fi
+
+# Setup the NULL trap page:
 if [ ${NULL_TRAP_SHOW} -eq 1 -a ${ORDER_BY_DESC_VA} -eq 1 ]; then
   # very last entry
   setup_nulltrap_page
 fi
 
-showArray
+[ ${DEBUG} -eq 1 ] && showArray
 #exit 0
 
 graphit

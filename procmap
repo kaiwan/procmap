@@ -146,7 +146,7 @@ fi
 #  -d : run in debug mode"
 dovg_cmdline="-p ${PID} -f ${TMPCSV}"
 [ ${DEBUG} -eq 1 ] && dovg_cmdline="${dovg_cmdline} -d"
-[ ${ORDER_BY_DESC_VA} -eq 1 ] && dovg_cmdline="${dovg_cmdline} -s"
+[ ${ORDER_BY_DESC_VA} -eq 0 ] && dovg_cmdline="${dovg_cmdline} -s"
 
 ${PFX}/do_vgraph.sh ${dovg_cmdline} | tee -a ${LOG} 
 
