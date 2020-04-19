@@ -133,6 +133,8 @@ local i k DIM=6
 echo
 decho "gRow = ${gRow}"
 # gArray ::  [segname],[size],[start_uva],[end_uva],[mode],[offset]
+echo "showArray():
+[segname,size,start_uva,end_uva,mode,offset]"
 for ((i=0; i<${gRow}; i+=${DIM}))
 do
     printf "[%s," "${gArray[${i}]}"   # segname
@@ -205,13 +207,16 @@ do
     fi
 
     #--- Drawing :-p  !
-	# the horizontal line with the start uva at the end of it
+	# the horizontal line with the end uva at the end of it
+	## the horizontal line with the start uva at the end of it
+	# the first actual print emitted!
 	# Eg.
 	# +----------------------------------------------------------------------+ 000055681263b000
     if [ ${IS_64_BIT} -eq 1 ] ; then
-      printf "%s %016lx\n" "${LIN}" "0x${start_uva}"
+      printf "%s %016lx\n" "${LIN}" "0x${end_uva}" # changed to end_uva first as desc order!
+      #printf "%s %016lx\n" "${LIN}" "0x${start_uva}"
     else
-      printf "%s %08x\n" "${LIN}" "0x${start_uva}"
+      printf "%s %08x\n" "${LIN}" "0x${end_uva}"
     fi
 
 	#--- Collate and print the details of the current mapping (segment)
@@ -304,7 +309,7 @@ do
 	fi
     #decho "tlen=${tlen} spc_reqd=${spc_reqd}"
 
-	# the one actual print emitted!
+	# the second actual print emitted!
 	echo "${tmp1}${tmp2}${tmp3}${tmp4}${tmp5}${tmp5a}${tmp5b}${tmp5c}${tmp6}"
 
     #--- NEW CALC for SCALING
@@ -342,7 +347,7 @@ do
    	  oversized=1
     }
 
-    decho "box_height = ${box_height} oversized=${oversized}"
+    #decho "box_height = ${box_height} oversized=${oversized}"
     for ((x=1; x<${box_height}; x++))
     do
    	  printf "%s\n" "${BOX_RT_SIDE}"
@@ -353,11 +358,15 @@ do
     oversized=0
 done
 
-[ ${IS_64_BIT} -eq 1 ] && { 
- printf "%s %016lx\n" "${LIN}" "0x${end_uva}"
-} || {
- printf "%s %08x\n" "${LIN}" "0x${end_uva}"
-}
+# last line, the zero-th virt address; always:
+#+----------------------------------------------------------------------+ 0000000000000000
+if [ ${IS_64_BIT} -eq 1 ] ; then
+ printf "%s %016lx\n" "${LIN}" "0x${start_uva}"
+ #printf "%s %016lx\n" "${LIN}" "0x${end_uva}"
+else
+ printf "%s %08x\n" "${LIN}" "0x${start_uva}"
+ #printf "%s %08x\n" "${LIN}" "0x${end_uva}"
+fi
 } # end graphit()
 
 gNumSparse=0
@@ -384,7 +393,8 @@ NULLTRAP_STR="< NULL trap >"
 SPARSE_ENTRY="<... Sparse Region ...>"
 
 #------------------ i n t e r p r e t _ r e c -------------------------
-# Interpret a record: a CSV 'line' from the input stream:
+# Interpret record (a CSV 'line' from the input stream) and populate the
+# gArr[] n-dim array.
 # Format:
 #  start_uva,end_uva,mode/p|s,offset,image_file
 #     ; uva = user virtual address
@@ -635,20 +645,22 @@ proc_start()
 # the last two entries: a conditional/possible  sparse region and the NULL
 # trap page
 
-# Setup the Sparse region before NULL trap page:
+# Setup the Sparse region just before the NULL trap page:
 decho "prevseg_start_uva = ${prevseg_start_uva}"
-local gap=$((prevseg_start_uva-PAGE_SIZE))
-#decho "prevseg_end_uva = ${prevseg_end_uva}"
+local gap_dec=$((prevseg_start_uva-PAGE_SIZE))
+local gap=$(printf "0x%llx" ${gap_dec})
+echo "gap = $gap"
+local prevseg_start_uva_hex=$(printf "%llx" ${prevseg_start_uva})
 
-if [ ${gap} -gt ${PAGE_SIZE} ]; then
+if [ ${gap_dec} -gt ${PAGE_SIZE} ]; then
   # row'n' [segname],[size],[start_uva],[end_uva],[mode],[offset]
   gArray[${gRow}]="${SPARSE_ENTRY}"
   let gRow=gRow+1
-  gArray[${gRow}]="${gap}"
+  gArray[${gRow}]="${gap_dec}"
   let gRow=gRow+1
   gArray[${gRow}]=${PAGE_SIZE} # start va
   let gRow=gRow+1
-  gArray[${gRow}]="${prevseg_start_uva}"  # end (higher) va
+  gArray[${gRow}]="${prevseg_start_uva_hex}"  # end (higher) va
   let gRow=gRow+1
   gArray[${gRow}]="----"
   let gRow=gRow+1
