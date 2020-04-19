@@ -451,7 +451,7 @@ if [ ${SPARSE_SHOW} -eq 1 ]; then
 
 DetectedSparse=0
 
-[ $2 -eq 0 ] && prevseg_start_uva=${PAGE_SIZE}
+#[ $2 -eq 0 ] && prevseg_start_uva=${PAGE_SIZE}
 
 decho "$2: seg=${segment} prevseg_name=${prevseg_name} ,  gRow=${gRow} "
 
@@ -471,11 +471,11 @@ decho "$2: seg=${segment} prevseg_name=${prevseg_name} ,  gRow=${gRow} "
 #else
 
 if [ "${segment}" != "[vsyscall]" ]; then
-  decho "end_dec=${end_dec} prevseg_start_uva=${prevseg_start_uva}"
-  gap=$((${end_dec} - ${prevseg_start_uva}))
-  #gap=$((${start_dec} - ${prevseg_end_uva}))
+  #decho "end_dec=${end_dec} prevseg_start_uva=${prevseg_start_uva}"
+  gap=$((${prevseg_start_uva}-${end_dec}))
+  local gap_hex=$(printf "0x%llx" ${gap})
+  decho "gap = ${gap}"
   [ ${gap} -gt ${PAGE_SIZE} ] && {
-    decho "gap = ${gap}"
     DetectedSparse=1
   }
 fi
@@ -489,7 +489,7 @@ if [ ${DetectedSparse} -eq 1 -a "${prevseg_name}" != "[vsyscall]" ]; then
     gArray[${gRow}]="${SPARSE_ENTRY}"
     let gRow=gRow+1
 
-    # segment size (bytes)
+    # segment size (bytes in decimal)
     [ ${NULL_TRAP_SHOW} -eq 0 ] && {
       gArray[${gRow}]=${gap}
     } || {
@@ -498,20 +498,14 @@ if [ ${DetectedSparse} -eq 1 -a "${prevseg_name}" != "[vsyscall]" ]; then
     }
     let gRow=gRow+1
 
-    # start uva
-    if [ $2 -eq 0 ]; then  # first entry
-      [ ${NULL_TRAP_SHOW} -eq 0 ] && gArray[${gRow}]=0 || gArray[${gRow}]=1000
-    else
-      local prevseg_start_uva_hex=$(printf "%x" ${prevseg_start_uva})
-      #local prevseg_end_uva_hex=$(printf "%x" ${prevseg_end_uva})
-      gArray[${gRow}]=${prevseg_start_uva_hex}
-      #gArray[${gRow}]=${prevseg_end_uva_hex}
-    fi
+    # start uva (hex)
+    local prevseg_start_uva_hex=$(printf "%x" ${prevseg_start_uva})
+	decho "prevseg_start_uva_hex=${prevseg_start_uva_hex}  gap = ${gap_hex}"
+    gArray[${gRow}]=$((0x${prevseg_start_uva_hex}-${gap_hex}))
     let gRow=gRow+1
 
-    # end uva
-    # the end addr is 1 page (0x1000) before the next one
-    gArray[${gRow}]=$(printf "%x" $((0x${start_uva} - 0x1000)))
+    # end uva (hex)
+    gArray[${gRow}]=${prevseg_start_uva_hex}
     let gRow=gRow+1
 
     # mode+flag
@@ -530,7 +524,6 @@ if [ ${DetectedSparse} -eq 1 -a "${prevseg_name}" != "[vsyscall]" ]; then
 fi
 
 prevseg_start_uva=${start_dec}
-#prevseg_end_uva=${end_dec}
 fi
 #--------------
 
@@ -554,7 +547,8 @@ let gRow=gRow+1
 }
 
 prevseg_name=${segment}
-decho "prevseg_name = ${prevseg_name}"
+decho "prevseg_name = ${prevseg_name}
+"
 } # end interpret_rec()
 
 # Display the number passed in a human-readable fashion
@@ -618,12 +612,15 @@ proc_start()
  #--- Header
  tput bold
  printf "\n[================---   V A S U _ G R A P H E R   ---===================]\n"
+ color_reset
  printf "Virtual Address Space Usermode (VASU) process GRAPHER (via /proc/$1/maps)\n"
  printf " https://github.com/kaiwan/vasu_grapher\n"
- color_reset
  date
- local nm=$(head -n1 /proc/$1/comm)
- printf "\n[==============--- Start memory map PID %d (%s) ---===============]\n" $1 ${nm}
+ local nm=$(basename $(readlink /proc/$1/exe))
+ #local nm=$(head -n1 /proc/$1/comm)
+ tput bold
+ printf "\n[=========--- Start memory map for %d:%s ---==========]\n" $1 ${nm}
+ color_reset
 
  # Redirect to stderr what we don't want in the log
  printf "\n%s: Processing, pl wait ...\n" "${name}" 1>&2
@@ -649,7 +646,6 @@ proc_start()
 decho "prevseg_start_uva = ${prevseg_start_uva}"
 local gap_dec=$((prevseg_start_uva-PAGE_SIZE))
 local gap=$(printf "0x%llx" ${gap_dec})
-echo "gap = $gap"
 local prevseg_start_uva_hex=$(printf "%llx" ${prevseg_start_uva})
 
 if [ ${gap_dec} -gt ${PAGE_SIZE} ]; then
@@ -687,7 +683,8 @@ TB_128=$(bc <<< "scale=6; 128.0*1024.0*1024.0*1024.0*1024.0")
 
  #--- Footer
  tput bold
- printf "[===--- End memory map PID %d (%s) ---===]\n" $1 ${nm}
+ printf "\n[=========--- End memory map for %d:%s ---==========]\n" $1 ${nm}
+ #printf "[===--- End memory map PID %d (%s) ---===]\n" $1 ${nm}
  color_reset
  [ ${STATS_SHOW} -eq 1 ] && {
    # Paranoia
