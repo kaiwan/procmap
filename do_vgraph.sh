@@ -51,8 +51,8 @@
 #     [ ] write to SVG !
 #     [ ] interactive GUI
 #
-# Last Updated : 31Mar2020
-# Created      : 26jul2017
+# Last Updated : 20Apr2020
+# Created      : 17Apr2020
 # 
 # Author:
 # Kaiwan N Billimoria
@@ -71,6 +71,9 @@ source ${PFX}/config || {
  exit 1
 }
 
+# Titles, etc...
+NULLTRAP_STR="< NULL trap >"
+SPARSE_ENTRY="<... Sparse Region ...>"
 
 ########### Functions follow #######################
 
@@ -212,9 +215,9 @@ do
 	# the first actual print emitted!
 	# Eg.
 	# +----------------------------------------------------------------------+ 000055681263b000
+	# Changed to end_uva first we now always print in descending order
     if [ ${IS_64_BIT} -eq 1 ] ; then
-      printf "%s %016lx\n" "${LIN}" "0x${end_uva}" # changed to end_uva first as desc order!
-      #printf "%s %016lx\n" "${LIN}" "0x${start_uva}"
+      printf "%s %016lx\n" "${LIN}" "0x${end_uva}"
     else
       printf "%s %08x\n" "${LIN}" "0x${end_uva}"
     fi
@@ -321,7 +324,7 @@ do
 	    echo "Kindly report this as a bug, thanks!"
 	    exit 1
     }
-    decho "seg_sz = ${seg_sz} segscale=${segscale}"
+    #decho "seg_sz = ${seg_sz} segscale=${segscale}"
 
     local box_height=0
     # for segscale range [1-4]
@@ -362,10 +365,8 @@ done
 #+----------------------------------------------------------------------+ 0000000000000000
 if [ ${IS_64_BIT} -eq 1 ] ; then
  printf "%s %016lx\n" "${LIN}" "0x${start_uva}"
- #printf "%s %016lx\n" "${LIN}" "0x${end_uva}"
 else
  printf "%s %08x\n" "${LIN}" "0x${start_uva}"
- #printf "%s %08x\n" "${LIN}" "0x${end_uva}"
 fi
 } # end graphit()
 
@@ -389,8 +390,6 @@ setup_nulltrap_page()
   let gRow=gRow+1
 } # end setup_nulltrap_page()
 
-NULLTRAP_STR="< NULL trap >"
-SPARSE_ENTRY="<... Sparse Region ...>"
 
 #------------------ i n t e r p r e t _ r e c -------------------------
 # Interpret record (a CSV 'line' from the input stream) and populate the
@@ -451,8 +450,6 @@ if [ ${SPARSE_SHOW} -eq 1 ]; then
 
 DetectedSparse=0
 
-#[ $2 -eq 0 ] && prevseg_start_uva=${PAGE_SIZE}
-
 decho "$2: seg=${segment} prevseg_name=${prevseg_name} ,  gRow=${gRow} "
 
 # Detect sparse region, and if present, insert into the gArr[].
@@ -460,15 +457,7 @@ decho "$2: seg=${segment} prevseg_name=${prevseg_name} ,  gRow=${gRow} "
 #  gap = this-segment-start - prev-segment-end > 1 page
 # Wait! With order by Descending va, we should take the prev segment's
 # start uva (not the end uva)!
-#  gap = this-segment-end - prev-segment-start > 1 page
-
-# TODO / RELOOK !
-#if [ $2 -eq 0 ] ; then   # first segment in the process
-#   [ ${start_dec} -gt 0 ] && {
-#      gap=${start_dec}
-#      DetectedSparse=1
-#   }
-#else
+#  gap = prev_seg_start - this-segment-end > 1 page
 
 if [ "${segment}" != "[vsyscall]" ]; then
   #decho "end_dec=${end_dec} prevseg_start_uva=${prevseg_start_uva}"
@@ -500,7 +489,7 @@ if [ ${DetectedSparse} -eq 1 -a "${prevseg_name}" != "[vsyscall]" ]; then
 
     # start uva (hex)
     local prevseg_start_uva_hex=$(printf "%x" ${prevseg_start_uva})
-	decho "prevseg_start_uva_hex=${prevseg_start_uva_hex}  gap = ${gap_hex}"
+	#decho "prevseg_start_uva_hex=${prevseg_start_uva_hex}  gap = ${gap_hex}"
     gArray[${gRow}]=$((0x${prevseg_start_uva_hex}-${gap_hex}))
     let gRow=gRow+1
 
@@ -559,7 +548,7 @@ decho "prevseg_name = ${prevseg_name}
 # $3 : the message string
 largenum_display()
 {
- local szKB=0 szMB=0 szGB=0 szTB=0
+	local szKB=0 szMB=0 szGB=0 szTB=0
 
      # !EMB: if we try and use simple bash arithmetic comparison, we get a 
      # "integer expression expected" err; hence, use bc(1):
@@ -594,7 +583,7 @@ disp_fmt()
 {
  tput bold ; fg_red; bg_gray
  printf "Fmt:  Segment:  name   [   size,mode,map-type,file-offset] \n"
- color_reset
+ #color_reset
 }
 
 #--------------------------- p r o c _ s t a r t -----------------------
@@ -611,15 +600,14 @@ proc_start()
 
  #--- Header
  tput bold
- printf "\n[================---   V A S U _ G R A P H E R   ---===================]\n"
+ printf "\n[==================---     P R O C M A P     ---==================]\n"
  color_reset
- printf "Virtual Address Space Usermode (VASU) process GRAPHER (via /proc/$1/maps)\n"
- printf " https://github.com/kaiwan/vasu_grapher\n"
+ printf "Process Virtual Address Space (VAS) Visualization project (via /proc/$1/maps)\n"
+ printf " https://github.com/kaiwan/procmap\n\n"
  date
  local nm=$(basename $(readlink /proc/$1/exe))
- #local nm=$(head -n1 /proc/$1/comm)
  tput bold
- printf "\n[=========--- Start memory map for %d:%s ---==========]\n" $1 ${nm}
+ printf "[=========--- Start memory map for %d:%s ---==========]\n" $1 ${nm}
  color_reset
 
  # Redirect to stderr what we don't want in the log
@@ -639,11 +627,11 @@ proc_start()
 
 # By now, we've populated the gArr[] ;
 # If order is by descending va's (the default), then check for and insert
-# the last two entries: a conditional/possible  sparse region and the NULL
+# the last two entries: a conditional/possible sparse region and the NULL
 # trap page
 
 # Setup the Sparse region just before the NULL trap page:
-decho "prevseg_start_uva = ${prevseg_start_uva}"
+#decho "prevseg_start_uva = ${prevseg_start_uva}"
 local gap_dec=$((prevseg_start_uva-PAGE_SIZE))
 local gap=$(printf "0x%llx" ${gap_dec})
 local prevseg_start_uva_hex=$(printf "%llx" ${prevseg_start_uva})
@@ -662,6 +650,7 @@ if [ ${gap_dec} -gt ${PAGE_SIZE} ]; then
   let gRow=gRow+1
   gArray[${gRow}]="0"
   let gRow=gRow+1
+  let gNumSparse=gNumSparse+1
 fi
 
 # Setup the NULL trap page:
@@ -684,7 +673,6 @@ TB_128=$(bc <<< "scale=6; 128.0*1024.0*1024.0*1024.0*1024.0")
  #--- Footer
  tput bold
  printf "\n[=========--- End memory map for %d:%s ---==========]\n" $1 ${nm}
- #printf "[===--- End memory map PID %d (%s) ---===]\n" $1 ${nm}
  color_reset
  [ ${STATS_SHOW} -eq 1 ] && {
    # Paranoia
@@ -763,27 +751,3 @@ shift $((OPTIND-1))
 
 proc_start ${PID}
 exit 0
-
-
-###############################
-[ 0 -eq 1 ] && {
-if [ $# -eq 2 ] ; then
-  PID=$1
-  gINFILE=$2
-elif [ $# -eq 3 ] ; then
-  [ "$1" = "-s" ] && ORDER_BY_DESC_VA=0
-  PID=$2
-  gINFILE=$3
-fi
-
-[ ! -f ${gINFILE} ] && {
-  echo "${name}: input-CSV-filename \"${gINFILE}\" invalid? Aborting..."
-  exit 1
-}
-[ ! -r ${gINFILE} ] && {
-  echo "${name}: input-CSV-filename \"${gINFILE}\" not readable? Aborting..."
-  exit 1
-}
-[ $# -eq 3 -a "$3" = "-d" ] && export DEBUG=1
-}
-
