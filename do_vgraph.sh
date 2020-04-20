@@ -586,10 +586,11 @@ disp_fmt()
  #color_reset
 }
 
-#--------------------------- p r o c _ s t a r t -----------------------
+
+#--------------------------- m a i n _ w r a p p e r -------------------
 # Parameters:
 #  $1 : PID of process
-proc_start()
+main_wrapper()
 {
  local szKB szMB szGB
 
@@ -605,9 +606,13 @@ proc_start()
  printf "Process Virtual Address Space (VAS) Visualization project (via /proc/$1/maps)\n"
  printf " https://github.com/kaiwan/procmap\n\n"
  date
- local nm=$(basename $(readlink /proc/$1/exe))
+
+ #local nm=$(trim_string_middle $(realpath /proc/$1/exe) 50)
+ local nm=$(basename $(realpath /proc/$1/exe))
+
  tput bold
- printf "[=========--- Start memory map for %d:%s ---==========]\n" $1 ${nm}
+ printf "[=====--- Start memory map for %d:%s ---=====]\n" $1 ${nm}
+ printf "[Full pathname: %s]\n" $(realpath /proc/$1/exe)
  color_reset
 
  # Redirect to stderr what we don't want in the log
@@ -672,8 +677,10 @@ TB_128=$(bc <<< "scale=6; 128.0*1024.0*1024.0*1024.0*1024.0")
 
  #--- Footer
  tput bold
- printf "\n[=========--- End memory map for %d:%s ---==========]\n" $1 ${nm}
+ printf "\n[=====--- End memory map for %d:%s ---=====]\n" $1 ${nm}
+ printf "[Full pathname: %s]\n" $(realpath /proc/$1/exe)
  color_reset
+
  [ ${STATS_SHOW} -eq 1 ] && {
    # Paranoia
    local numvmas=$(sudo wc -l /proc/$1/maps |awk '{print $1}')
@@ -699,7 +706,7 @@ TB_128=$(bc <<< "scale=6; 128.0*1024.0*1024.0*1024.0*1024.0")
    fi
    printf "\n===\n"
  } # stats show
-} # end proc_start()
+} # end main_wrapper()
 
 usage()
 {
@@ -715,7 +722,7 @@ which bc >/dev/null || {
   exit 1
 }
 
-[ $# -lt 2 ] && {
+[ $# -lt 4 ] && {
   usage
   exit 1
 }
@@ -749,5 +756,5 @@ while getopts "p:f:h?sd" opt; do
 done
 shift $((OPTIND-1))
 
-proc_start ${PID}
+main_wrapper ${PID}
 exit 0

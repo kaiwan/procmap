@@ -244,3 +244,34 @@ lastchar=$(echo "${prcs_name:${len}:1}")
 #echo "lastchar = ${lastchar}"
 [ ${firstchar} = "[" -a ${lastchar} = "]" ] && return 1 || return 0
 }
+
+
+# trim_string_middle()
+# Given a string ($1), if it's above the 'allowed' length, express it in 2
+# parts seperated by the ellipse '...'
+# Eg. the pathname
+#   /usr/lib/gnome-settings-daemon/gsd-screensaver-proxy
+# becomes:
+#   /usr/lib/gnome-settings-d...emon/gsd-screensaver-proxy
+#
+# Parameters:
+#  $1 : string to process
+#  $2 : max length of final string
+# Do Not echo anything other than the name here, as it's the 'return value'
+trim_string_middle()
+{
+ local NM_MAXLEN=$(($2-3)) # leave chars for '...'
+ local NM_MAXLEN_HALF=$((${NM_MAXLEN}/2))
+ local nmlen=${#1}
+
+ if [ ${nmlen} -le ${NM_MAXLEN} ]; then
+    echo "${1}"
+ else
+	local remlen=$((nmlen-NM_MAXLEN_HALF))
+	local n1=$(echo "${1}"|cut -c-${NM_MAXLEN_HALF})
+	local n2=$(echo "${1}"|cut -c${remlen}-)
+	local final="${n1}...${n2}"
+	printf "%s...%s" ${n1} ${n2}
+ fi
+}
+
