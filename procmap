@@ -64,8 +64,8 @@ usage()
  echo "Usage: ${name} [options] -p PID-to-show-memory-map-of
 Options:
  -u : show ONLY the usermode mappings or segments (not kernel VAS)
- -s : show the VAS in ascending order by virtual address (default is descending)
  -d : debug mode
+ -v : verbose mode
 " 1>&2
 }
 
@@ -78,7 +78,7 @@ Options:
 }
 
 PID=0
-while getopts "p:h?uds" opt; do
+while getopts "p:h?udv" opt; do
     case "${opt}" in
 	h|\?) usage ; exit 0
 		;;
@@ -87,15 +87,19 @@ while getopts "p:h?uds" opt; do
 	    #echo "-p passed; PID=${PID}"
             ;;
         u)
-	    echo "[+] -u: will display ONLY user VAS"
+	    echo "[i] -u: will display ONLY user VAS"
             ;;
-        s)
-	    ORDER_BY_DESC_VA=0
-	    echo "[+] -s: display in ascending order of va (virt addr)"
-            ;;
+        #s)
+	    #ORDER_BY_DESC_VA=0
+	    #echo "[+] -s: display in ascending order of va (virt addr)"
+        #    ;;
         d)
-	    DEBUG=1
-	    echo "[+] -d: running in DEBUG mode"
+	    export DEBUG=1
+	    echo "[i] -d: running in DEBUG mode"
+            ;;
+        v)
+	    export VERBOSE=1
+	    echo "[i] -v: running in VERBOSE mode"
             ;;
         *)
             usage
@@ -142,11 +146,12 @@ fi
 
 # Invoke the worker script to 'draw' the memory map
 #  Usage: do_vgraph [-s] [-d] -p PID-of-process -f input-CSV-filename(5 column format)
-#  -s : show in ascending order by va (virtual address)
+#  -v : run in verbose mode
 #  -d : run in debug mode"
 dovg_cmdline="-p ${PID} -f ${TMPCSV}"
 [ ${DEBUG} -eq 1 ] && dovg_cmdline="${dovg_cmdline} -d"
-[ ${ORDER_BY_DESC_VA} -eq 0 ] && dovg_cmdline="${dovg_cmdline} -s"
+[ ${VERBOSE} -eq 1 ] && dovg_cmdline="${dovg_cmdline} -v"
+#[ ${ORDER_BY_DESC_VA} -eq 0 ] && dovg_cmdline="${dovg_cmdline} -s"
 
 ${PFX}/do_vgraph.sh ${dovg_cmdline} | tee -a ${LOG} 
 

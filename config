@@ -4,12 +4,23 @@
 #
 # Configuration file for the vasu_grapher project.
 set -a  # export all
-EMB=0  # set to 1 for 'embedded' systems; simpler [no float point, etc]
-DEBUG=0
-ORDER_BY_DESC_VA=1  # display in descending va order
-gDELIM=","
 PAGE_SIZE=4096
+gDELIM=","
+VERBOSE=0
+DEBUG=0
+
+# userspace VAS display configs
+EMB=0  # set to 1 for 'embedded' systems; simpler [no float point, etc]
+ORDER_BY_DESC_VA=1  # display in descending va order
 NULL_TRAP_SHOW=1
 SPARSE_SHOW=1
 SHOW_VSYSCALL_PAGE=0
 STATS_SHOW=1
+
+# kernel seg display configs
+SHOW_KERNELSEG=1
+KERNELDIR=procmap_kernel
+KMOD=procmap
+DBGFS_LOC=$(mount |grep debugfs |awk '{print $3}')
+DBGFS_FILENAME=disp_kernelseg_details
+

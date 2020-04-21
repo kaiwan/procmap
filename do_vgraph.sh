@@ -582,9 +582,82 @@ largenum_display()
 disp_fmt()
 {
  tput bold ; fg_red; bg_gray
- printf "Fmt:  Segment:  name   [   size,mode,map-type,file-offset] \n"
+ printf "Userspace VAS segments:  name   [   size,mode,map-type,file-offset] \n"
  #color_reset
 }
+
+vecho()
+{
+[ ${VERBOSE} -eq 0 ] && return
+echo "$@"
+}
+
+get_kernel_segment_details()
+{
+ echo "[+] Kernel Segment details"
+ if [ ! -d ${DBGFS_LOC} ] ; then
+	echo "${name}: kernel debugfs not present? aborting..."
+	return
+ else
+    vecho " debugfs location verfied"
+ fi
+
+ (   # within a subshell
+  cd ${KERNELDIR} || return
+  #pwd
+  if [ ! -s ${KMOD}.ko ] ; then
+     make >/dev/null 2>&1 || {
+	    echo "${name}: kernel module \"${KMOD}\" build failed, aborting..."
+		return
+	 }
+     if [ ! -s ${KMOD}.ko ] ; then
+	    echo "${name}: kernel module \"${KMOD}\" not generated? aborting..."
+		return
+	 fi
+	 vecho " kseg: LKM built"
+  fi
+
+  # Ok, the kernel module is there, lets insert it!
+  #ls -l ${KMOD}.ko
+  sudo rmmod ${KMOD} 2>/dev/null   # rm any stale instance
+  sudo insmod ./${KMOD}.ko || {
+	    echo "${name}: insmod(8) on kernel module \"${KMOD}\" failed, aborting..."
+		return
+  }
+  lsmod |grep -q ${KMOD} || {
+	    echo "${name}: insmod(8) on kernel module \"${KMOD}\" failed? aborting..."
+		return
+  }
+  vecho " kseg: LKM inserted into kernel"
+  sudo ls ${DBGFS_LOC}/${KMOD}/${DBGFS_FILENAME} >/dev/null 2>&1 || {
+     echo "${name}: required debugfs file not present? aborting..."
+	 sudo rmmod ${KMOD}
+	 return
+  }
+  vecho " kseg: debugfs file is there"
+
+  # Finally! generate the kernel seg details
+  local KTMP=/tmp/ktmp.$$
+  sudo cat ${DBGFS_LOC}/${KMOD}/${DBGFS_FILENAME} > ${KTMP}
+
+  vecho "kseg dtl:
+$(cat ${KTMP})"
+
+ # Loop over the kernel segment data records
+ export IFS=$'\n'
+ local REC
+ for REC in $(cat ${KTMP})
+ do 
+   decho "REC: $REC"
+   #interpret_rec ${REC} ${i}
+   #printf "=== %06d / %06d\r" ${i} ${gFileLines}
+   let i=i+1
+ done #1>&2
+
+ [ ${DEBUG} -eq 0 ] && rm -f ${KTMP}
+ #sudo rmmod ${KMOD}
+ )
+} # end get_kernel_segment_details
 
 
 #--------------------------- m a i n _ w r a p p e r -------------------
@@ -603,7 +676,7 @@ main_wrapper()
  tput bold
  printf "\n[==================---     P R O C M A P     ---==================]\n"
  color_reset
- printf "Process Virtual Address Space (VAS) Visualization project (via /proc/$1/maps)\n"
+ printf "Process Virtual Address Space (VAS) Visualization project\n"
  printf " https://github.com/kaiwan/procmap\n\n"
  date
 
@@ -614,6 +687,11 @@ main_wrapper()
  printf "[=====--- Start memory map for %d:%s ---=====]\n" $1 ${nm}
  printf "[Full pathname: %s]\n" $(realpath /proc/$1/exe)
  color_reset
+
+ [ ${SHOW_KERNELSEG} -eq 1 ] && {
+    get_kernel_segment_details
+	exit 0
+ }
 
  # Redirect to stderr what we don't want in the log
  printf "\n%s: Processing, pl wait ...\n" "${name}" 1>&2
@@ -729,7 +807,7 @@ which bc >/dev/null || {
 
 ORDER_BY_DESC_VA=1
 
-while getopts "p:f:h?sd" opt; do
+while getopts "p:f:h?dv" opt; do
     case "${opt}" in
         h|\?) usage ; exit 0
                 ;;
@@ -741,13 +819,17 @@ while getopts "p:f:h?sd" opt; do
             gINFILE=${OPTARG}
             #echo "-p passed; PID=${PID}"
             ;;
-        s)
-            echo "[+] -s: will display in ascending order by va"
-	    ORDER_BY_DESC_VA=0
-            ;;
+        #s)
+        #    echo "[+] -s: will display in ascending order by va"
+	    #ORDER_BY_DESC_VA=0
+        #    ;;
         d)
             echo "[+] -d: run in debug mode"
             DEBUG=1
+            ;;
+        v)
+            #echo "[+] -d: run in debug mode"
+            VERBOSE=1
             ;;
         *)
             usage
