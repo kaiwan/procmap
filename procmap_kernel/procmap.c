@@ -112,7 +112,7 @@ static void show_kernelseg_details(char *buf)
 	 */
 #if(BITS_PER_LONG == 64)
 	snprintf(tmpbuf, TMPMAX,
-		"0x" FMTSPC ",0x" FMTSPC ",rw-,module region\n",
+		"0x" FMTSPC ",0x" FMTSPC ",rwx,module region\n",
 		(TYPECST)MODULES_VADDR, (TYPECST)MODULES_END);
 	strncat(buf, tmpbuf, strlen(tmpbuf));
 #endif
@@ -166,7 +166,7 @@ static void show_kernelseg_details(char *buf)
 static ssize_t dbgfs_show_kernelseg(struct file *filp, char __user *ubuf,
 				 size_t count, loff_t *fpos)
 {
-#define MAXLEN 384
+#define MAXLEN 2048
 	char *kbuf;
 	ssize_t ret = 0;
 
@@ -180,11 +180,10 @@ static ssize_t dbgfs_show_kernelseg(struct file *filp, char __user *ubuf,
 	}
 
 	show_kernelseg_details(kbuf);
-	//memset(kbuf, 'k', MAXLEN-2);
 
 	ret = simple_read_from_buffer(ubuf, MAXLEN, fpos, kbuf,
 				       strlen(kbuf));
-	MSG("ret = %ld\n", ret);
+	//MSG("ret = %ld\n", ret);
 	kfree(kbuf);
 	mutex_unlock(&mtx);
 
