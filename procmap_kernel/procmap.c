@@ -23,6 +23,7 @@
 #include <linux/highmem.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
+#include <linux/debugfs.h>
 #include <asm/pgtable.h>
 #include "convenient.h"
 
@@ -30,8 +31,8 @@
 
 MODULE_AUTHOR("Kaiwan N Billimoria");
 MODULE_DESCRIPTION(
-	"procmap: LKM that is the kernel component of the procmap project");
-MODULE_LICENSE("MIT");
+	"procmap: an LKM, the kernel component of the procmap project");
+MODULE_LICENSE("Dual MIT/GPL");
 MODULE_VERSION("0.1");
 
 /* Module parameters */
@@ -53,6 +54,11 @@ MODULE_PARM_DESC(show_procmap_style,
 #endif
 
 #define ELLPS "|                           [ . . . ]                         |\n"
+
+static struct dentry *gparent;
+
+/* We use a mutex lock; details in Ch 15 and Ch 16 */
+DEFINE_MUTEX(mtx);
 
 /* 
  * show_kernelseg_details
@@ -212,17 +218,95 @@ static void show_kernelseg_details(void)
 		pr_info(ELLPS);
 }
 
-static int __init kernel_seg_init(void)
+/* Our debugfs file 1's read callback function */
+static ssize_t dbgfs_show_kernelseg(struct file *filp, char __user *ubuf,
+				 size_t count, loff_t *fpos)
 {
-	pr_info("%s: inserted\n", OURMODNAME);
+#define MAXLEN 384
+	char *kbuf;
+	ssize_t ret = 0;
+
+	if (mutex_lock_interruptible(&mtx))
+		return -ERESTARTSYS;
+
+	kbuf = kzalloc(MAXLEN, GFP_KERNEL);
+	if (unlikely(!kbuf)) {
+		mutex_unlock(&mtx);
+		return -ENOMEM;
+	}
+QP;
 	show_kernelseg_details();
-	return 0;	/* success */
+	memset(kbuf, 'k', MAXLEN-2);
+QP;
+	ret = simple_read_from_buffer(ubuf, MAXLEN, fpos, kbuf,
+				       strlen(kbuf));
+	MSG("ret = %ld\n", ret);
+	kfree(kbuf);
+	mutex_unlock(&mtx);
+QP;
+	return ret;
 }
 
-static void __exit kernel_seg_exit(void)
+static const struct file_operations dbgfs_fops = {
+	.read = dbgfs_show_kernelseg,
+};
+
+static int setup_debugfs_file(void)
 {
+	struct dentry *file1;
+	int stat = 0;
+
+	if (!IS_ENABLED(CONFIG_DEBUG_FS)) {
+		pr_warn("%s: debugfs unsupported! Aborting ...\n", OURMODNAME);
+		return -EINVAL;
+	}
+
+	/* Create a dir under the debugfs mount point, whose name is the
+	 * module name */
+	gparent = debugfs_create_dir(OURMODNAME, NULL);
+	if (!gparent) {
+		pr_info("%s: debugfs_create_dir failed, aborting...\n",
+			OURMODNAME);
+		stat = PTR_ERR(gparent);
+		goto out_fail_1;
+	}
+
+	/* Create a generic debugfs file */
+#define DBGFS_FILE1	"disp_kernelseg_details"
+	file1 =
+	    debugfs_create_file(DBGFS_FILE1, 0444, gparent, (void *)NULL,
+				&dbgfs_fops);
+	if (!file1) {
+		pr_info("%s: debugfs_create_file failed, aborting...\n",
+			OURMODNAME);
+		stat = PTR_ERR(file1);
+		goto out_fail_2;
+	}
+	pr_debug("%s: debugfs file 1 <debugfs_mountpt>/%s/%s created\n",
+		 OURMODNAME, OURMODNAME, DBGFS_FILE1);
+
+	return 0;	/* success */
+
+out_fail_2:
+	debugfs_remove_recursive(gparent);
+out_fail_1:
+	return stat;
+}
+
+static int __init procmap_init(void)
+{
+	int ret = 0;
+
+	pr_info("%s: inserted\n", OURMODNAME);
+	ret = setup_debugfs_file();
+	return ret;
+}
+
+static void __exit procmap_exit(void)
+{
+	debugfs_remove_recursive(gparent);
 	pr_info("%s: removed\n", OURMODNAME);
 }
 
-module_init(kernel_seg_init);
-module_exit(kernel_seg_exit);
+module_init(procmap_init);
+module_exit(procmap_exit);
