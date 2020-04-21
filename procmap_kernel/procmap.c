@@ -1,15 +1,6 @@
 /*
- * ch7/procmap/procmap.c
+ * procmap.c
  ***************************************************************
- * This program is part of the source code released for the book
- *  "Learn Linux Kernel Development"
- *  (c) Author: Kaiwan N Billimoria
- *  Publisher:  Packt
- *  GitHub repository:
- *  https://github.com/PacktPublishing/Learn-Linux-Kernel-Development
- *
- * From: Ch 7: Kernel and Memory Management Internals Essentials
- ****************************************************************
  * Brief Description:
  * This kernel module forms the kernel component of the 'procmap' project.
 
@@ -20,13 +11,9 @@
  Note:- BSD has a utility by the same name: procmap(1), this project isn't
  the same, though (quite obviously) some aspects are similar.
 
- * A kernel module to show us some relevant details wrt the layout of the
- * kernel segment, IOW, the kernel VAS (Virtual Address Space). In effect,
- * this shows a simple memory map of the kernel. Works on both 32 and 64-bit
- * systems of differing architectures (note: only lightly tested on ARM and
- * x86 32 and 64-bit systems).
+ * Works on both 32 and 64-bit systems of differing architectures (note: only
+ * lightly tested on ARM and x86 32 and 64-bit systems).
  *
- * For details, please refer the book, Ch 7.
  */
 #include <linux/init.h>
 #include <linux/kernel.h>
@@ -37,25 +24,24 @@
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <asm/pgtable.h>
-#include "../../klib_llkd.h"
-#include "../../convenient.h"
+#include "convenient.h"
 
 #define OURMODNAME   "procmap"
 
 MODULE_AUTHOR("Kaiwan N Billimoria");
 MODULE_DESCRIPTION(
-	"LLKD book:ch7/procmap: display some kernel segment details");
-MODULE_LICENSE("Dual MIT/GPL");
+	"procmap: LKM that is the kernel component of the procmap project");
+MODULE_LICENSE("MIT");
 MODULE_VERSION("0.1");
 
 /* Module parameters */
-static int show_procmap_style;
+static int show_procmap_style = 1;
 module_param(show_procmap_style, int, 0660);
 MODULE_PARM_DESC(show_procmap_style,
-        "Show kernel segment details in CSV format appropriate for the userland"
-	" procmap code (default=0, no)");
+    "Show kernel segment details in CSV format appropriate for the userland"
+	" procmap code (default=1, yes)");
 
-// For protability between 32 and 64-bit platforms
+// For portability between 32 and 64-bit platforms
 #if(BITS_PER_LONG == 32)
 	#define FMTSPC		"%08x"
 	#define FMTSPC_DEC	"%7d"
@@ -69,7 +55,7 @@ MODULE_PARM_DESC(show_procmap_style,
 #define ELLPS "|                           [ . . . ]                         |\n"
 
 /* 
- * show_kernelseg_info
+ * show_kernelseg_details
  * Display kernel segment details as applicable to the architecture we're
  * currently running upon.
  * Format (for most of the details):
@@ -81,15 +67,15 @@ MODULE_PARM_DESC(show_procmap_style,
  * always work out as ordering of regions differs by arch.
  *
  * An enhancement: this module is now part of our 'procmap' project. In this
- * respect, the module parameter show_procmap_style wll be 1. If so, we shall
- * display the kernel segment values in CSV format as follows:
+ * respect, the module parameter show_procmap_style will be set to 1. If so,
+ * we shall display the kernel segment values in CSV format as follows:
  *   start_kva,end_kva,<mode>,<name-of-region>
  * f.e. on an x86_64 VM w/ 2047 MB RAM
  *   <modname>,0xffff92dac0000000,0xffff92db3fff0000,rwx,lowmem region
  */
-static void show_kernelseg_info(void)
+static void show_kernelseg_details(void)
 {
-	pr_info("\nSome Kernel Details [by decreasing address]\n"
+	pr_info("\nSome Kernel Segment Details [by decreasing address]\n"
 	"+-------------------------------------------------------------+\n");
 #ifdef ARM
 	if (show_procmap_style == 0)
@@ -229,7 +215,7 @@ static void show_kernelseg_info(void)
 static int __init kernel_seg_init(void)
 {
 	pr_info("%s: inserted\n", OURMODNAME);
-	show_kernelseg_info();
+	show_kernelseg_details();
 	return 0;	/* success */
 }
 
