@@ -35,13 +35,6 @@ MODULE_DESCRIPTION(
 MODULE_LICENSE("Dual MIT/GPL");
 MODULE_VERSION("0.1");
 
-/* Module parameters */
-static int show_procmap_style = 1;
-module_param(show_procmap_style, int, 0660);
-MODULE_PARM_DESC(show_procmap_style,
-    "Show kernel segment details in CSV format appropriate for the userland"
-	" procmap code (default=1, yes)");
-
 // For portability between 32 and 64-bit platforms
 #if(BITS_PER_LONG == 32)
 	#define FMTSPC		"%08x"
@@ -72,35 +65,25 @@ DEFINE_MUTEX(mtx);
  * We try to order it by descending address (here, kva's) but this doesn't
  * always work out as ordering of regions differs by arch.
  *
- * An enhancement: this module is now part of our 'procmap' project. In this
- * respect, the module parameter show_procmap_style will be set to 1. If so,
- * we shall display the kernel segment values in CSV format as follows:
+ * An enhancement: this module is now part of our 'procmap' project.
+ * Here, we display the kernel segment values in CSV format as follows:
  *   start_kva,end_kva,<mode>,<name-of-region>
  * f.e. on an x86_64 VM w/ 2047 MB RAM
- *   <modname>,0xffff92dac0000000,0xffff92db3fff0000,rwx,lowmem region
+ *   0xffff92dac0000000,0xffff92db3fff0000,rwx,lowmem region
  */
-static void show_kernelseg_details(void)
+static void show_kernelseg_details(char *buf)
 {
-	pr_info("\nSome Kernel Segment Details [by decreasing address]\n"
-	"+-------------------------------------------------------------+\n");
+#define TMPMAX	256
+	char tmpbuf[TMPMAX];
+
 #ifdef ARM
-	if (show_procmap_style == 0)
-		pr_info(
-		"|vector table:       "
-		" 0x" FMTSPC " - 0x" FMTSPC " | [" FMTSPC_DEC " KB]  |\n",
-		SHOW_DELTA_K((TYPECST)VECTORS_BASE, (TYPECST)VECTORS_BASE+PAGE_SIZE));
-	else
-		pr_info(
-		"%s,0x" FMTSPC ",0x" FMTSPC ",r--,vector table\n",
-		OURMODNAME, (TYPECST)VECTORS_BASE, (TYPECST)VECTORS_BASE+PAGE_SIZE);
+	snprintf(tmpbuf, TMPMAX,
+	"0x" FMTSPC ",0x" FMTSPC ",r--,vector table\n",
+	(TYPECST)VECTORS_BASE, (TYPECST)VECTORS_BASE+PAGE_SIZE);
+	strncat(buf, tmpbuf, strlen(tmpbuf));
 #endif
 
 	/* kernel fixmap region */
-	if (show_procmap_style == 0)
-		pr_info(
-		ELLPS
-		"|fixmap region:      "
-		" 0x" FMTSPC " - 0x" FMTSPC " | [" FMTSPC_DEC " MB]  |\n",
 #ifdef CONFIG_ARM
 	/* RELOOK: We seem to have an issue on ARM; the compile fails with:
 	 *  "./include/asm-generic/fixmap.h:29:38: error: invalid storage
@@ -115,11 +98,10 @@ static void show_kernelseg_details(void)
 #else
 #include <asm/fixmap.h>
 	 // seems to work fine on x86
-                SHOW_DELTA_M((TYPECST)FIXADDR_START, (TYPECST)FIXADDR_START+FIXADDR_SIZE));
-	else
-		pr_info(
-		"%s,0x" FMTSPC ",0x" FMTSPC ",r--,fixmap region\n",
-		OURMODNAME, (TYPECST)FIXADDR_START, (TYPECST)FIXADDR_START+FIXADDR_SIZE);
+	snprintf(tmpbuf, TMPMAX,
+		"0x" FMTSPC ",0x" FMTSPC ",r--,fixmap region\n",
+		(TYPECST)FIXADDR_START, (TYPECST)FIXADDR_START+FIXADDR_SIZE);
+	strncat(buf, tmpbuf, strlen(tmpbuf));
 #endif
 
 	/* kernel module region
@@ -129,68 +111,37 @@ static void show_kernelseg_details(void)
 	 * arch, thus trying to maintain a 'by descending address' ordering.
 	 */
 #if(BITS_PER_LONG == 64)
-	if (show_procmap_style == 0)
-		pr_info(
-		"|module region:      "
-		" 0x" FMTSPC " - 0x" FMTSPC " | [" FMTSPC_DEC " MB]  |\n",
-		SHOW_DELTA_M((TYPECST)MODULES_VADDR, (TYPECST)MODULES_END));
-	else
-		pr_info(
-		"%s,0x" FMTSPC ",0x" FMTSPC ",rw-,module region\n",
-		OURMODNAME, (TYPECST)MODULES_VADDR, (TYPECST)MODULES_END);
+	snprintf(tmpbuf, TMPMAX,
+		"0x" FMTSPC ",0x" FMTSPC ",rw-,module region\n",
+		(TYPECST)MODULES_VADDR, (TYPECST)MODULES_END);
+	strncat(buf, tmpbuf, strlen(tmpbuf));
 #endif
 
 #ifdef CONFIG_KASAN  // KASAN region: Kernel Address SANitizer
-	if (show_procmap_style == 0)
-		pr_info(
-		"|KASAN shadow:       "
-		" 0x" FMTSPC " - 0x" FMTSPC " | [" FMTSPC_DEC " GB]\n",
-		SHOW_DELTA_G((TYPECST)KASAN_SHADOW_START, (TYPECST)KASAN_SHADOW_END));
-	else
-		pr_info(
-		"%s,0x" FMTSPC ",0x" FMTSPC ",rw-,KASAN shadow\n",
-		OURMODNAME, (TYPECST)KASAN_SHADOW_START, (TYPECST)KASAN_SHADOW_END);
+	snprintf(tmpbuf, TMPMAX,
+	"0x" FMTSPC ",0x" FMTSPC ",rw-,KASAN shadow\n",
+	(TYPECST)KASAN_SHADOW_START, (TYPECST)KASAN_SHADOW_END);
+	strncat(buf, tmpbuf, strlen(tmpbuf));
 #endif
 
 	/* vmalloc region */
-	if (show_procmap_style == 0)
-		pr_info(
-		"|vmalloc region:     "
-		" 0x" FMTSPC " - 0x" FMTSPC " | [" FMTSPC_DEC " MB = " FMTSPC_DEC " GB]\n",
-		SHOW_DELTA_MG((TYPECST)VMALLOC_START, (TYPECST)VMALLOC_END));
-	else
-		pr_info(
-		"%s,0x" FMTSPC ",0x" FMTSPC ",rw-,vmalloc region\n",
-		OURMODNAME, (TYPECST)VMALLOC_START, (TYPECST)VMALLOC_END);
+	snprintf(tmpbuf, TMPMAX,
+		"0x" FMTSPC ",0x" FMTSPC ",rw-,vmalloc region\n",
+		(TYPECST)VMALLOC_START, (TYPECST)VMALLOC_END);
+	strncat(buf, tmpbuf, strlen(tmpbuf));
 
 	/* lowmem region */
-	if (show_procmap_style == 0)
-		pr_info(
-		"|lowmem region:      "
-		" 0x" FMTSPC " - 0x" FMTSPC " | [" FMTSPC_DEC " MB = " FMTSPC_DEC " GB]"
-#if(BITS_PER_LONG == 32)
-		"\n|             (above:PAGE_OFFSET - highmem)                   |\n",
-#else
-		"\n|                  (above:PAGE_OFFSET    -      highmem)      |\n",
-#endif
-		SHOW_DELTA_MG((TYPECST)PAGE_OFFSET, (TYPECST)high_memory));
-	else
-		pr_info(
-		"%s,0x" FMTSPC ",0x" FMTSPC ",rwx,lowmem region\n",
-		OURMODNAME, (TYPECST)PAGE_OFFSET, (TYPECST)high_memory);
+	snprintf(tmpbuf, TMPMAX,
+		"0x" FMTSPC ",0x" FMTSPC ",rwx,lowmem region\n",
+		(TYPECST)PAGE_OFFSET, (TYPECST)high_memory);
+	strncat(buf, tmpbuf, strlen(tmpbuf));
 
 	/* (possible) highmem region;  may be present on some 32-bit systems */
 #ifdef CONFIG_HIGHMEM
-	if (show_procmap_style == 0)
-		pr_info(
-		"|HIGHMEM region:     "
-		" 0x" FMTSPC " - 0x" FMTSPC " | [" FMTSPC_DEC " MB]\n",
-		SHOW_DELTA_M((TYPECST)PKMAP_BASE,
-			     (TYPECST)(PKMAP_BASE)+(LAST_PKMAP*PAGE_SIZE)));
-	else
-		pr_info(
-		"%s,0x" FMTSPC ",0x" FMTSPC ",rwx,HIGHMEM region\n",
-		OURMODNAME, (TYPECST)PKMAP_BASE, (TYPECST)(PKMAP_BASE)+(LAST_PKMAP*PAGE_SIZE));
+	snprintf(tmpbuf, TMPMAX,
+	"0x" FMTSPC ",0x" FMTSPC ",rwx,HIGHMEM region\n",
+	(TYPECST)PKMAP_BASE, (TYPECST)(PKMAP_BASE)+(LAST_PKMAP*PAGE_SIZE));
+	strncat(buf, tmpbuf, strlen(tmpbuf));
 #endif
 
 	/*
@@ -204,18 +155,11 @@ static void show_kernelseg_details(void)
 	 */
 
 #if(BITS_PER_LONG == 32)  /* modules region: see the comment above reg this */
-	if (show_procmap_style == 0)
-		pr_info(
-		"|module region:      "
-		" 0x" FMTSPC " - 0x" FMTSPC " | [" FMTSPC_DEC " MB]  |\n",
-		SHOW_DELTA_M((TYPECST)MODULES_VADDR, (TYPECST)MODULES_END));
-	else
-		pr_info(
-		"%s,0x" FMTSPC "0x" FMTSPC ",rwx,module region:\n",
-		OURMODNAME, (TYPECST)MODULES_VADDR, (TYPECST)MODULES_END);
+	snprintf(tmpbuf, TMPMAX,
+		"0x" FMTSPC "0x" FMTSPC ",rwx,module region:\n",
+		(TYPECST)MODULES_VADDR, (TYPECST)MODULES_END);
+	strncat(buf, tmpbuf, strlen(tmpbuf));
 #endif
-	if (show_procmap_style == 0)
-		pr_info(ELLPS);
 }
 
 /* Our debugfs file 1's read callback function */
@@ -234,16 +178,16 @@ static ssize_t dbgfs_show_kernelseg(struct file *filp, char __user *ubuf,
 		mutex_unlock(&mtx);
 		return -ENOMEM;
 	}
-QP;
-	show_kernelseg_details();
-	memset(kbuf, 'k', MAXLEN-2);
-QP;
+
+	show_kernelseg_details(kbuf);
+	//memset(kbuf, 'k', MAXLEN-2);
+
 	ret = simple_read_from_buffer(ubuf, MAXLEN, fpos, kbuf,
 				       strlen(kbuf));
 	MSG("ret = %ld\n", ret);
 	kfree(kbuf);
 	mutex_unlock(&mtx);
-QP;
+
 	return ret;
 }
 
