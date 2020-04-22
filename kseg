@@ -1,8 +1,8 @@
 #!/bin/bash
 # kseg
 
-declare -a gkArray
-gkRow=0
+#declare -a gkArray
+#gkRow=0
 
 KSPARSE_ENTRY="<... K sparse region ...>"
 
@@ -11,21 +11,16 @@ show_gkArray()
 {
 local i k DIM=5
 echo
-gkRow=25
 decho "gkRow = ${gkRow}"
-# gkArray ::  [segname],[size],[start_uva],[end_uva],[mode]
 echo "show_gkArray():
 [segname,size,start_kva,end_kva,mode]"
 #set -x
 
 for ((i=0; i<${gkRow}; i+=${DIM}))
 do
-	#echo "gkArray[${i}] = ${gkArray[${i}]}" 
     printf "[%s," "${gkArray[${i}]}"    # segname
 	let k=i+1
-   #decho "i=$i k=$k"
     printf "%lld," "${gkArray[${k}]}"   # seg size
-	#echo "gkArray[${k}] = ${gkArray[${k}]}" 
 	let k=i+2
     printf "%llx," "${gkArray[${k}]}"   # start kva
 	let k=i+3
@@ -54,8 +49,8 @@ interpret_kernel_rec()
 {
 local gap=0  # size (in bytes, decimal) of the kernel region,
              # i.e., end_kva - start_kva
-local start_kva=$(echo "${1}" |cut -d"${gDELIM}" -f1)
-local end_kva=$(echo "${1}" |cut -d"${gDELIM}" -f2)
+local start_kva=0x$(echo "${1}" |cut -d"${gDELIM}" -f1)
+local end_kva=0x$(echo "${1}" |cut -d"${gDELIM}" -f2)
 
 # Skip comment lines
 echo "${start_kva}" | grep -q "^#" && return
@@ -167,6 +162,38 @@ decho "prevseg_name = ${prevseg_name}
 "
 } # end interpret_kernel_rec()
 
+# Setup the kernel Sparse region at the very top end of the VAS
+setup_ksparse_top()
+{
+ gkRow=0
+
+ # require the topmost valid kernel va, query it from the o/p of our
+ # procmap LKM
+ local top_kva=$(head -n1 ${KTMP} |awk -F"," '{print $2}')
+
+#decho "prevseg_start_uva = ${prevseg_start_uva}"
+local gap_dec=$((prevseg_start_uva-PAGE_SIZE))
+local gap=$(printf "0x%llx" ${gap_dec})
+local prevseg_start_uva_hex=$(printf "%llx" ${prevseg_start_uva})
+
+if [ ${gap_dec} -gt ${PAGE_SIZE} ]; then
+  # row'n' [segname],[size],[start_uva],[end_uva],[mode],[offset]
+  gArray[${gRow}]="${SPARSE_ENTRY}"
+  let gRow=gRow+1
+  gArray[${gRow}]="${gap_dec}"
+  let gRow=gRow+1
+  gArray[${gRow}]=${PAGE_SIZE} # start va
+  let gRow=gRow+1
+  gArray[${gRow}]="${prevseg_start_uva_hex}"  # end (higher) va
+  let gRow=gRow+1
+  gArray[${gRow}]="----"
+  let gRow=gRow+1
+  gArray[${gRow}]="0"
+  let gRow=gRow+1
+  let gNumSparse=gNumSparse+1
+fi
+} # end setup_ksparse_top()
+
 get_kernel_segment_details()
 {
 #set +x
@@ -184,6 +211,7 @@ get_kernel_segment_details()
   #pwd
 
   if [ ! -s ${KMOD}.ko ] ; then
+	 vecho " kseg: building the LKM ..."
      make >/dev/null 2>&1 || {
 	    echo "${name}: kernel module \"${KMOD}\" build failed, aborting..."
 		return
@@ -215,17 +243,19 @@ get_kernel_segment_details()
   vecho " kseg: debugfs file is there"
 
   # Finally! generate the kernel seg details
-  local KTMP=/tmp/ktmp.$$
+  KTMP=/tmp/ktmp.$$
   sudo cat ${DBGFS_LOC}/${KMOD}/${DBGFS_FILENAME} > ${KTMP}
 
   vecho "kseg dtl:
 $(cat ${KTMP})"
 
- # Loop over the kernel segment data records
+ # TODO - ins k sparse region from high kva to next valid mapping
+ #setup_ksparse_top
+
+ #---------- Loop over the kernel segment data records
  export IFS=$'\n'
  local i=1
  local REC
- gkRow=0
  for REC in $(cat ${KTMP})
  do 
    decho "REC: $REC"
@@ -233,11 +263,17 @@ $(cat ${KTMP})"
    #printf "=== %06d / %06d\r" ${i} ${gFileLines}
    let i=i+1
  done #1>&2
+ #----------
+
+ # TODO - ins k sparse region from last valid k mapping to top end uva
 
  [ ${DEBUG} -eq 0 ] && rm -f ${KTMP}
  #sudo rmmod ${KMOD}
 
- show_gkArray
+ [ ${DEBUG} -eq 1 ] && show_gkArray
+
+ # draw!
+ #graphit -k
 
  cd ${TOP}
 

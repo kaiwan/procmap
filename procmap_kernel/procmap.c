@@ -78,7 +78,7 @@ static void show_kernelseg_details(char *buf)
 
 #ifdef ARM
 	snprintf(tmpbuf, TMPMAX,
-	"0x" FMTSPC ",0x" FMTSPC ",r--,vector table\n",
+	FMTSPC "," FMTSPC ",r--,vector table\n",
 	(TYPECST)VECTORS_BASE, (TYPECST)VECTORS_BASE+PAGE_SIZE);
 	strncat(buf, tmpbuf, strlen(tmpbuf));
 #endif
@@ -94,12 +94,12 @@ static void show_kernelseg_details(char *buf)
 	 */
 #define FIXADDR_START   0xffc00000UL
 #define FIXADDR_END     0xfff00000UL
-                SHOW_DELTA_M((TYPECST)FIXADDR_START, (TYPECST)FIXADDR_END));
+                //SHOW_DELTA_M((TYPECST)FIXADDR_START, (TYPECST)FIXADDR_END));
 #else
 #include <asm/fixmap.h>
 	 // seems to work fine on x86
 	snprintf(tmpbuf, TMPMAX,
-		"0x" FMTSPC ",0x" FMTSPC ",r--,fixmap region\n",
+		FMTSPC "," FMTSPC ",r--,fixmap region\n",
 		(TYPECST)FIXADDR_START, (TYPECST)FIXADDR_START+FIXADDR_SIZE);
 	strncat(buf, tmpbuf, strlen(tmpbuf));
 #endif
@@ -112,34 +112,34 @@ static void show_kernelseg_details(char *buf)
 	 */
 #if(BITS_PER_LONG == 64)
 	snprintf(tmpbuf, TMPMAX,
-		"0x" FMTSPC ",0x" FMTSPC ",rwx,module region\n",
+		FMTSPC "," FMTSPC ",rwx,module region\n",
 		(TYPECST)MODULES_VADDR, (TYPECST)MODULES_END);
 	strncat(buf, tmpbuf, strlen(tmpbuf));
 #endif
 
 #ifdef CONFIG_KASAN  // KASAN region: Kernel Address SANitizer
 	snprintf(tmpbuf, TMPMAX,
-	"0x" FMTSPC ",0x" FMTSPC ",rw-,KASAN shadow\n",
+	FMTSPC "," FMTSPC ",rw-,KASAN shadow\n",
 	(TYPECST)KASAN_SHADOW_START, (TYPECST)KASAN_SHADOW_END);
 	strncat(buf, tmpbuf, strlen(tmpbuf));
 #endif
 
 	/* vmalloc region */
 	snprintf(tmpbuf, TMPMAX,
-		"0x" FMTSPC ",0x" FMTSPC ",rw-,vmalloc region\n",
+		FMTSPC "," FMTSPC ",rw-,vmalloc region\n",
 		(TYPECST)VMALLOC_START, (TYPECST)VMALLOC_END);
 	strncat(buf, tmpbuf, strlen(tmpbuf));
 
 	/* lowmem region */
 	snprintf(tmpbuf, TMPMAX,
-		"0x" FMTSPC ",0x" FMTSPC ",rwx,lowmem region\n",
+		FMTSPC "," FMTSPC ",rwx,lowmem region\n",
 		(TYPECST)PAGE_OFFSET, (TYPECST)high_memory);
 	strncat(buf, tmpbuf, strlen(tmpbuf));
 
 	/* (possible) highmem region;  may be present on some 32-bit systems */
 #ifdef CONFIG_HIGHMEM
 	snprintf(tmpbuf, TMPMAX,
-	"0x" FMTSPC ",0x" FMTSPC ",rwx,HIGHMEM region\n",
+	FMTSPC "," FMTSPC ",rwx,HIGHMEM region\n",
 	(TYPECST)PKMAP_BASE, (TYPECST)(PKMAP_BASE)+(LAST_PKMAP*PAGE_SIZE));
 	strncat(buf, tmpbuf, strlen(tmpbuf));
 #endif
@@ -156,7 +156,7 @@ static void show_kernelseg_details(char *buf)
 
 #if(BITS_PER_LONG == 32)  /* modules region: see the comment above reg this */
 	snprintf(tmpbuf, TMPMAX,
-		"0x" FMTSPC "0x" FMTSPC ",rwx,module region:\n",
+		FMTSPC "," FMTSPC ",rwx,module region:\n",
 		(TYPECST)MODULES_VADDR, (TYPECST)MODULES_END);
 	strncat(buf, tmpbuf, strlen(tmpbuf));
 #endif

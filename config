@@ -10,8 +10,12 @@ VERBOSE=0
 DEBUG=0
 
 # userspace VAS display configs
+SHOW_USERSPACE=1
 EMB=0  # set to 1 for 'embedded' systems; simpler [no float point, etc]
+
+# TODO: get rid of this
 ORDER_BY_DESC_VA=1  # display in descending va order
+
 NULL_TRAP_SHOW=1
 SPARSE_SHOW=1
 SHOW_VSYSCALL_PAGE=0

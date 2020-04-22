@@ -64,6 +64,8 @@ usage()
  echo "Usage: ${name} [options] -p PID-to-show-memory-map-of
 Options:
  -u : show ONLY the usermode mappings or segments (not kernel VAS)
+ -k : show ONLY the kernel-space mappings or segments (not user VAS)
+  [default is to show BOTH]
  -d : debug mode
  -v : verbose mode
 " 1>&2
@@ -78,7 +80,7 @@ Options:
 }
 
 PID=0
-while getopts "p:h?udv" opt; do
+while getopts "p:h?ukdv" opt; do
     case "${opt}" in
 	h|\?) usage ; exit 0
 		;;
@@ -88,11 +90,12 @@ while getopts "p:h?udv" opt; do
             ;;
         u)
 	    echo "[i] -u: will display ONLY user VAS"
+		SHOW_KERNELSEG=0
             ;;
-        #s)
-	    #ORDER_BY_DESC_VA=0
-	    #echo "[+] -s: display in ascending order of va (virt addr)"
-        #    ;;
+        k)
+	    echo "[i] -k: will display ONLY kernel VAS"
+		SHOW_USERSPACE=0
+            ;;
         d)
 	    export DEBUG=1
 	    echo "[i] -d: running in DEBUG mode"
@@ -151,6 +154,8 @@ fi
 dovg_cmdline="-p ${PID} -f ${TMPCSV}"
 [ ${DEBUG} -eq 1 ] && dovg_cmdline="${dovg_cmdline} -d"
 [ ${VERBOSE} -eq 1 ] && dovg_cmdline="${dovg_cmdline} -v"
+[ ${SHOW_KERNELSEG} -eq 1 ] && dovg_cmdline="${dovg_cmdline} -k"
+[ ${SHOW_USERSPACE} -eq 1 ] && dovg_cmdline="${dovg_cmdline} -u"
 #[ ${ORDER_BY_DESC_VA} -eq 0 ] && dovg_cmdline="${dovg_cmdline} -s"
 
 ${PFX}/do_vgraph.sh ${dovg_cmdline} | tee -a ${LOG} 

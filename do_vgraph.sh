@@ -70,6 +70,10 @@ source ${PFX}/config || {
  echo "${name}: fatal: could not source ${PFX}/config , aborting..."
  exit 1
 }
+source ${PFX}/vgraph_lib.sh || {
+ echo "${name}: fatal: could not source ${PFX}/vgraph_lib.sh , aborting..."
+ exit 1
+}
 source ${PFX}/kseg || {
  echo "${name}: fatal: could not source ${PFX}/kseg , aborting..."
  exit 1
@@ -118,6 +122,7 @@ decho "64-bit OS? ${IS_64_BIT}"
 } # end get_range_info()
 
 #---
+# Userspace array:
 # We require a 6d array: each 'row' will hold these values:
 #
 #          col0     col1      col2       col3   col4    col5
@@ -132,6 +137,10 @@ decho "64-bit OS? ${IS_64_BIT}"
 declare -a gArray
 gRow=0
 #---
+
+# Kernel-space array: (see kseg file)
+declare -a gkArray
+gkRow=0
 
 #-----------------------s h o w A r r a y -----------------------------
 showArray()
@@ -160,219 +169,6 @@ done
 
 LIMIT_SCALE_SZ=10
 
-#---------------------- g r a p h i t ---------------------------------
-# Iterates over the global '6d' array gArr[] 'drawing' the vgraph.
-# Data driven tech!
-graphit()
-{
-local i k
-local segname seg_sz start_uva end_uva mode offset
-local szKB=0 szMB=0 szGB=0 szTB=0
-
-local         LIN="+----------------------------------------------------------------------+"
-local ELLIPSE_LIN="~ .       .       .       .       .       .        .       .        .  ~"
-local BOX_RT_SIDE="|                                                                      |"
-local linelen=$((${#LIN}-2))
-local oversized=0
-
-color_reset
-local DIM=6
-for ((i=0; i<${gRow}; i+=${DIM}))
-do
-	local tlen=0 len_perms len_maptype len_offset
-	local tmp1="" tmp2="" tmp3="" tmp4="" tmp5=""
-	local tmp5a="" tmp5b="" tmp5c="" tmp6=""
-	local segname_nocolor tmp1_nocolor tmp2_nocolor tmp3_nocolor
-	local tmp4_nocolor tmp5a_nocolor tmp5b_nocolor tmp5c_nocolor
-	local tmp5 tmp5_nocolor
-
-    #--- Retrieve values from the array
-    segname=${gArray[${i}]}    # col 1 [str: the label/segment name]
-	let k=i+1
-    seg_sz=${gArray[${k}]}     # col 2 [int: the segment size]
-	let k=i+2
-    start_uva=${gArray[${k}]}  # col 3 [int: the first number, start_uva]
-	let k=i+3
-    end_uva=${gArray[${k}]}    # col 4 [int: the second number, end_uva]
-	let k=i+4
-    mode=${gArray[${k}]}       # col 5 [str: the mode+flag]
-	let k=i+5
-    offset=${gArray[${k}]}     # col 6 [int: the file offset]
-
-	# Calculate segment size in diff units as required
-    szKB=$((${seg_sz}/1024))
-    [ ${szKB} -ge 1024 ] && szMB=$(bc <<< "scale=2; ${szKB}/1024.0") || szMB=0
-    # !EMB: if we try and use simple bash arithmetic comparison, we get a 
-    # "integer expression expected" err; hence, use bc(1):
-    szGB=0
-    if (( $(echo "${szMB} > 1024" |bc -l) )); then
-      szGB=$(bc <<< "scale=2; ${szMB}/1024.0")
-    fi
-    szTB=0
-    if (( $(echo "${szGB} > 1024" |bc -l) )); then
-      szTB=$(bc <<< "scale=2; ${szGB}/1024.0")
-    fi
-
-    #--- Drawing :-p  !
-	# the horizontal line with the end uva at the end of it
-	## the horizontal line with the start uva at the end of it
-	# the first actual print emitted!
-	# Eg.
-	# +----------------------------------------------------------------------+ 000055681263b000
-	# Changed to end_uva first we now always print in descending order
-    if [ ${IS_64_BIT} -eq 1 ] ; then
-      printf "%s %016lx\n" "${LIN}" "0x${end_uva}"
-    else
-      printf "%s %08x\n" "${LIN}" "0x${end_uva}"
-    fi
-
-	#--- Collate and print the details of the current mapping (segment)
-	# Eg.
-	# |<... Sparse Region ...> [ 14.73 MB] [----,0x0]                        |
-
-	# Print segment name
-	tmp1=$(printf "%s|%20s " $(fg_orange) ${segname})
-	local segname_nocolor=$(printf "|%20s " ${segname})
-
-	# Print segment size according to scale; in KB or MB or GB or TB
-	tlen=0
-    if (( $(echo "${szKB} < 1024" |bc -l) )); then
-		# print KB only
-		tmp2=$(printf "%s [%4d KB" $(fg_green) ${szKB})
-		tmp2_nocolor=$(printf " [%4d KB" ${szKB})
-		tlen=${#tmp2_nocolor}
-    elif (( $(echo "${szKB} > 1024" |bc -l) )); then
-      if (( $(echo "${szMB} < 1024" |bc -l) )); then
-		# print MB only
-		tmp3=$(printf "%s[%6.2f MB" $(fg_yellow) ${szMB})
-		tmp3_nocolor=$(printf "[%6.2f MB" ${szMB})
-		tlen=${#tmp3_nocolor}
-    elif (( $(echo "${szKB} > 1024" |bc -l) )); then
-      if (( $(echo "${szGB} < 1024" |bc -l) )); then
-		# print GB only
-		tmp4=$(printf "%s[%6.2f GB" $(fg_yellow) ${szGB})
-		tmp4_nocolor=$(printf "[%6.2f GB" ${szGB})
-		tlen=${#tmp4_nocolor}
-	else
-		# print TB only
-		tmp5=$(printf "%s[%9.2f TB" $(fg_red) ${szTB})
-		tmp5_nocolor=$(printf "[%9.2f TB" ${szTB})
-		tlen=${#tmp5_nocolor}
-      fi
-	 fi
-	fi
-
-	# 'mode' xxxy has two pieces of info:
-	#  - xxx is the mode (octal permissions / rwx style)
-	#  - y is either p or s, private or shared mapping
-	# seperate them out in order to print them in diff colors, etc
-	# (substr op: ${string:position:length} ; position starts @ 0)
-	local perms=$(echo ${mode:0:3})
-	local maptype=$(echo ${mode:3:1})
-
-	# mode + mapping type
-	#  print in bold red fg if:
-	#    mode == ---
-	#    mode violates the W^X principle, i.e., w and x set
-	local flag_null_perms=0 flag_wx_perms=0
-	if [ "${perms}" = "---" ]; then
-	   flag_null_perms=1
-	fi
-	echo "${perms}" | grep -q ".wx" && flag_wx_perms=1
-
-	if [ ${flag_null_perms} -eq 1 -o ${flag_wx_perms} -eq 1 ] ; then
-		tmp5a=$(printf "%s%s,%s%s," $(tput bold) $(fg_red) "${perms}" $(color_reset))
-	else
-		tmp5a=$(printf "%s,%s," $(fg_black) "${perms}")
-	fi
-	tmp5a_nocolor=$(printf ",%s," "${perms}")
-	len_perms=${#tmp5a_nocolor}
-
-	# mapping type
-	tmp5b=$(printf "%s%s%s," $(fg_blue) "${maptype}" $(fg_black))
-	tmp5b_nocolor=$(printf "%s," "${maptype}")
-	len_maptype=${#tmp5b_nocolor}
-
-	# file offset
-	tmp5c=$(printf "%s0x%s" $(fg_black) "${offset}")
-	tmp5c_nocolor=$(printf "0x%s" "${offset}")
-	len_offset=${#tmp5c_nocolor}
-
-    # Calculate the strlen of the printed string, and thus calculate and print
-    # the appropriate number of spaces after until the "|" close-box symbol.
-	# Final strlen value:
-	local segnmlen=${#segname_nocolor}
-	if [ ${segnmlen} -lt 20 ]; then
-		segnmlen=20  # as we do printf "|%20s"...
-	fi
-	let tlen=${segnmlen}+${tlen}+${len_perms}+${len_maptype}+${len_offset}
-
-    if [ ${tlen} -lt ${#LIN} ] ; then
-       local spc_reqd=$((${linelen}-${tlen}))
-       tmp6=$(printf "]%${spc_reqd}s|\n" " ") 
-	       # print the required # of spaces and then the '|'
-    else
-		tmp6=$(printf "]")
-	fi
-    #decho "tlen=${tlen} spc_reqd=${spc_reqd}"
-
-	# the second actual print emitted!
-	echo "${tmp1}${tmp2}${tmp3}${tmp4}${tmp5}${tmp5a}${tmp5b}${tmp5c}${tmp6}"
-
-    #--- NEW CALC for SCALING
-    # Simplify: We base the 'height' of each segment on the number of digits
-    # in the segment size (in bytes)!
-    segscale=${#seg_sz}    # strlen(seg_sz)
-    [ ${segscale} -lt 4 ] && {   # min seg size is 4096 bytes
-        echo "${name}: fatal error, segscale (# digits) <= 3! Aborting..."
-	    echo "Kindly report this as a bug, thanks!"
-	    exit 1
-    }
-    #decho "seg_sz = ${seg_sz} segscale=${segscale}"
-
-    local box_height=0
-    # for segscale range [1-4]
-    # i.e. from 1-4 digits, i.e., 0 to 9999 bytes (ie. ~ 0 to 9.8 KB, single line
-    if [ ${segscale} -ge 1 -a ${segscale} -le 4 ]; then
-		box_height=0
-		# for segscale range [5-7]
-		# i.e. for 5 digits, i.e., ~  10 KB to  99 KB, 1 line box
-		# i.e. for 6 digits, i.e., ~ 100 KB to 999 KB ~= 1 MB, 2 line box
-		# i.e. for 7 digits, i.e., ~ 1 MB to 9.9 MB, 3 line box
-    elif [ ${segscale} -ge 5 -a ${segscale} -le 7 ]; then
-		let box_height=segscale-4
-    else
-		# for segscale >= 8 digits
-		# i.e. for 8 digits, i.e., from ~ 10 MB onwards, show an oversized ellipse box
-		box_height=10
-    fi
-    #---
-
-    # draw the sides of the 'box'
-    [ ${box_height} -ge ${LIMIT_SCALE_SZ} ] && {
-   	  box_height=${LIMIT_SCALE_SZ}
-   	  oversized=1
-    }
-
-    #decho "box_height = ${box_height} oversized=${oversized}"
-    for ((x=1; x<${box_height}; x++))
-    do
-   	  printf "%s\n" "${BOX_RT_SIDE}"
-   	  if [ ${oversized} -eq 1 ] ; then
-   		[ ${x} -eq $(((LIMIT_SCALE_SZ-1)/2)) ] && printf "%s\n" "${ELLIPSE_LIN}"
-   	  fi
-    done
-    oversized=0
-done
-
-# last line, the zero-th virt address; always:
-#+----------------------------------------------------------------------+ 0000000000000000
-if [ ${IS_64_BIT} -eq 1 ] ; then
- printf "%s %016lx\n" "${LIN}" "0x${start_uva}"
-else
- printf "%s %08x\n" "${LIN}" "0x${start_uva}"
-fi
-} # end graphit()
 
 gNumSparse=0
 gTotalSparseSize=0
@@ -581,7 +377,7 @@ largenum_display()
 
      local pcntg=$(bc <<< "scale=12; (${1}/${2})*100.0")
      printf "\n  i.e. %2.6f%%" ${pcntg}
-}
+} # end largenum_display()
 
 disp_fmt()
 {
@@ -618,9 +414,18 @@ main_wrapper()
  printf "[Full pathname: %s]\n" $(realpath /proc/$1/exe)
  color_reset
 
+ # Show kernelspace? Yes by default!
  [ ${SHOW_KERNELSEG} -eq 1 ] && {
     get_kernel_segment_details
-	exit 0
+	decho "+++++++++++ back in do_vgrph"
+    graphit -k
+	#exit 0
+ }
+
+ # Show userspace? Yes by default!
+ [ ${SHOW_USERSPACE} -eq 0 ] && {
+   decho "skipping userspace display..."
+   return
  }
 
  # Redirect to stderr what we don't want in the log
@@ -673,9 +478,17 @@ if [ ${NULL_TRAP_SHOW} -eq 1 -a ${ORDER_BY_DESC_VA} -eq 1 ]; then
 fi
 
 [ ${DEBUG} -eq 1 ] && showArray
-#exit 0
 
-graphit
+# draw it!
+
+#[ ${SHOW_KERNELSEG} -eq 1 ] && {
+#   graphit -k
+   #color_reset
+   #exit 0
+#}
+
+[ ${SHOW_USERSPACE} -eq 1 ] && graphit -u
+
 disp_fmt
 
 GB_2=$(bc <<< "scale=6; 2.0*1024.0*1024.0*1024.0")
@@ -718,9 +531,13 @@ TB_128=$(bc <<< "scale=6; 128.0*1024.0*1024.0*1024.0*1024.0")
 
 usage()
 {
-  echo "Usage: ${name} [-s] [-d] -p PID-of-process -f input-CSV-filename(5 column format)
-  -s : show in ascending order by va (virtual address)
-  -d : run in debug mode"
+  echo "Usage: ${name} -u -k [-d] -p PID-of-process -f input-CSV-filename(5 column format)
+  -f : input CSV file
+  -k : show kernel-space
+  -u : show userspace
+   [default: show BOTH]
+  -d : run in debug mode
+  -v : run in verbose mode"
 }
 
 ##### 'main' : execution starts here #####
@@ -736,8 +553,10 @@ which bc >/dev/null || {
 }
 
 ORDER_BY_DESC_VA=1
+SHOW_KERNELSEG=0
+SHOW_USERSPACE=0
 
-while getopts "p:f:h?dv" opt; do
+while getopts "p:f:h?kudv" opt; do
     case "${opt}" in
         h|\?) usage ; exit 0
                 ;;
@@ -749,10 +568,12 @@ while getopts "p:f:h?dv" opt; do
             gINFILE=${OPTARG}
             #echo "-p passed; PID=${PID}"
             ;;
-        #s)
-        #    echo "[+] -s: will display in ascending order by va"
-	    #ORDER_BY_DESC_VA=0
-        #    ;;
+        k)
+            SHOW_KERNELSEG=1
+            ;;
+        u)
+            SHOW_USERSPACE=1
+            ;;
         d)
             echo "[+] -d: run in debug mode"
             DEBUG=1
