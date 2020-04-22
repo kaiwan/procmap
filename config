@@ -23,4 +23,6 @@ KERNELDIR=procmap_kernel
 KMOD=procmap
 DBGFS_LOC=$(mount |grep debugfs |awk '{print $3}')
 DBGFS_FILENAME=disp_kernelseg_details
+KSPARSE_SHOW=1
+KSTATS_SHOW=0
 

@@ -70,6 +70,10 @@ source ${PFX}/config || {
  echo "${name}: fatal: could not source ${PFX}/config , aborting..."
  exit 1
 }
+source ${PFX}/kseg || {
+ echo "${name}: fatal: could not source ${PFX}/kseg , aborting..."
+ exit 1
+}
 
 # Titles, etc...
 NULLTRAP_STR="< NULL trap >"
@@ -585,80 +589,6 @@ disp_fmt()
  printf "Userspace VAS segments:  name   [   size,mode,map-type,file-offset] \n"
  #color_reset
 }
-
-vecho()
-{
-[ ${VERBOSE} -eq 0 ] && return
-echo "$@"
-}
-
-get_kernel_segment_details()
-{
- echo "[+] Kernel Segment details"
- if [ ! -d ${DBGFS_LOC} ] ; then
-	echo "${name}: kernel debugfs not present? aborting..."
-	return
- else
-    vecho " debugfs location verfied"
- fi
-
- (   # within a subshell
-  cd ${KERNELDIR} || return
-  #pwd
-  if [ ! -s ${KMOD}.ko ] ; then
-     make >/dev/null 2>&1 || {
-	    echo "${name}: kernel module \"${KMOD}\" build failed, aborting..."
-		return
-	 }
-     if [ ! -s ${KMOD}.ko ] ; then
-	    echo "${name}: kernel module \"${KMOD}\" not generated? aborting..."
-		return
-	 fi
-	 vecho " kseg: LKM built"
-  fi
-
-  # Ok, the kernel module is there, lets insert it!
-  #ls -l ${KMOD}.ko
-  sudo rmmod ${KMOD} 2>/dev/null   # rm any stale instance
-  sudo insmod ./${KMOD}.ko || {
-	    echo "${name}: insmod(8) on kernel module \"${KMOD}\" failed, aborting..."
-		return
-  }
-  lsmod |grep -q ${KMOD} || {
-	    echo "${name}: insmod(8) on kernel module \"${KMOD}\" failed? aborting..."
-		return
-  }
-  vecho " kseg: LKM inserted into kernel"
-  sudo ls ${DBGFS_LOC}/${KMOD}/${DBGFS_FILENAME} >/dev/null 2>&1 || {
-     echo "${name}: required debugfs file not present? aborting..."
-	 sudo rmmod ${KMOD}
-	 return
-  }
-  vecho " kseg: debugfs file is there"
-
-  # Finally! generate the kernel seg details
-  local KTMP=/tmp/ktmp.$$
-  sudo cat ${DBGFS_LOC}/${KMOD}/${DBGFS_FILENAME} > ${KTMP}
-
-  vecho "kseg dtl:
-$(cat ${KTMP})"
-
- # Loop over the kernel segment data records
- export IFS=$'\n'
- local REC
- for REC in $(cat ${KTMP})
- do 
-   decho "REC: $REC"
-   #interpret_rec ${REC} ${i}
-   #printf "=== %06d / %06d\r" ${i} ${gFileLines}
-   let i=i+1
- done #1>&2
-
- [ ${DEBUG} -eq 0 ] && rm -f ${KTMP}
- #sudo rmmod ${KMOD}
- )
-} # end get_kernel_segment_details
-
 
 #--------------------------- m a i n _ w r a p p e r -------------------
 # Parameters:

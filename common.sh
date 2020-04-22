@@ -275,3 +275,8 @@ trim_string_middle()
  fi
 }
 
+vecho()
+{
+[ ${VERBOSE} -eq 0 ] && return
+echo "$@"
+}
