@@ -1,0 +1,246 @@
+#!/bin/bash
+# kseg
+
+declare -a gkArray
+gkRow=0
+
+KSPARSE_ENTRY="<... K sparse region ...>"
+
+#-----------------------s h o w A r r a y -----------------------------
+show_gkArray()
+{
+local i k DIM=5
+echo
+gkRow=25
+decho "gkRow = ${gkRow}"
+# gkArray ::  [segname],[size],[start_uva],[end_uva],[mode]
+echo "show_gkArray():
+[segname,size,start_kva,end_kva,mode]"
+#set -x
+
+for ((i=0; i<${gkRow}; i+=${DIM}))
+do
+	#echo "gkArray[${i}] = ${gkArray[${i}]}" 
+    printf "[%s," "${gkArray[${i}]}"    # segname
+	let k=i+1
+   #decho "i=$i k=$k"
+    printf "%lld," "${gkArray[${k}]}"   # seg size
+	#echo "gkArray[${k}] = ${gkArray[${k}]}" 
+	let k=i+2
+    printf "%llx," "${gkArray[${k}]}"   # start kva
+	let k=i+3
+    printf "%llx," "${gkArray[${k}]}"   # end kva
+	let k=i+4
+    printf "%s" "${gkArray[${k}]}"      # mode
+	printf "]\n"
+done
+#set +x
+} # end show_gkArray()
+
+#------------------ i n t e r p r e t _ r e c -------------------------
+# Interpret record (a CSV 'line' from the input stream) and populate the
+# gkArr[] n-dim array.
+# Format:
+#  start_kva,end_kva,mode,name_of_region
+#     ; kva = kernel virtual address
+# eg.
+#  0xffff9be100000000,0xffff9be542800000,rwx,lowmem region
+#
+# Parameters:
+#  $1 : the above CSV format string of 4 fields {start_kva,end_kva,mode,region-name}
+#  $2 : loop index (starts @ 1)
+# Populate the global 'n-dim' (n=5) array gkArr.
+interpret_kernel_rec()
+{
+local gap=0  # size (in bytes, decimal) of the kernel region,
+             # i.e., end_kva - start_kva
+local start_kva=$(echo "${1}" |cut -d"${gDELIM}" -f1)
+local end_kva=$(echo "${1}" |cut -d"${gDELIM}" -f2)
+
+# Skip comment lines
+echo "${start_kva}" | grep -q "^#" && return
+
+local mode=$(echo "${1}" |cut -d"${gDELIM}" -f3)
+local name=$(echo "${1}" |cut -d"${gDELIM}" -f4)
+[ -z "${name}" ] && segment=" [-unnamed-] "
+
+# Convert hex to dec
+local start_dec=$(printf "%llu" ${start_kva})
+local end_dec=$(printf "%llu" ${end_kva})
+local seg_sz=$(printf "%llu" $((end_dec-start_dec)))  # in bytes
+
+# The global 5d-array's format is:
+#          col0     col1      col2       col3   col4
+# row'n' [regname],[size],[start_kva],[end_kva],[mode]
+
+# TODO
+# vsyscall: manually retrieve detail into gkArray[]
+
+#------------ Sparse Detection
+if [ ${KSPARSE_SHOW} -eq 1 ]; then
+
+DetectedSparse=0
+
+decho "$2: seg=${name} prevseg_name=${prevseg_name} ,  gkRow=${gkRow} "
+
+# Detect sparse region, and if present, insert into the gArr[].
+# Sparse region detected by condition:
+#  gap = this-segment-start - prev-segment-end > 1 page
+# Wait! With order by Descending va, we should take the prev segment's
+# start uva (not the end uva)!
+#  gap = prev_seg_start - this-segment-end > 1 page
+
+  if [ $2 -eq 1 ] ; then   # ignore the first kernel region
+     decho "k sparse check: skipping first kernel region"
+  else
+     gap=$((${prevseg_start_kva}-${end_dec}))
+     local gap_hex=$(printf "0x%llx" ${gap})
+     decho "gap = ${gap}"
+     [ ${gap} -gt ${PAGE_SIZE} ] && {
+       DetectedSparse=1
+     }
+  fi
+
+ if [ ${DetectedSparse} -eq 1 ]; then
+    # name / label
+	# The global 5d-array's format is:
+	#          col0     col1      col2       col3   col4
+	# row'n' [regname],[size],[start_kva],[end_kva],[mode]
+
+    gkArray[${gkRow}]="${KSPARSE_ENTRY}"
+    let gkRow=gkRow+1
+
+    # segment size (bytes in decimal)
+    gkArray[${gkRow}]=${gap}
+    let gkRow=gkRow+1
+
+    # start kva (hex)
+    local prevseg_start_kva_hex=$(printf "0x%llx" ${prevseg_start_kva})
+	#decho "prevseg_start_uva_hex=${prevseg_start_uva_hex}  gap = ${gap_hex}"
+    gkArray[${gkRow}]=$((${prevseg_start_kva_hex}-${gap_hex}))
+    let gkRow=gkRow+1
+
+    # end kva (hex)
+    gkArray[${gkRow}]=${prevseg_start_kva_hex}
+    let gkRow=gkRow+1
+
+    # mode
+    gkArray[${gkRow}]="---"
+    let gkRow=gkRow+1
+
+    # Stats
+    [ ${KSTATS_SHOW} -eq 1 ] && {
+      let gNumSparse=gNumSparse+1
+      let gTotalSparseSize=gTotalSparseSize+gap
+    }
+ fi
+
+prevseg_start_kva=${start_dec}
+fi
+#--------------
+
+#set -x
+
+#--- Populate the global array
+#echo "gkArray[${gkRow}]=${name}"
+gkArray[${gkRow}]=${name}
+let gkRow=gkRow+1
+
+#echo "gkArray[${gkRow}]=${seg_sz}"
+gkArray[${gkRow}]=${seg_sz}
+let gkRow=gkRow+1
+gkArray[${gkRow}]=${start_kva}
+let gkRow=gkRow+1
+gkArray[${gkRow}]=${end_kva}
+let gkRow=gkRow+1
+gkArray[${gkRow}]=${mode}
+let gkRow=gkRow+1
+
+#set +x
+
+[ ${KSTATS_SHOW} -eq 1 ] && {
+  let gTotalSegSize=${gTotalSegSize}+${seg_sz}
+}
+
+prevseg_name=${name}
+decho "prevseg_name = ${prevseg_name}
+"
+} # end interpret_kernel_rec()
+
+get_kernel_segment_details()
+{
+#set +x
+
+ echo "[+] Kernel Segment details"
+ if [ ! -d ${DBGFS_LOC} ] ; then
+	echo "${name}: kernel debugfs not present? aborting..."
+	return
+ else
+    vecho " debugfs location verfied"
+ fi
+
+  TOP=$(pwd)
+  cd ${KERNELDIR} || return
+  #pwd
+
+  if [ ! -s ${KMOD}.ko ] ; then
+     make >/dev/null 2>&1 || {
+	    echo "${name}: kernel module \"${KMOD}\" build failed, aborting..."
+		return
+	 }
+     if [ ! -s ${KMOD}.ko ] ; then
+	    echo "${name}: kernel module \"${KMOD}\" not generated? aborting..."
+		return
+	 fi
+	 vecho " kseg: LKM built"
+  fi
+
+  # Ok, the kernel module is there, lets insert it!
+  #ls -l ${KMOD}.ko
+  sudo rmmod ${KMOD} 2>/dev/null   # rm any stale instance
+  sudo insmod ./${KMOD}.ko || {
+	    echo "${name}: insmod(8) on kernel module \"${KMOD}\" failed, aborting..."
+		return
+  }
+  lsmod |grep -q ${KMOD} || {
+	    echo "${name}: insmod(8) on kernel module \"${KMOD}\" failed? aborting..."
+		return
+  }
+  vecho " kseg: LKM inserted into kernel"
+  sudo ls ${DBGFS_LOC}/${KMOD}/${DBGFS_FILENAME} >/dev/null 2>&1 || {
+     echo "${name}: required debugfs file not present? aborting..."
+	 sudo rmmod ${KMOD}
+	 return
+  }
+  vecho " kseg: debugfs file is there"
+
+  # Finally! generate the kernel seg details
+  local KTMP=/tmp/ktmp.$$
+  sudo cat ${DBGFS_LOC}/${KMOD}/${DBGFS_FILENAME} > ${KTMP}
+
+  vecho "kseg dtl:
+$(cat ${KTMP})"
+
+ # Loop over the kernel segment data records
+ export IFS=$'\n'
+ local i=1
+ local REC
+ gkRow=0
+ for REC in $(cat ${KTMP})
+ do 
+   decho "REC: $REC"
+   interpret_kernel_rec ${REC} ${i}
+   #printf "=== %06d / %06d\r" ${i} ${gFileLines}
+   let i=i+1
+ done #1>&2
+
+ [ ${DEBUG} -eq 0 ] && rm -f ${KTMP}
+ #sudo rmmod ${KMOD}
+
+ show_gkArray
+
+ cd ${TOP}
+
+} # end get_kernel_segment_details
+
+#get_kernel_segment_details
