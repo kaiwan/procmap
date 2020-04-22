@@ -5,6 +5,7 @@
 #gkRow=0
 
 KSPARSE_ENTRY="<... K sparse region ...>"
+name=$(basename $0)
 
 #-----------------------s h o w A r r a y -----------------------------
 show_gkArray()
@@ -32,6 +33,37 @@ done
 #set +x
 } # end show_gkArray()
 
+# Setup the kernel Sparse region at the very top end of the VAS in the gkArray[]
+setup_ksparse_top()
+{
+ gkRow=0
+
+ # require the topmost valid kernel va, query it from the o/p of our
+ # procmap LKM
+ local top_kva=0x$(head -n1 ${KTMP} |awk -F"${gDELIM}" '{print $2}')
+
+ [ ${IS_64_BIT} -eq 1 ] && HIGHEST_KVA=0xffffffffffffffff || HIGHEST_KVA=0xffffffff
+
+local gap_dec=$((HIGHEST_KVA-top_kva))
+#local gap=$(printf "0x%llx" ${gap_dec})
+#local prevseg_start_uva_hex=$(printf "%llx" ${prevseg_start_uva})
+
+if [ ${gap_dec} -gt ${PAGE_SIZE} ]; then
+  # row'n' [segname],[size],[start_uva],[end_uva],[mode],[offset]
+  gkArray[${gkRow}]="${KSPARSE_ENTRY}"
+  let gkRow=gkRow+1
+  gkArray[${gkRow}]="${gap_dec}"
+  let gkRow=gkRow+1
+  gkArray[${gkRow}]=${top_kva}        # start kva
+  let gkRow=gkRow+1
+  gkArray[${gkRow}]="${HIGHEST_KVA}"  # end (higher) kva
+  let gkRow=gkRow+1
+  gkArray[${gkRow}]="---"
+  let gkRow=gkRow+1
+  let gNumSparse=gNumSparse+1
+fi
+} # end setup_ksparse_top()
+
 #------------------ i n t e r p r e t _ r e c -------------------------
 # Interpret record (a CSV 'line' from the input stream) and populate the
 # gkArr[] n-dim array.
@@ -47,6 +79,7 @@ done
 # Populate the global 'n-dim' (n=5) array gkArr.
 interpret_kernel_rec()
 {
+prevseg_start_kva=0x0
 local gap=0  # size (in bytes, decimal) of the kernel region,
              # i.e., end_kva - start_kva
 local start_kva=0x$(echo "${1}" |cut -d"${gDELIM}" -f1)
@@ -162,37 +195,58 @@ decho "prevseg_name = ${prevseg_name}
 "
 } # end interpret_kernel_rec()
 
-# Setup the kernel Sparse region at the very top end of the VAS
-setup_ksparse_top()
+# Insert k sparse region from last (lowest) valid k mapping to top end uva
+# Parameters
+#   $1 : prev segment/mapping start va
+setup_ksparse_lowest()
 {
- gkRow=0
+set -x
+ # TODO
+ [ ${IS_64_BIT} -eq 1 ] && HIGHEST_UVA=0x7ffcaa17b000 || HIGHEST_UVA=${PAGE_OFFSET_ON_32BIT}
 
- # require the topmost valid kernel va, query it from the o/p of our
- # procmap LKM
- local top_kva=$(head -n1 ${KTMP} |awk -F"," '{print $2}')
+#local gap_dec=$(($1-${HIGHEST_UVA}))
+#local gap_dec=$(bc <<< "(${kva}-${HIGHEST_UVA})")
 
-#decho "prevseg_start_uva = ${prevseg_start_uva}"
-local gap_dec=$((prevseg_start_uva-PAGE_SIZE))
-local gap=$(printf "0x%llx" ${gap_dec})
-local prevseg_start_uva_hex=$(printf "%llx" ${prevseg_start_uva})
+# The way to perform arithmetic in bash on large #s is to use bc(1); f.e.
+# echo 'obase=16; FFFF9BE100000000-7FFCAA17B000' |bc -l
+# BUT, the hex #s Must be in uppercase chars only!
+local kva=${1^^}
+local HUVA=${HIGHEST_UVA^^}
+local gap_hex=$(echo "obase=16; $kva-$HUVA" |bc -l)
+local gap_dec=$(printf "%llu" 0x${gap_hex})
 
 if [ ${gap_dec} -gt ${PAGE_SIZE} ]; then
   # row'n' [segname],[size],[start_uva],[end_uva],[mode],[offset]
-  gArray[${gRow}]="${SPARSE_ENTRY}"
-  let gRow=gRow+1
-  gArray[${gRow}]="${gap_dec}"
-  let gRow=gRow+1
-  gArray[${gRow}]=${PAGE_SIZE} # start va
-  let gRow=gRow+1
-  gArray[${gRow}]="${prevseg_start_uva_hex}"  # end (higher) va
-  let gRow=gRow+1
-  gArray[${gRow}]="----"
-  let gRow=gRow+1
-  gArray[${gRow}]="0"
-  let gRow=gRow+1
+  gkArray[${gkRow}]="${KSPARSE_ENTRY}"
+  let gkRow=gkRow+1
+  gkArray[${gkRow}]="${gap_dec}"
+  let gkRow=gkRow+1
+  gkArray[${gkRow}]=${HIGHEST_UVA}    # start kva
+  let gkRow=gkRow+1
+  gkArray[${gkRow}]="${1}"            # end (higher) kva
+  let gkRow=gkRow+1
+  gkArray[${gkRow}]="---"
+  let gkRow=gkRow+1
   let gNumSparse=gNumSparse+1
 fi
-} # end setup_ksparse_top()
+set +x
+} # end setup_ksparse_lowest()
+
+# (Re)build the LKM - Loadable Kernel Module for this project
+build_lkm()
+{
+	 echo "[i] kseg: building the LKM ..."
+	 make clean >/dev/null 2>&1
+     make >/dev/null 2>&1 || {
+	    echo "${name}: kernel module \"${KMOD}\" build failed, aborting..."
+		return
+	 }
+     if [ ! -s ${KMOD}.ko ] ; then
+	    echo "${name}: kernel module \"${KMOD}\" not generated? aborting..."
+		return
+	 fi
+	 vecho " kseg: LKM built"
+}
 
 get_kernel_segment_details()
 {
@@ -200,7 +254,7 @@ get_kernel_segment_details()
 
  echo "[+] Kernel Segment details"
  if [ ! -d ${DBGFS_LOC} ] ; then
-	echo "${name}: kernel debugfs not present? aborting..."
+	echo "${name}: kernel debugfs not supported or mounted? aborting..."
 	return
  else
     vecho " debugfs location verfied"
@@ -211,24 +265,16 @@ get_kernel_segment_details()
   #pwd
 
   if [ ! -s ${KMOD}.ko ] ; then
-	 vecho " kseg: building the LKM ..."
-     make >/dev/null 2>&1 || {
-	    echo "${name}: kernel module \"${KMOD}\" build failed, aborting..."
-		return
-	 }
-     if [ ! -s ${KMOD}.ko ] ; then
-	    echo "${name}: kernel module \"${KMOD}\" not generated? aborting..."
-		return
-	 fi
-	 vecho " kseg: LKM built"
+     build_lkm
   fi
 
   # Ok, the kernel module is there, lets insert it!
   #ls -l ${KMOD}.ko
   sudo rmmod ${KMOD} 2>/dev/null   # rm any stale instance
   sudo insmod ./${KMOD}.ko || {
-	    echo "${name}: insmod(8) on kernel module \"${KMOD}\" failed, aborting..."
-		return
+	    echo "${name}: insmod(8) on kernel module \"${KMOD}\" failed, retry once..."
+        build_lkm
+	    sudo insmod ./${KMOD}.ko || return
   }
   lsmod |grep -q ${KMOD} || {
 	    echo "${name}: insmod(8) on kernel module \"${KMOD}\" failed? aborting..."
@@ -246,11 +292,10 @@ get_kernel_segment_details()
   KTMP=/tmp/ktmp.$$
   sudo cat ${DBGFS_LOC}/${KMOD}/${DBGFS_FILENAME} > ${KTMP}
 
-  vecho "kseg dtl:
+  decho "kseg dtl:
 $(cat ${KTMP})"
 
- # TODO - ins k sparse region from high kva to next valid mapping
- #setup_ksparse_top
+ setup_ksparse_top
 
  #---------- Loop over the kernel segment data records
  export IFS=$'\n'
@@ -265,7 +310,10 @@ $(cat ${KTMP})"
  done #1>&2
  #----------
 
- # TODO - ins k sparse region from last valid k mapping to top end uva
+ # TODO - ins k sparse region from last (lowest) valid k mapping to top end uva
+ prevseg_start_kva_hex=$(printf "0x%llx" ${prevseg_start_kva})
+ decho "prevseg_start_kva_hex = ${prevseg_start_kva_hex}"
+ setup_ksparse_lowest ${prevseg_start_kva_hex}
 
  [ ${DEBUG} -eq 0 ] && rm -f ${KTMP}
  #sudo rmmod ${KMOD}
