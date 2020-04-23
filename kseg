@@ -248,6 +248,18 @@ build_lkm()
 	 vecho " kseg: LKM built"
 }
 
+process_ktmp()
+{
+ # Retrieve the PAGE_OFFSET and HIGHMEM lines from the KTMP file
+ PAGE_OFFSET=$(grep "^PAGE_OFFSET" ${KTMP} |cut -d"${gDELIM}" -f2)
+ HIGHMEM=$(grep "^high_memory" ${KTMP} |cut -d"${gDELIM}" -f2)
+ decho "PAGE_OFFSET = ${PAGE_OFFSET} , HIGHMEM = ${HIGHMEM}"
+
+ # Delete the PAGE_OFFSET and HIGHMEM lines from the KTMP file
+ # as we don't want them in the processing loop that follows
+ sed --in-place '/^PAGE_OFFSET/d' ${KTMP}
+ sed --in-place '/^high_memory/d' ${KTMP}
+}
 get_kernel_segment_details()
 {
 #set +x
@@ -291,6 +303,7 @@ get_kernel_segment_details()
   # Finally! generate the kernel seg details
   KTMP=/tmp/ktmp.$$
   sudo cat ${DBGFS_LOC}/${KMOD}/${DBGFS_FILENAME} > ${KTMP}
+  process_ktmp
 
   decho "kseg dtl:
 $(cat ${KTMP})"

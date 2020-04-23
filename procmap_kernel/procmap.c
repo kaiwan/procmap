@@ -160,6 +160,13 @@ static void show_kernelseg_details(char *buf)
 		(TYPECST)MODULES_VADDR, (TYPECST)MODULES_END);
 	strncat(buf, tmpbuf, strlen(tmpbuf));
 #endif
+
+	memset(tmpbuf, 0, TMPMAX);
+	snprintf(tmpbuf, TMPMAX,
+		"PAGE_OFFSET," FMTSPC "\n"
+		"high_memory," FMTSPC "\n",
+		(TYPECST)PAGE_OFFSET, (TYPECST)high_memory);
+	strncat(buf, tmpbuf, strlen(tmpbuf));
 }
 
 /* Our debugfs file 1's read callback function */
