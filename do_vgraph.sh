@@ -167,9 +167,6 @@ do
 done
 } # end showArray()
 
-LIMIT_SCALE_SZ=10
-
-
 gNumSparse=0
 gTotalSparseSize=0
 gTotalSegSize=0

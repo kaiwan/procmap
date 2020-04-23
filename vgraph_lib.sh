@@ -249,10 +249,13 @@ do
 		# i.e. for 7 digits, i.e., ~ 1 MB to 9.9 MB, 3 line box
     elif [ ${segscale} -ge 5 -a ${segscale} -le 7 ]; then
 		let box_height=segscale-4
-    else
+    elif [ ${segscale} -ge 8 -a ${segscale} -le 13 ]; then
 		# for segscale >= 8 digits
-		# i.e. for 8 digits, i.e., from ~ 10 MB onwards, show an oversized ellipse box
-		box_height=10
+		let box_height=segscale-3
+    else
+		# for segscale >= 14 digits
+		# i.e. for 14 digits, i.e., from ~ 1 TB onwards, show an oversized ellipse box
+		box_height=16
     fi
     #---
 

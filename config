@@ -9,6 +9,8 @@ gDELIM=","
 VERBOSE=0
 DEBUG=0
 
+LIMIT_SCALE_SZ=16
+
 # userspace VAS display configs
 SHOW_USERSPACE=1
 EMB=0  # set to 1 for 'embedded' systems; simpler [no float point, etc]
