@@ -278,5 +278,5 @@ trim_string_middle()
 vecho()
 {
 [ ${VERBOSE} -eq 0 ] && return
-echo "$@"
+echo "[v] $@"
 }

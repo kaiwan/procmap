@@ -12,6 +12,8 @@ local i k
 local segname seg_sz start_va end_va mode offset
 local szKB=0 szMB=0 szGB=0 szTB=0
 
+local LIN_FIRST_K="+------------------  K E R N E L   S E G M E N T  ---------------------+"
+local LIN_FIRST_U="+--------------------    U S E R   V A S  -----------------------------+"
 local         LIN="+----------------------------------------------------------------------+"
 local ELLIPSE_LIN="~ .       .       .       .       .       .        .       .        .  ~"
 local BOX_RT_SIDE="|                                                                      |"
@@ -90,7 +92,17 @@ do
 	# +----------------------------------------------------------------------+ 000055681263b000
 	# Changed to end_va first we now always print in descending order
     if [ ${IS_64_BIT} -eq 1 ] ; then
-      printf "%s %016lx\n" "${LIN}" "${end_va}"
+      if [ ${i} -ne 0 ] ; then
+         printf "%s %016lx\n" "${LIN}" "${end_va}"
+	  else   # very first line
+	     tput bold
+         if [ "${1}" = "-k" ] ; then
+            printf "%s %016lx\n" "${LIN_FIRST_K}" "${end_va}"
+		 else
+            printf "%s %016lx\n" "${LIN_FIRST_U}" "${end_va}"
+		 fi
+		 color_reset
+	  fi
     else
       printf "%s %08x\n" "${LIN}" "${end_va}"
     fi
@@ -146,7 +158,7 @@ do
 	  local perms=${mode}
 	fi
 
-	# mode + mapping type
+	# mode (perms) + mapping type
 	#  print in bold red fg if:
 	#    mode == ---
 	#    mode violates the W^X principle, i.e., w and x set
@@ -157,9 +169,19 @@ do
 	echo "${perms}" | grep -q ".wx" && flag_wx_perms=1
 
 	if [ ${flag_null_perms} -eq 1 -o ${flag_wx_perms} -eq 1 ] ; then
-		tmp5a=$(printf "%s%s,%s%s," $(tput bold) $(fg_red) "${perms}" $(color_reset))
+		tmp5a=$(printf "%s%s,%s%s" $(tput bold) $(fg_red) "${perms}" $(color_reset))
+	    if [ "$1" = "-u" ] ; then # addn comma only for userspace
+		   tmp5a="${tmp5a},"
+		else                      # to compensate, addn space for kernel
+		   tmp5a="${tmp5a} "
+		fi
 	else
-		tmp5a=$(printf "%s,%s," $(fg_black) "${perms}")
+		tmp5a=$(printf "%s,%s" $(fg_black) "${perms}")
+	    if [ "$1" = "-u" ] ; then # addn comma only for userspace
+		   tmp5a="${tmp5a},"
+		else                      # to compensate, addn space for kernel
+		   tmp5a="${tmp5a} "
+	    fi
 	fi
 	tmp5a_nocolor=$(printf ",%s," "${perms}")
 	len_perms=${#tmp5a_nocolor}
@@ -214,7 +236,7 @@ do
 	    echo "Kindly report this as a bug, thanks!"
 	    exit 1
     }
-    #decho "seg_sz = ${seg_sz} segscale=${segscale}"
+    decho "seg_sz = ${seg_sz} segscale=${segscale}"
 
     local box_height=0
     # for segscale range [1-4]
@@ -241,11 +263,12 @@ do
     }
 
     #decho "box_height = ${box_height} oversized=${oversized}"
+	local x
     for ((x=1; x<${box_height}; x++))
     do
    	  printf "%s\n" "${BOX_RT_SIDE}"
    	  if [ ${oversized} -eq 1 ] ; then
-   		[ ${x} -eq $(((LIMIT_SCALE_SZ-1)/2)) ] && printf "%s\n" "${ELLIPSE_LIN}"
+        [ ${x} -eq $(((LIMIT_SCALE_SZ-1)/2)) ] && printf "%s\n" "${ELLIPSE_LIN}"
    	  fi
     done
     oversized=0
@@ -255,9 +278,9 @@ done
 #+----------------------------------------------------------------------+ 0000000000000000
 if [ "$1" = "-u" ] ; then
    if [ ${IS_64_BIT} -eq 1 ] ; then
-      printf "%s %016lx\n" "${LIN}" "0x${start_va}"
+      printf "%s %016lx\n" "${LIN}" "${start_va}"
    else
-      printf "%s %08x\n" "${LIN}" "0x${start_va}"
+      printf "%s %08x\n" "${LIN}" "${start_va}"
    fi
 fi
 } # end graphit()
