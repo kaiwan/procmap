@@ -79,7 +79,6 @@ fi
 # Populate the global 'n-dim' (n=5) array gkArr.
 interpret_kernel_rec()
 {
-prevseg_start_kva=0x0
 local gap=0  # size (in bytes, decimal) of the kernel region,
              # i.e., end_kva - start_kva
 local start_kva=0x$(echo "${1}" |cut -d"${gDELIM}" -f1)
