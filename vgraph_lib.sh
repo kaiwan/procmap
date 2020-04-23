@@ -12,8 +12,10 @@ local i k
 local segname seg_sz start_va end_va mode offset
 local szKB=0 szMB=0 szGB=0 szTB=0
 
-local LIN_FIRST_K="+------------------  K E R N E L   S E G M E N T  ---------------------+"
-local LIN_FIRST_U="+--------------------    U S E R   V A S  -----------------------------+"
+local LIN_FIRST_K="+------------------  K E R N E L   S E G M E N T  high kva  -----------+"
+local  LIN_LAST_K="+------------------  K E R N E L   S E G M E N T   low kva  -----------+"
+local LIN_FIRST_U="+--------------------    U S E R   V A S  high uva  -------------------+"
+local  LIN_LAST_U="+--------------------    U S E R   V A S   low uva  -------------------+"
 local         LIN="+----------------------------------------------------------------------+"
 local ELLIPSE_LIN="~ .       .       .       .       .       .        .       .        .  ~"
 local BOX_RT_SIDE="|                                                                      |"
@@ -277,14 +279,27 @@ do
     oversized=0
 done
 
+# kernel-space: last line, the 'start kva' virt address
+if [ "${1}" = "-k" ] ; then
+	tput bold
+    if [ ${IS_64_BIT} -eq 1 ] ; then
+	  printf "%s %016lx\n" "${LIN_LAST_K}" "${X86_64_START_KVA}"
+	else
+	  printf "%s %08x\n" "${LIN_LAST_K}" "${X86_START_KVA}"
+	fi
+	color_reset
+fi
+
 # userspace: last line, the zero-th virt address; always:
 #+----------------------------------------------------------------------+ 0000000000000000
 if [ "$1" = "-u" ] ; then
+   tput bold
    if [ ${IS_64_BIT} -eq 1 ] ; then
-      printf "%s %016lx\n" "${LIN}" "${start_va}"
+      printf "%s %016lx\n" "${LIN_LAST_U}" "${start_va}"
    else
       printf "%s %08x\n" "${LIN}" "${start_va}"
    fi
+   color_reset
 fi
 } # end graphit()
 

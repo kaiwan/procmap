@@ -380,7 +380,7 @@ disp_fmt()
 {
  tput bold ; fg_red; bg_gray
  printf "Userspace VAS segments:  name   [   size,mode,map-type,file-offset] \n"
- #color_reset
+ color_reset
 }
 
 #--------------------------- m a i n _ w r a p p e r -------------------
@@ -411,23 +411,27 @@ main_wrapper()
  printf "[Full pathname: %s]\n" $(realpath /proc/$1/exe)
  color_reset
 
+ #----------- KERNEL-SPACE VAS calculation and drawing
  # Show kernelspace? Yes by default!
  [ ${SHOW_KERNELSEG} -eq 1 ] && {
     get_kernel_segment_details
-	decho "+++++++++++ back in do_vgrph"
     graphit -k
-	#exit 0
+ } || {
+   decho "Skipping kernel segment display..."
  }
 
  # Show userspace? Yes by default!
  [ ${SHOW_USERSPACE} -eq 0 ] && {
-   decho "skipping userspace display..."
+   decho "Skipping userspace display..."
    return
  }
 
- # Redirect to stderr what we don't want in the log
- printf "\n%s: Processing, pl wait ...\n" "${name}" 1>&2
+ #----------- USERSPACE VAS calculation and drawing
 
+ # Redirect to stderr what we don't want in the log
+ #printf "\n%s: Processing, pl wait ...\n" "${name}" 1>&2
+
+ color_reset
  disp_fmt
 
  # Loop over the 'infile', populating the global 'n-d' array gArray

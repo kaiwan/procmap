@@ -1,9 +1,6 @@
 #!/bin/bash
 # kseg
 
-#declare -a gkArray
-#gkRow=0
-
 KSPARSE_ENTRY="<... K sparse region ...>"
 name=$(basename $0)
 
@@ -15,7 +12,6 @@ echo
 decho "gkRow = ${gkRow}"
 echo "show_gkArray():
 [segname,size,start_kva,end_kva,mode]"
-#set -x
 
 for ((i=0; i<${gkRow}; i+=${DIM}))
 do
@@ -30,7 +26,6 @@ do
     printf "%s" "${gkArray[${k}]}"      # mode
 	printf "]\n"
 done
-#set +x
 } # end show_gkArray()
 
 # Setup the kernel Sparse region at the very top end of the VAS in the gkArray[]
@@ -45,8 +40,6 @@ setup_ksparse_top()
  [ ${IS_64_BIT} -eq 1 ] && HIGHEST_KVA=0xffffffffffffffff || HIGHEST_KVA=0xffffffff
 
 local gap_dec=$((HIGHEST_KVA-top_kva))
-#local gap=$(printf "0x%llx" ${gap_dec})
-#local prevseg_start_uva_hex=$(printf "%llx" ${prevseg_start_uva})
 
 if [ ${gap_dec} -gt ${PAGE_SIZE} ]; then
   # row'n' [segname],[size],[start_uva],[end_uva],[mode],[offset]
@@ -63,6 +56,10 @@ if [ ${gap_dec} -gt ${PAGE_SIZE} ]; then
   let gNumSparse=gNumSparse+1
 fi
 } # end setup_ksparse_top()
+
+#decho() {
+# echo "$@"
+#}
 
 #------------------ i n t e r p r e t _ r e c -------------------------
 # Interpret record (a CSV 'line' from the input stream) and populate the
@@ -103,6 +100,8 @@ local seg_sz=$(printf "%llu" $((end_dec-start_dec)))  # in bytes
 # TODO
 # vsyscall: manually retrieve detail into gkArray[]
 
+#set -x
+
 #------------ Sparse Detection
 if [ ${KSPARSE_SHOW} -eq 1 ]; then
 
@@ -112,15 +111,13 @@ decho "$2: seg=${name} prevseg_name=${prevseg_name} ,  gkRow=${gkRow} "
 
 # Detect sparse region, and if present, insert into the gArr[].
 # Sparse region detected by condition:
-#  gap = this-segment-start - prev-segment-end > 1 page
-# Wait! With order by Descending va, we should take the prev segment's
-# start uva (not the end uva)!
 #  gap = prev_seg_start - this-segment-end > 1 page
 
   if [ $2 -eq 1 ] ; then   # ignore the first kernel region
      decho "k sparse check: skipping first kernel region"
   else
-     gap=$((${prevseg_start_kva}-${end_dec}))
+	 decho "prevseg_start_kva=${prevseg_start_kva}"
+     gap=$(bc <<< "(${prevseg_start_kva}-${end_dec})")
      local gap_hex=$(printf "0x%llx" ${gap})
      decho "gap = ${gap}"
      [ ${gap} -gt ${PAGE_SIZE} ] && {
@@ -143,7 +140,6 @@ decho "$2: seg=${name} prevseg_name=${prevseg_name} ,  gkRow=${gkRow} "
 
     # start kva (hex)
     local prevseg_start_kva_hex=$(printf "0x%llx" ${prevseg_start_kva})
-	#decho "prevseg_start_uva_hex=${prevseg_start_uva_hex}  gap = ${gap_hex}"
     gkArray[${gkRow}]=$((${prevseg_start_kva_hex}-${gap_hex}))
     let gkRow=gkRow+1
 
@@ -166,14 +162,9 @@ prevseg_start_kva=${start_dec}
 fi
 #--------------
 
-#set -x
-
 #--- Populate the global array
-#echo "gkArray[${gkRow}]=${name}"
 gkArray[${gkRow}]=${name}
 let gkRow=gkRow+1
-
-#echo "gkArray[${gkRow}]=${seg_sz}"
 gkArray[${gkRow}]=${seg_sz}
 let gkRow=gkRow+1
 gkArray[${gkRow}]=${start_kva}
@@ -194,25 +185,32 @@ decho "prevseg_name = ${prevseg_name}
 "
 } # end interpret_kernel_rec()
 
-# Insert k sparse region from last (lowest) valid k mapping to top end uva
+# Insert k sparse region from last (lowest) valid k mapping (often, lowmem)
+# to first valid kernel va
 # Parameters
-#   $1 : prev segment/mapping start va
+#   $1 : prev segment/mapping start va (in hex)
 setup_ksparse_lowest()
 {
 #set -x
- # TODO
- [ ${IS_64_BIT} -eq 1 ] && HIGHEST_UVA=0x7ffcaa17b000 || HIGHEST_UVA=${PAGE_OFFSET_ON_32BIT}
+ # TODO - verify!
+ # The highest uva:
+ #  On 32-bit = kernel PAGE_OFFSET-1
+ #  On 64-bit = it varies with the arch
+ #   x86_64: Ref: <kernel-src>/Documentation/x86/x86_64/mm.rst
+ #     Start addr    |   Offset   |     End addr     |  Size   | VM area description
+ #  0000000000000000 |    0       | 00007fffffffffff |  128 TB | user-space virtual memory, different per mm
+ #
+ # NOTE- this info is encoded into the 'config' file, pl refer to it.
 
-#local gap_dec=$(($1-${HIGHEST_UVA}))
-#local gap_dec=$(bc <<< "(${kva}-${HIGHEST_UVA})")
+# The way to perform arithmetic in bash on large #s is to use bc(1);
+# AND to to decimal arithmetic and then convert to hex if required!
 
-# The way to perform arithmetic in bash on large #s is to use bc(1); f.e.
-# echo 'obase=16; FFFF9BE100000000-7FFCAA17B000' |bc -l
-# BUT, the hex #s Must be in uppercase chars only!
-local kva=${1^^}
-local HUVA=${HIGHEST_UVA^^}
-local gap_hex=$(echo "obase=16; $kva-$HUVA" |bc -l)
-local gap_dec=$(printf "%llu" 0x${gap_hex})
+# $1 - X86_64_START_KVA
+local kva_dec=$(printf "%llu" ${1})
+local X86_64_START_KVA_DEC=$(printf "%llu" ${X86_64_START_KVA})
+local gap_dec=$(bc <<< "(${kva_dec}-${X86_64_START_KVA_DEC})")
+
+#decho "p1 = $1 , X86_64_START_KVA = ${X86_64_START_KVA} ; gap_dec=${gap_dec}"
 
 if [ ${gap_dec} -gt ${PAGE_SIZE} ]; then
   # row'n' [segname],[size],[start_uva],[end_uva],[mode],[offset]
@@ -220,9 +218,9 @@ if [ ${gap_dec} -gt ${PAGE_SIZE} ]; then
   let gkRow=gkRow+1
   gkArray[${gkRow}]="${gap_dec}"
   let gkRow=gkRow+1
-  gkArray[${gkRow}]=${HIGHEST_UVA}    # start kva
+  gkArray[${gkRow}]=${X86_64_START_KVA}    # start kva
   let gkRow=gkRow+1
-  gkArray[${gkRow}]="${1}"            # end (higher) kva
+  gkArray[${gkRow}]="${1}"                 # end (higher) kva
   let gkRow=gkRow+1
   gkArray[${gkRow}]="---"
   let gkRow=gkRow+1
@@ -259,6 +257,16 @@ process_ktmp()
  sed --in-place '/^PAGE_OFFSET/d' ${KTMP}
  sed --in-place '/^high_memory/d' ${KTMP}
 }
+
+show_x86_64_arch()
+{
+# For x86_64, 4-level paging : the typical default
+echo "X86_64_START_UVA = ${X86_64_START_UVA}"
+echo "X86_64_END_UVA = ${X86_64_END_UVA}"
+echo "X86_64_NONCANONICAL_REG_SIZE = ${X86_64_NONCANONICAL_REG_SIZE}"
+echo "X86_64_START_KVA = ${X86_64_START_KVA}"
+}
+
 get_kernel_segment_details()
 {
 #set +x
@@ -270,6 +278,9 @@ get_kernel_segment_details()
  else
     vecho " debugfs location verfied"
  fi
+
+#show_x86_64_arch
+#exit 0
 
   TOP=$(pwd)
   cd ${KERNELDIR} || return
@@ -313,6 +324,7 @@ $(cat ${KTMP})"
  export IFS=$'\n'
  local i=1
  local REC
+ prevseg_start_kva=0
  for REC in $(cat ${KTMP})
  do 
    decho "REC: $REC"
@@ -331,9 +343,6 @@ $(cat ${KTMP})"
  #sudo rmmod ${KMOD}
 
  [ ${DEBUG} -eq 1 ] && show_gkArray
-
- # draw!
- #graphit -k
 
  cd ${TOP}
 
