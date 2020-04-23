@@ -2,6 +2,7 @@
 # kseg
 
 KSPARSE_ENTRY="<... K sparse region ...>"
+VAS_128TB_HOLE="<... Non-canonical hole ...>"
 name=$(basename $0)
 
 #-----------------------s h o w A r r a y -----------------------------
@@ -17,7 +18,7 @@ for ((i=0; i<${gkRow}; i+=${DIM}))
 do
     printf "[%s," "${gkArray[${i}]}"    # segname
 	let k=i+1
-    printf "%lld," "${gkArray[${k}]}"   # seg size
+    printf "%llu," "${gkArray[${k}]}"   # seg size
 	let k=i+2
     printf "%llx," "${gkArray[${k}]}"   # start kva
 	let k=i+3
@@ -205,6 +206,9 @@ setup_ksparse_lowest()
 # The way to perform arithmetic in bash on large #s is to use bc(1);
 # AND to to decimal arithmetic and then convert to hex if required!
 
+# TODO ::
+#  this is ARCH-SPECIFIC !!!
+
 # $1 - X86_64_START_KVA
 local kva_dec=$(printf "%llu" ${1})
 local X86_64_START_KVA_DEC=$(printf "%llu" ${X86_64_START_KVA})
@@ -228,6 +232,31 @@ if [ ${gap_dec} -gt ${PAGE_SIZE} ]; then
 fi
 #set +x
 } # end setup_ksparse_lowest()
+
+setup_noncanonical_sparse_region()
+{
+# TODO :: this is ARCH SPECIFIC !!
+
+set -x
+# the noncanonical 'hole' spans from 'start kva' to 'end uva'
+# row'n' [segname],[size],[start_uva],[end_uva],[mode],[offset]
+  gkArray[${gkRow}]="${VAS_128TB_HOLE}"
+  let gkRow=gkRow+1
+  gkArray[${gkRow}]="${X86_64_NONCANONICAL_REG_SIZE}"
+  let gkRow=gkRow+1
+  gkArray[${gkRow}]=${X86_64_END_UVA}     # start kva
+  let gkRow=gkRow+1
+  gkArray[${gkRow}]="${X86_64_START_KVA}" # end (higher) kva
+  let gkRow=gkRow+1
+  gkArray[${gkRow}]="---"
+  let gkRow=gkRow+1
+  #let gNumSparse=gNumSparse+1
+set +x
+
+decho "
+ +++++++++++++++== NONCANONICAL SPARSE REGION ==+++++++++++++++++++
+"
+}
 
 # (Re)build the LKM - Loadable Kernel Module for this project
 build_lkm()
@@ -338,6 +367,11 @@ $(cat ${KTMP})"
  prevseg_start_kva_hex=$(printf "0x%llx" ${prevseg_start_kva})
  decho "prevseg_start_kva_hex = ${prevseg_start_kva_hex}"
  setup_ksparse_lowest ${prevseg_start_kva_hex}
+
+ # Non-canonical sparse region for 64-bit
+ if [ ${IS_64_BIT} -eq 1 -a ${SHOW_USERSPACE} -eq 1 ] ; then
+     setup_noncanonical_sparse_region
+ fi
 
  [ ${DEBUG} -eq 0 ] && rm -f ${KTMP}
  #sudo rmmod ${KMOD}

@@ -39,12 +39,16 @@ GB_4=$(bc <<< "scale=6; 4.0*1024.0*1024.0*1024.0")
 TB_1=$(bc <<< "scale=0; 1*1024*1024*1024*1024")
 #TB_128=$(bc <<< "scale=6; 128.0*1024.0*1024.0*1024.0*1024.0")
 
-#------ Arch-specific details
+#######################################################################
+# Arch-specific details
+#######################################################################
 # To calculate stuff (like the kernel start va), we require:
 #  end_uva ; highest user va
 #  size of the sparse non-canonical region
 
-#--- For x86_64, 4-level paging : the typical default
+#----------------------------------------------------------------------
+# For x86_64, 4-level paging : the typical default
+#----------------------------------------------------------------------
 X86_64_USER_VAS_SIZE_TB=128
 X86_64_KERNEL_VAS_SIZE_TB=128
 

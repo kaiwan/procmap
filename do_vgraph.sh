@@ -413,12 +413,16 @@ main_wrapper()
 
  #----------- KERNEL-SPACE VAS calculation and drawing
  # Show kernelspace? Yes by default!
- [ ${SHOW_KERNELSEG} -eq 1 ] && {
+ if [ ${SHOW_KERNELSEG} -eq 1 ] ; then
     get_kernel_segment_details
+    # Non-canonical sparse region for 64-bit
+    #if [ ${IS_64_BIT} -eq 1 -a ${SHOW_USERSPACE} -eq 1 ] ; then
+    #   setup_noncanonical_sparse_region
+    #fi
     graphit -k
- } || {
+ else
    decho "Skipping kernel segment display..."
- }
+ fi
 
  # Show userspace? Yes by default!
  [ ${SHOW_USERSPACE} -eq 0 ] && {

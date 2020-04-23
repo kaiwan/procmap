@@ -72,7 +72,6 @@ do
 	  return
 	fi
 
-	decho "@@@ seg_sz = ${seg_sz}"
 	szKB=$((${seg_sz}/1024))
     [ ${szKB} -ge 1024 ] && szMB=$(bc <<< "scale=2; ${szKB}/1024.0") || szMB=0
     # !EMB: if we try and use simple bash arithmetic comparison, we get a 
@@ -85,6 +84,7 @@ do
     if (( $(echo "${szGB} > 1024" |bc -l) )); then
       szTB=$(bc <<< "scale=2; ${szGB}/1024.0")
     fi
+	decho "@@@ i=$i/${rows} , seg_sz = ${seg_sz} , szTB = ${szTB}"
 
     #--- Drawing :-p  !
 	# the horizontal line with the end uva at the end of it
@@ -94,14 +94,19 @@ do
 	# +----------------------------------------------------------------------+ 000055681263b000
 	# Changed to end_va first we now always print in descending order
     if [ ${IS_64_BIT} -eq 1 ] ; then
-      if [ ${i} -ne 0 ] ; then
+	  # last loop iteration
+      if [ ${i} -eq $((${rows}-${DIM})) ] ; then
+	     tput bold
+         printf "%s %016lx\n" "${LIN_LAST_K}" ${X86_64_START_KVA}
+		 color_reset
+	  elif [ ${i} -ne 0 ] ; then
          printf "%s %016lx\n" "${LIN}" "${end_va}"
 	  else   # very first line
 	     tput bold
          if [ "${1}" = "-k" ] ; then
             printf "%s %016lx\n" "${LIN_FIRST_K}" "${end_va}"
-		 else
-            printf "%s %016lx\n" "${LIN_FIRST_U}" "${end_va}"
+		 #else
+         #   printf "%s %016lx\n" "${LIN_FIRST_U}" "${end_va}"
 		 fi
 		 color_reset
 	  fi
@@ -195,7 +200,8 @@ do
 	   len_maptype=${#tmp5b_nocolor}
 
 	   # file offset
-	   tmp5c=$(printf "%s0x%s" $(fg_black) "${offset}")
+	   tmp5c=$(printf "%s0x%s%s" $(fg_black) "${offset}" $(color_reset))
+	   #tmp5c=$(printf "%s0x%s" $(fg_black) "${offset}")
 	   tmp5c_nocolor=$(printf "0x%s" "${offset}")
 	   len_offset=${#tmp5c_nocolor}
 	fi
@@ -279,13 +285,15 @@ do
     oversized=0
 done
 
-# kernel-space: last line, the 'start kva' virt address
+# address space: the 'end uva' virt address
 if [ "${1}" = "-k" ] ; then
 	tput bold
     if [ ${IS_64_BIT} -eq 1 ] ; then
-	  printf "%s %016lx\n" "${LIN_LAST_K}" "${X86_64_START_KVA}"
+	  printf "%s %016lx\n" "${LIN_FIRST_U}" "${X86_64_END_UVA}"
+	  #printf "%s %016lx\n" "${LIN_LAST_K}" "${X86_64_START_KVA}"
 	else
-	  printf "%s %08x\n" "${LIN_LAST_K}" "${X86_START_KVA}"
+	  printf "%s %08x\n" "${LIN_FIRST_U}" "${X86_END_UVA}"
+	  #printf "%s %08x\n" "${LIN_LAST_K}" "${X86_START_KVA}"
 	fi
 	color_reset
 fi
