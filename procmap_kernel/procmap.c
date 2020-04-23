@@ -54,7 +54,7 @@ static struct dentry *gparent;
 DEFINE_MUTEX(mtx);
 
 /* 
- * show_kernelseg_details
+ * query_kernelseg_details
  * Display kernel segment details as applicable to the architecture we're
  * currently running upon.
  * Format (for most of the details):
@@ -71,12 +71,13 @@ DEFINE_MUTEX(mtx);
  * f.e. on an x86_64 VM w/ 2047 MB RAM
  *   0xffff92dac0000000,0xffff92db3fff0000,rwx,lowmem region
  */
-static void show_kernelseg_details(char *buf)
+static void query_kernelseg_details(char *buf)
 {
 #define TMPMAX	256
 	char tmpbuf[TMPMAX];
 
 #ifdef ARM
+	memset(tmpbuf, 0, TMPMAX);
 	snprintf(tmpbuf, TMPMAX,
 	FMTSPC "," FMTSPC ",r--,vector table\n",
 	(TYPECST)VECTORS_BASE, (TYPECST)VECTORS_BASE+PAGE_SIZE);
@@ -98,6 +99,7 @@ static void show_kernelseg_details(char *buf)
 #else
 #include <asm/fixmap.h>
 	 // seems to work fine on x86
+	memset(tmpbuf, 0, TMPMAX);
 	snprintf(tmpbuf, TMPMAX,
 		FMTSPC "," FMTSPC ",r--,fixmap region\n",
 		(TYPECST)FIXADDR_START, (TYPECST)FIXADDR_START+FIXADDR_SIZE);
@@ -111,6 +113,7 @@ static void show_kernelseg_details(char *buf)
 	 * arch, thus trying to maintain a 'by descending address' ordering.
 	 */
 #if(BITS_PER_LONG == 64)
+	memset(tmpbuf, 0, TMPMAX);
 	snprintf(tmpbuf, TMPMAX,
 		FMTSPC "," FMTSPC ",rwx,module region\n",
 		(TYPECST)MODULES_VADDR, (TYPECST)MODULES_END);
@@ -118,6 +121,7 @@ static void show_kernelseg_details(char *buf)
 #endif
 
 #ifdef CONFIG_KASAN  // KASAN region: Kernel Address SANitizer
+	memset(tmpbuf, 0, TMPMAX);
 	snprintf(tmpbuf, TMPMAX,
 	FMTSPC "," FMTSPC ",rw-,KASAN shadow\n",
 	(TYPECST)KASAN_SHADOW_START, (TYPECST)KASAN_SHADOW_END);
@@ -125,12 +129,14 @@ static void show_kernelseg_details(char *buf)
 #endif
 
 	/* vmalloc region */
+	memset(tmpbuf, 0, TMPMAX);
 	snprintf(tmpbuf, TMPMAX,
 		FMTSPC "," FMTSPC ",rw-,vmalloc region\n",
 		(TYPECST)VMALLOC_START, (TYPECST)VMALLOC_END);
 	strncat(buf, tmpbuf, strlen(tmpbuf));
 
 	/* lowmem region */
+	memset(tmpbuf, 0, TMPMAX);
 	snprintf(tmpbuf, TMPMAX,
 		FMTSPC "," FMTSPC ",rwx,lowmem region\n",
 		(TYPECST)PAGE_OFFSET, (TYPECST)high_memory);
@@ -138,6 +144,7 @@ static void show_kernelseg_details(char *buf)
 
 	/* (possible) highmem region;  may be present on some 32-bit systems */
 #ifdef CONFIG_HIGHMEM
+	memset(tmpbuf, 0, TMPMAX);
 	snprintf(tmpbuf, TMPMAX,
 	FMTSPC "," FMTSPC ",rwx,HIGHMEM region\n",
 	(TYPECST)PKMAP_BASE, (TYPECST)(PKMAP_BASE)+(LAST_PKMAP*PAGE_SIZE));
@@ -155,6 +162,7 @@ static void show_kernelseg_details(char *buf)
 	 */
 
 #if(BITS_PER_LONG == 32)  /* modules region: see the comment above reg this */
+	memset(tmpbuf, 0, TMPMAX);
 	snprintf(tmpbuf, TMPMAX,
 		FMTSPC "," FMTSPC ",rwx,module region:\n",
 		(TYPECST)MODULES_VADDR, (TYPECST)MODULES_END);
@@ -186,7 +194,7 @@ static ssize_t dbgfs_show_kernelseg(struct file *filp, char __user *ubuf,
 		return -ENOMEM;
 	}
 
-	show_kernelseg_details(kbuf);
+	query_kernelseg_details(kbuf);
 
 	ret = simple_read_from_buffer(ubuf, MAXLEN, fpos, kbuf,
 				       strlen(kbuf));
