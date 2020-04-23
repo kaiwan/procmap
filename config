@@ -31,4 +31,43 @@ DBGFS_LOC=$(mount |grep debugfs |awk '{print $3}')
 DBGFS_FILENAME=disp_kernelseg_details
 KSPARSE_SHOW=1
 KSTATS_SHOW=0
+
+# Common sizes
+GB_2=$(bc <<< "scale=6; 2.0*1024.0*1024.0*1024.0")
+GB_3=$(bc <<< "scale=6; 3.0*1024.0*1024.0*1024.0")
+GB_4=$(bc <<< "scale=6; 4.0*1024.0*1024.0*1024.0")
+TB_1=$(bc <<< "scale=0; 1*1024*1024*1024*1024")
+#TB_128=$(bc <<< "scale=6; 128.0*1024.0*1024.0*1024.0*1024.0")
+
+#------ Arch-specific details
+# To calculate stuff (like the kernel start va), we require:
+#  end_uva ; highest user va
+#  size of the sparse non-canonical region
+
+#--- For x86_64, 4-level paging : the typical default
+X86_64_USER_VAS_SIZE_TB=128
+X86_64_KERNEL_VAS_SIZE_TB=128
+
+# bash debugging TIP:
+#  set -x : turn tracing ON
+#  set +x : turn tracing OFF
+#set -x
+
+# TIP : for bash arithmetic w/ large #s, first calculate in *decimal* base using
+# bc(1), then convert it to hex as required (via printf)
+X86_64_START_UVA=0x0
+X86_64_END_UVA_DEC=$(bc <<< "(${X86_64_USER_VAS_SIZE_TB}*${TB_1}-1)")
+X86_64_END_UVA=$(printf "0x%llx" ${X86_64_END_UVA_DEC})
+
+# sparse non-canonical region size = 2^64 - (user VAS + kernel VAS)
+X86_64_NONCANONICAL_REG_SIZE=$(bc <<< "2^64-(${X86_64_USER_VAS_SIZE_TB}*${TB_1}+${X86_64_KERNEL_VAS_SIZE_TB}*${TB_1})")
+X86_64_NONCANONICAL_REG_SIZE_HEX=$(printf "0x%llx" ${X86_64_NONCANONICAL_REG_SIZE})
+
+# start kva = end uva + sparse non-canonical region size
+# For hex, bc(1) Requires the #s to be in UPPERCASE; so we use the ^^ op to achieve this (bash ver>=4)
+X86_64_START_KVA_DEC=$(bc <<< "(${X86_64_END_UVA_DEC}+${X86_64_NONCANONICAL_REG_SIZE}+1)")
+X86_64_START_KVA=$(printf "0x%llx" ${X86_64_START_KVA_DEC})
+#set +x
+
+
 PAGE_OFFSET_ON_32BIT=0xc0000000
