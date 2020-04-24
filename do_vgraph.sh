@@ -282,6 +282,58 @@ decho "prevseg_name = ${prevseg_name}
 "
 } # end interpret_rec()
 
+# query_highest_valid_uva()
+# Require the topmost valid userspace va, query it from the o/p of our
+# TODO : ARCH SPECIFIC !!
+query_highest_valid_uva()
+{
+local TMPF=/tmp/qhva
+awk -F"${gDELIM}" '{print $2}' ${gINFILE} > ${TMPF}
+[ ! -s ${TMPF} ] && {
+  echo "Warning! couldn't fetch highest valid uva, aborting..."
+  return
+}
+
+#set -x
+ local va
+ for va in $(cat ${TMPF})
+ do 
+   decho "va: $va"
+   local va_dec=$(printf "%llu" 0x${va})
+   if (( $(echo "${va_dec} < ${X86_64_END_UVA_DEC}" |bc -l) )); then
+     HIGHEST_VALID_UVA=${va}
+	 rm -f ${TMPF}
+	 return
+   fi
+ done
+ HIGHEST_VALID_UVA=0x0
+#set +x
+ rm -f ${TMPF}
+} # end query_highest_valid_uva()
+
+# Setup the userspace Sparse region at the very top (high) end of the VAS
+# in the gArray[]
+# TODO : ARCH SPECIFIC !!
+setup_usparse_top()
+{
+ gRow=0
+ query_highest_valid_uva
+ local HIGHEST_VALID_UVA_DEC=$(printf "%llu" 0x${HIGHEST_VALID_UVA})
+
+ decho "HIGHEST_VALID_UVA = ${HIGHEST_VALID_UVA}"
+
+ [ ${HIGHEST_VALID_UVA_DEC} -eq 0 ] && {
+  echo "Warning! couldn't fetch highest valid uva, aborting..."
+  return
+}
+
+ local gap_dec=$((X86_64_END_UVA_DEC-HIGHEST_VALID_UVA_DEC))
+ if [ ${gap_dec} -gt ${PAGE_SIZE} ]; then
+  append_userspace_mapping "${SPARSE_ENTRY}" "${gap_dec}" ${HIGHEST_VALID_UVA} \
+     "${X86_64_HIGHEST_UVA}" "----" 0
+ fi
+} # end setup_usparse_top()
+
 # Display the number passed in a human-readable fashion
 # As appropriate, also in KB, MB, GB, TB.
 # $1 : the (large) number to display
@@ -323,9 +375,11 @@ largenum_display()
 
 disp_fmt()
 {
- tput bold ; fg_red; bg_gray
- printf "Userspace VAS segments:  name   [   size,mode,map-type,file-offset] \n"
- color_reset
+ if [ ${VERBOSE} -eq 1 ] ; then
+    tput bold ; fg_red #; bg_gray
+    printf "VAS mappings:  name    [ size,perms,u:maptype,u:file-offset]\n"
+    color_reset
+ fi
 }
 
 #--------------------------- m a i n _ w r a p p e r -------------------
@@ -355,15 +409,12 @@ main_wrapper()
  printf "[=====--- Start memory map for %d:%s ---=====]\n" $1 ${nm}
  printf "[Full pathname: %s]\n" $(realpath /proc/$1/exe)
  color_reset
+ disp_fmt
 
  #----------- KERNEL-SPACE VAS calculation and drawing
  # Show kernelspace? Yes by default!
  if [ ${SHOW_KERNELSEG} -eq 1 ] ; then
     get_kernel_segment_details
-    # Non-canonical sparse region for 64-bit
-    #if [ ${IS_64_BIT} -eq 1 -a ${SHOW_USERSPACE} -eq 1 ] ; then
-    #   setup_noncanonical_sparse_region
-    #fi
     graphit -k
  else
    decho "Skipping kernel segment display..."
@@ -381,7 +432,9 @@ main_wrapper()
  #printf "\n%s: Processing, pl wait ...\n" "${name}" 1>&2
 
  color_reset
- disp_fmt
+ #[ ${SHOW_KERNELSEG} -eq 0 ] && disp_fmt
+
+ setup_usparse_top
 
  # Loop over the 'infile', populating the global 'n-d' array gArray
  local REC
@@ -394,9 +447,8 @@ main_wrapper()
  done 1>&2
 
 # By now, we've populated the gArr[] ;
-# If order is by descending va's (the default), then check for and insert
-# the last two entries: a conditional/possible sparse region and the NULL
-# trap page
+# Order is by descending va's, so check for and insert the last two entries:
+#  a conditional/possible sparse region and the NULL trap page
 
 # Setup the Sparse region just before the NULL trap page:
 #decho "prevseg_start_uva = ${prevseg_start_uva}"
@@ -421,11 +473,6 @@ setup_nulltrap_page
 [ ${SHOW_USERSPACE} -eq 1 ] && graphit -u
 
 disp_fmt
-
-GB_2=$(bc <<< "scale=6; 2.0*1024.0*1024.0*1024.0")
-GB_3=$(bc <<< "scale=6; 3.0*1024.0*1024.0*1024.0")
-GB_4=$(bc <<< "scale=6; 4.0*1024.0*1024.0*1024.0")
-TB_128=$(bc <<< "scale=6; 128.0*1024.0*1024.0*1024.0*1024.0")
 
  #--- Footer
  tput bold

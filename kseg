@@ -29,7 +29,8 @@ do
 done
 } # end show_gkArray()
 
-# Setup the kernel Sparse region at the very top end of the VAS in the gkArray[]
+# Setup the kernel Sparse region at the very top (high) end of the VAS
+# in the gkArray[]
 # TODO : ARCH SPECIFIC !!
 setup_ksparse_top()
 {
@@ -227,7 +228,7 @@ get_kernel_segment_details()
 {
 #set +x
 
- echo "[+] Kernel Segment details"
+ #echo "[+] Kernel Segment details"
  if [ ! -d ${DBGFS_LOC} ] ; then
 	echo "${name}: kernel debugfs not supported or mounted? aborting..."
 	return
