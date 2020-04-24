@@ -79,6 +79,7 @@ source ${PFX}/kseg || {
  exit 1
 }
 
+
 # Titles, etc...
 NULLTRAP_STR="< NULL trap >"
 SPARSE_ENTRY="<... Sparse Region ...>"
@@ -173,18 +174,9 @@ gTotalSegSize=0
 
 setup_nulltrap_page()
 {
-  gArray[${gRow}]="${NULLTRAP_STR}"
-  let gRow=gRow+1
-  gArray[${gRow}]=${PAGE_SIZE}
-  let gRow=gRow+1
-  gArray[${gRow}]=0
-  let gRow=gRow+1
-  gArray[${gRow}]=$(printf "%x" ${PAGE_SIZE})
-  let gRow=gRow+1
-  gArray[${gRow}]="----"
-  let gRow=gRow+1
-  gArray[${gRow}]=0
-  let gRow=gRow+1
+  local pgsz_hex=$(printf "%x" ${PAGE_SIZE})
+  append_userspace_mapping "${NULLTRAP_STR}" ${PAGE_SIZE} 0 \
+     ${pgsz_hex} "----" 0
 } # end setup_nulltrap_page()
 
 
@@ -235,13 +227,6 @@ if [ "${segment}" = "[vsyscall]" -a ${SHOW_VSYSCALL_PAGE} -eq 0 ]; then
    return
 fi
 
-# Show null trap, vpage 0
-local n=$((gFileLines-1))
-if [ ${NULL_TRAP_SHOW} -eq 1 -a ${ORDER_BY_DESC_VA} -eq 0 -a $2 -eq 0 ]; then
-  # very first entry
-  setup_nulltrap_page
-fi
-
 #------------ Sparse Detection
 if [ ${SPARSE_SHOW} -eq 1 ]; then
 
@@ -261,52 +246,22 @@ if [ "${segment}" != "[vsyscall]" ]; then
   gap=$((${prevseg_start_uva}-${end_dec}))
   local gap_hex=$(printf "0x%llx" ${gap})
   decho "gap = ${gap}"
-  [ ${gap} -gt ${PAGE_SIZE} ] && {
-    DetectedSparse=1
-  }
+  [ ${gap} -gt ${PAGE_SIZE} ] && DetectedSparse=1
 fi
 
 if [ ${DetectedSparse} -eq 1 -a "${prevseg_name}" != "[vsyscall]" ]; then
-    # name / label
-	# The global 6d-array's format is:
-	#          col0     col1      col2       col3   col4    col5
-	# row'n' [segname],[size],[start_uva],[end_uva],[mode],[offset]
+  local prevseg_start_uva_hex=$(printf "%x" ${prevseg_start_uva})
+  #decho "prevseg_start_uva_hex=${prevseg_start_uva_hex}  gap = ${gap_hex}"
+  local sparse_start_uva=$((0x${prevseg_start_uva_hex}-${gap_hex}))
 
-    gArray[${gRow}]="${SPARSE_ENTRY}"
-    let gRow=gRow+1
+  append_userspace_mapping "${SPARSE_ENTRY}" ${gap} ${sparse_start_uva} \
+     ${prevseg_start_uva_hex} "----" 0
 
-    # segment size (bytes in decimal)
-    [ ${NULL_TRAP_SHOW} -eq 0 ] && {
-      gArray[${gRow}]=${gap}
-    } || {
-      let gap=$gap-$PAGE_SIZE
-      gArray[${gRow}]=${gap}
-    }
-    let gRow=gRow+1
-
-    # start uva (hex)
-    local prevseg_start_uva_hex=$(printf "%x" ${prevseg_start_uva})
-	#decho "prevseg_start_uva_hex=${prevseg_start_uva_hex}  gap = ${gap_hex}"
-    gArray[${gRow}]=$((0x${prevseg_start_uva_hex}-${gap_hex}))
-    let gRow=gRow+1
-
-    # end uva (hex)
-    gArray[${gRow}]=${prevseg_start_uva_hex}
-    let gRow=gRow+1
-
-    # mode+flag
-    gArray[${gRow}]="----"
-    let gRow=gRow+1
-
-    # file off
-    gArray[${gRow}]=0
-    let gRow=gRow+1
-
-    # Stats
-    [ ${STATS_SHOW} -eq 1 ] && {
+  # Stats
+  [ ${STATS_SHOW} -eq 1 ] && {
       let gNumSparse=gNumSparse+1
       let gTotalSparseSize=gTotalSparseSize+gap
-    }
+  }
 fi
 
 prevseg_start_uva=${start_dec}
@@ -314,18 +269,8 @@ fi
 #--------------
 
 #--- Populate the global array
-gArray[${gRow}]=${segment}
-let gRow=gRow+1
-gArray[${gRow}]=${seg_sz}
-let gRow=gRow+1
-gArray[${gRow}]=${start_uva}
-let gRow=gRow+1
-gArray[${gRow}]=${end_uva}
-let gRow=gRow+1
-gArray[${gRow}]=${mode}
-let gRow=gRow+1
-gArray[${gRow}]=${offset}
-let gRow=gRow+1
+append_userspace_mapping "${segment}" ${seg_sz} ${start_uva} \
+     ${end_uva} "${mode}" ${offset}
 
 [ ${STATS_SHOW} -eq 1 ] && {
   let gTotalSegSize=${gTotalSegSize}+${seg_sz}
@@ -460,37 +405,20 @@ local gap=$(printf "0x%llx" ${gap_dec})
 local prevseg_start_uva_hex=$(printf "%llx" ${prevseg_start_uva})
 
 if [ ${gap_dec} -gt ${PAGE_SIZE} ]; then
-  # row'n' [segname],[size],[start_uva],[end_uva],[mode],[offset]
-  gArray[${gRow}]="${SPARSE_ENTRY}"
-  let gRow=gRow+1
-  gArray[${gRow}]="${gap_dec}"
-  let gRow=gRow+1
-  gArray[${gRow}]=${PAGE_SIZE} # start va
-  let gRow=gRow+1
-  gArray[${gRow}]="${prevseg_start_uva_hex}"  # end (higher) va
-  let gRow=gRow+1
-  gArray[${gRow}]="----"
-  let gRow=gRow+1
-  gArray[${gRow}]="0"
-  let gRow=gRow+1
+  append_userspace_mapping "${SPARSE_ENTRY}" ${gap_dec} ${PAGE_SIZE} \
+     ${prevseg_start_uva_hex} "----" 0
   let gNumSparse=gNumSparse+1
+  let gTotalSparseSize=gTotalSparseSize+gap
 fi
 
-# Setup the NULL trap page:
+# Setup the NULL trap page: the very last entry
 if [ ${NULL_TRAP_SHOW} -eq 1 -a ${ORDER_BY_DESC_VA} -eq 1 ]; then
-  # very last entry
   setup_nulltrap_page
 fi
 
 [ ${DEBUG} -eq 1 ] && showArray
 
 # draw it!
-
-#[ ${SHOW_KERNELSEG} -eq 1 ] && {
-#   graphit -k
-   #color_reset
-   #exit 0
-#}
 
 [ ${SHOW_USERSPACE} -eq 1 ] && graphit -u
 
@@ -546,6 +474,10 @@ usage()
 }
 
 ##### 'main' : execution starts here #####
+
+#echo "test_256"
+#test_256
+#exit 0
 
 which bc >/dev/null || {
   echo "${name}: bc(1) package missing, pl install. Aborting..."

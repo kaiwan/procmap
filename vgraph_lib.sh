@@ -1,6 +1,59 @@
 #!/bin/bash
 # vgraph_lib.sh
 
+# append_kernel_mapping()
+# Append a new n-dim entry in the gkArray[] data structure,
+# creating, in effect, a new mapping
+# Parameters:
+#   $1 : name of mapping/segment
+#   $2 : size (in bytes, decimal) of mapping/segment
+#   $3 : start va of mapping/segment
+#   $4 : end va of mapping/segment
+#   $5 : mode (perms) of mapping/segment
+append_kernel_mapping()
+{
+  # row'n' [segname],[size],[start_uva],[end_uva],[mode],[offset]
+  gkArray[${gkRow}]="${1}"
+  let gkRow=gkRow+1
+  gkArray[${gkRow}]="${2}"
+  let gkRow=gkRow+1
+  gkArray[${gkRow}]=${3}        # start kva
+  let gkRow=gkRow+1
+  gkArray[${gkRow}]="${4}"  # end (higher) kva
+  let gkRow=gkRow+1
+  gkArray[${gkRow}]="${5}"
+  let gkRow=gkRow+1
+  #let gNumSparse=gNumSparse+1
+} # end append_kernel_mapping()
+
+# append_userspace_mapping()
+# Append a new n-dim entry in the gArray[] data structure,
+# creating, in effect, a new mapping
+# Parameters:
+#   $1 : name of mapping/segment
+#   $2 : size (in bytes, decimal) of mapping/segment
+#   $3 : start va of mapping/segment
+#   $4 : end va of mapping/segment
+#   $5 : mode (perms) + mapping type (p|s) of mapping/segment
+#   $6 : file offset (hex) of mapping/segment
+append_userspace_mapping()
+{
+  # row'n' [segname],[size],[start_uva],[end_uva],[mode],[offset]
+  gArray[${gRow}]="${1}"
+  let gRow=gRow+1
+  gArray[${gRow}]=${2}
+  let gRow=gRow+1
+  gArray[${gRow}]=${3}        # start kva
+  let gRow=gRow+1
+  gArray[${gRow}]=${4}  # end (higher) kva
+  let gRow=gRow+1
+  gArray[${gRow}]="${5}"
+  let gRow=gRow+1
+  gArray[${gRow}]=${6}
+  let gRow=gRow+1
+  #let gNumSparse=gNumSparse+1
+} # end append_userspace_mapping()
+
 #---------------------- g r a p h i t ---------------------------------
 # Iterates over the global '6d' array gArr[] 'drawing' the vgraph.
 # Data driven tech!
@@ -10,15 +63,15 @@ graphit()
 {
 local i k
 local segname seg_sz start_va end_va mode offset
-local szKB=0 szMB=0 szGB=0 szTB=0
+local szKB=0 szMB=0 szGB=0 szTB=0 szPB=0
 
-local LIN_FIRST_K="+------------------  K E R N E L   S E G M E N T  high kva  -----------+"
-local  LIN_LAST_K="+------------------  K E R N E L   S E G M E N T   low kva  -----------+"
-local LIN_FIRST_U="+--------------------    U S E R   V A S  high uva  -------------------+"
-local  LIN_LAST_U="+--------------------    U S E R   V A S   low uva  -------------------+"
+local LIN_FIRST_K="+------------------  K E R N E L   S E G M E N T    end kva  ----------+"
+local  LIN_LAST_K="+------------------  K E R N E L   S E G M E N T  start kva  ----------+"
+local LIN_FIRST_U="+--------------------    U S E R   V A S    end uva  ------------------+"
+local  LIN_LAST_U="+--------------------    U S E R   V A S  start uva  ------------------+"
 local         LIN="+----------------------------------------------------------------------+"
 local ELLIPSE_LIN="~ .       .       .       .       .       .        .       .        .  ~"
-local BOX_RT_SIDE="|                                                                      |"
+local   BOX_SIDES="|                                                                      |"
 local linelen=$((${#LIN}-2))
 local oversized=0
 
@@ -40,6 +93,7 @@ do
 	local segname_nocolor tmp1_nocolor tmp2_nocolor tmp3_nocolor
 	local tmp4_nocolor tmp5a_nocolor tmp5b_nocolor tmp5c_nocolor
 	local tmp5 tmp5_nocolor
+	local tmp7 tmp7_nocolor
 
     #--- Retrieve values from the array
 	if [ "$1" = "-u" ] ; then
@@ -72,7 +126,9 @@ do
 	  return
 	fi
 
-	szKB=$((${seg_sz}/1024))
+#set -x
+	#szKB=$((${seg_sz}/1024))
+    szKB=$(bc <<< "${seg_sz}/1024")
     [ ${szKB} -ge 1024 ] && szMB=$(bc <<< "scale=2; ${szKB}/1024.0") || szMB=0
     # !EMB: if we try and use simple bash arithmetic comparison, we get a 
     # "integer expression expected" err; hence, use bc(1):
@@ -84,7 +140,12 @@ do
     if (( $(echo "${szGB} > 1024" |bc -l) )); then
       szTB=$(bc <<< "scale=2; ${szGB}/1024.0")
     fi
-	decho "@@@ i=$i/${rows} , seg_sz = ${seg_sz} , szTB = ${szTB}"
+    szPB=0
+    if (( $(echo "${szTB} > 1024" |bc -l) )); then
+      szPB=$(bc <<< "scale=2; ${szTB}/1024.0")
+    fi
+#set +x
+	decho "@@@ i=$i/${rows} , seg_sz = ${seg_sz}"
 
     #--- Drawing :-p  !
 	# the horizontal line with the end uva at the end of it
@@ -95,7 +156,7 @@ do
 	# Changed to end_va first we now always print in descending order
     if [ ${IS_64_BIT} -eq 1 ] ; then
 	  # last loop iteration
-      if [ ${i} -eq $((${rows}-${DIM})) ] ; then
+      if [ "$1" = "-k" -a ${i} -eq $((${rows}-${DIM})) ] ; then
 	     tput bold
          printf "%s %016lx\n" "${LIN_LAST_K}" ${X86_64_START_KVA}
 		 color_reset
@@ -122,30 +183,37 @@ do
 	tmp1=$(printf "%s|%20s " $(fg_orange) ${segname})
 	local segname_nocolor=$(printf "|%20s " ${segname})
 
-	# Print segment size according to scale; in KB or MB or GB or TB
+	# Colour and Print segment size according to scale; in KB or MB or GB or TB or PB
 	tlen=0
     if (( $(echo "${szKB} < 1024" |bc -l) )); then
 		# print KB only
-		tmp2=$(printf "%s [%4d KB" $(fg_green) ${szKB})
+		tmp2=$(printf "%s [%4d KB" $(fg_darkgreen) ${szKB})
 		tmp2_nocolor=$(printf " [%4d KB" ${szKB})
 		tlen=${#tmp2_nocolor}
     elif (( $(echo "${szKB} > 1024" |bc -l) )); then
       if (( $(echo "${szMB} < 1024" |bc -l) )); then
 		# print MB only
-		tmp3=$(printf "%s[%6.2f MB" $(fg_yellow) ${szMB})
-		tmp3_nocolor=$(printf "[%6.2f MB" ${szMB})
+		tmp3=$(printf "%s[%7.2f MB" $(fg_navyblue) ${szMB})
+		tmp3_nocolor=$(printf "[%7.2f MB" ${szMB})
 		tlen=${#tmp3_nocolor}
-    elif (( $(echo "${szKB} > 1024" |bc -l) )); then
+    elif (( $(echo "${szMB} > 1024" |bc -l) )); then
       if (( $(echo "${szGB} < 1024" |bc -l) )); then
 		# print GB only
-		tmp4=$(printf "%s[%6.2f GB" $(fg_yellow) ${szGB})
-		tmp4_nocolor=$(printf "[%6.2f GB" ${szGB})
+		tmp4=$(printf "%s%s[%7.2f GB%s" $(tput bold) $(fg_purple) ${szGB} $(color_reset))
+		tmp4_nocolor=$(printf "[%7.2f GB" ${szGB})
 		tlen=${#tmp4_nocolor}
-	else
+    elif (( $(echo "${szGB} > 1024" |bc -l) )); then
+      if (( $(echo "${szTB} < 1024" |bc -l) )); then
 		# print TB only
-		tmp5=$(printf "%s[%9.2f TB" $(fg_red) ${szTB})
-		tmp5_nocolor=$(printf "[%9.2f TB" ${szTB})
+		tmp5=$(printf "%s%s[%7.2f TB%s" $(tput bold) $(fg_red) ${szTB} $(color_reset))
+		tmp5_nocolor=$(printf "[%7.2f TB" ${szTB})
 		tlen=${#tmp5_nocolor}
+	else
+		# print PB only
+		tmp7=$(printf "%s%s[%9.2f PB%s" $(tput bold) $(fg_red) ${szPB} $(color_reset))
+		tmp7_nocolor=$(printf "[%9.2f PB" ${szPB})
+		tlen=${#tmp7_nocolor}
+       fi
       fi
 	 fi
 	fi
@@ -230,9 +298,9 @@ do
 
 	# the second actual print emitted!
     if [ ${tlen} -lt ${#LIN} ] ; then
-		echo "${tmp1}${tmp2}${tmp3}${tmp4}${tmp5}${tmp5a}${tmp5b}${tmp5c}${tmp6}"
+		echo "${tmp1}${tmp2}${tmp3}${tmp4}${tmp5}${tmp7}${tmp5a}${tmp5b}${tmp5c}${tmp6}"
 	else
-		echo "${tmp1}${tmp2}${tmp3}${tmp4}${tmp5}${tmp5a}"
+		echo "${tmp1}${tmp2}${tmp3}${tmp4}${tmp5}${tmp7}${tmp5a}"
 	fi
 
     #--- NEW CALC for SCALING
@@ -260,16 +328,22 @@ do
     elif [ ${segscale} -ge 8 -a ${segscale} -le 13 ]; then
 		# for segscale >= 8 digits
 		let box_height=segscale-3
-    else
+    elif [ ${segscale} -ge 14 -a ${segscale} -le 16 ]; then
 		# for segscale >= 14 digits
 		# i.e. for 14 digits, i.e., from ~ 1 TB onwards, show an oversized ellipse box
 		box_height=16
+    else
+		# for segscale >= 16 digits
+		# i.e. for 16 digits, i.e., realistically, for the noncanonical 'hole' on 64-bit
+		# spanning close to 16 EB ! on x86_64
+		box_height=20
     fi
     #---
 
     # draw the sides of the 'box'
-    [ ${box_height} -ge ${LIMIT_SCALE_SZ} ] && {
-   	  box_height=${LIMIT_SCALE_SZ}
+    #[ ${box_height} -ge ${LIMIT_SCALE_SZ} ] && {
+    [ ${box_height} -ge ${LARGE_SPACE} ] && {
+   	  #box_height=${LIMIT_SCALE_SZ}
    	  oversized=1
     }
 
@@ -277,9 +351,10 @@ do
 	local x
     for ((x=1; x<${box_height}; x++))
     do
-   	  printf "%s\n" "${BOX_RT_SIDE}"
+   	  printf "%s\n" "${BOX_SIDES}"
    	  if [ ${oversized} -eq 1 ] ; then
-        [ ${x} -eq $(((LIMIT_SCALE_SZ-1)/2)) ] && printf "%s\n" "${ELLIPSE_LIN}"
+        [ ${x} -eq $(((LIMIT_SCALE_SZ-4)/2)) ] && printf "%s\n" "${ELLIPSE_LIN}"
+        #[ ${x} -eq $(((LIMIT_SCALE_SZ-1)/2)) ] && printf "%s\n" "${ELLIPSE_LIN}"
    	  fi
     done
     oversized=0

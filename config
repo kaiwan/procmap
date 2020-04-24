@@ -4,12 +4,12 @@
 #
 # Configuration file for the vasu_grapher project.
 set -a  # export all
-PAGE_SIZE=4096
 gDELIM=","
 VERBOSE=0
 DEBUG=0
 
-LIMIT_SCALE_SZ=16
+LIMIT_SCALE_SZ=20
+LARGE_SPACE=12
 
 # userspace VAS display configs
 SHOW_USERSPACE=1
@@ -49,6 +49,7 @@ TB_1=$(bc <<< "scale=0; 1*1024*1024*1024*1024")
 #----------------------------------------------------------------------
 # For x86_64, 4-level paging : the typical default
 #----------------------------------------------------------------------
+PAGE_SIZE=4096
 X86_64_USER_VAS_SIZE_TB=128
 X86_64_KERNEL_VAS_SIZE_TB=128
 
@@ -71,6 +72,7 @@ X86_64_NONCANONICAL_REG_SIZE_HEX=$(printf "0x%llx" ${X86_64_NONCANONICAL_REG_SIZ
 # For hex, bc(1) Requires the #s to be in UPPERCASE; so we use the ^^ op to achieve this (bash ver>=4)
 X86_64_START_KVA_DEC=$(bc <<< "(${X86_64_END_UVA_DEC}+${X86_64_NONCANONICAL_REG_SIZE}+1)")
 X86_64_START_KVA=$(printf "0x%llx" ${X86_64_START_KVA_DEC})
+X86_64_HIGHEST_KVA=0xffffffffffffffff
 #set +x
 
 
