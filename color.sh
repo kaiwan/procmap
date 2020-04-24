@@ -25,13 +25,19 @@ fg_black() { tput setaf 0
 }
 fg_red() { tput setaf 1
 }
+fg_purple() { tput setaf 125
+}
 fg_orange() { tput setaf 166
 }
 fg_green() { tput setaf 2 
 }
+fg_darkgreen() { tput setaf 22
+}
 fg_yellow() { tput setaf 3
 }
 fg_blue() { tput setaf 4
+}
+fg_navyblue() { tput setaf 17
 }
 fg_magenta() { tput setaf 5
 }
