@@ -30,14 +30,12 @@ sed --in-place 's/ /,/' ${TMPF}
 # del comment lines
 sed --in-place '/^#/d' ${TMPF}
 
-# If !-s option passed (default), reverse the order of lines, thus ordering
-# the VAS by descending va !!
-if [ ${ORDER_BY_DESC_VA} -eq 1 ] ; then
-  tac ${TMPF} > ${TMPF_R}
-  cp ${TMPF_R} ${outfile}
-else
-  cp ${TMPF} ${outfile}
-fi
+# REVERSE the order of lines, thus ordering the VAS by descending va !!
+tac ${TMPF} > ${TMPF_R} || {
+  echo "tac(1) failed? aborting...(pl report as bug)"
+  exit 1
+}
+cp ${TMPF_R} ${outfile}
 rm -f ${TMPF} ${TMPF_R} 2>/dev/null
 }
 
@@ -45,17 +43,12 @@ rm -f ${TMPF} ${TMPF_R} 2>/dev/null
 ##### 'main' : execution starts here #####
 
 [ $# -lt 2 ] && {
-  echo "Usage: ${name} [-s] PID-of-process-for-maps-file output-filename.csv"
+  echo "Usage: ${name} PID-of-process-for-maps-file output-filename.csv"
   exit 1
 }
 
 infile=/proc/$1/maps
 outfile=$2
-if [ $# -eq 3 ] ; then
-   [ "$1" = "-s" ] && ORDER_BY_DESC_VA=0
-   infile=/proc/$2/maps
-   outfile=$3
-fi
 
 [ ! -r ${infile} ] && {
   echo "${name}: \"$1\" not readable (permissions issue)? aborting..."

@@ -140,12 +140,8 @@ sudo readlink /proc/${PID}/exe >/dev/null || {
 LOG=log_vasu.txt
 TMPCSV=/tmp/vgrph.csv
 
-# Invoke the script to prep the memory map file
-if [ ${ORDER_BY_DESC_VA} -eq 1 ] ; then
-  ${PFX}/prep_mapsfile.sh ${PID} ${TMPCSV} || exit 1
-else
-  ${PFX}/prep_mapsfile.sh -s ${PID} ${TMPCSV} || exit 1
-fi
+# Invoke the prep_mapsfile script to prep the memory map file
+${PFX}/prep_mapsfile.sh ${PID} ${TMPCSV} || exit 1
 
 # Invoke the worker script to 'draw' the memory map
 #  Usage: do_vgraph [-s] [-d] -p PID-of-process -f input-CSV-filename(5 column format)
@@ -156,7 +152,6 @@ dovg_cmdline="-p ${PID} -f ${TMPCSV}"
 [ ${VERBOSE} -eq 1 ] && dovg_cmdline="${dovg_cmdline} -v"
 [ ${SHOW_KERNELSEG} -eq 1 ] && dovg_cmdline="${dovg_cmdline} -k"
 [ ${SHOW_USERSPACE} -eq 1 ] && dovg_cmdline="${dovg_cmdline} -u"
-#[ ${ORDER_BY_DESC_VA} -eq 0 ] && dovg_cmdline="${dovg_cmdline} -s"
 
 ${PFX}/do_vgraph.sh ${dovg_cmdline} | tee -a ${LOG} 
 

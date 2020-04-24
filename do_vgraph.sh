@@ -412,9 +412,7 @@ if [ ${gap_dec} -gt ${PAGE_SIZE} ]; then
 fi
 
 # Setup the NULL trap page: the very last entry
-if [ ${NULL_TRAP_SHOW} -eq 1 -a ${ORDER_BY_DESC_VA} -eq 1 ]; then
-  setup_nulltrap_page
-fi
+setup_nulltrap_page
 
 [ ${DEBUG} -eq 1 ] && showArray
 
@@ -439,7 +437,7 @@ TB_128=$(bc <<< "scale=6; 128.0*1024.0*1024.0*1024.0*1024.0")
    # Paranoia
    local numvmas=$(sudo wc -l /proc/$1/maps |awk '{print $1}')
    [ ${gFileLines} -ne ${numvmas} ] && printf " [!] Warning! # VMAs does not match /proc/$1/maps\n"
-   [ ${NULL_TRAP_SHOW} -eq 1 ] && let numvmas=numvmas+1
+   let numvmas=numvmas+1  # for the NULL trap page
 
    printf "=== Statistics: ===\n %d VMAs (segments or mappings)" ${numvmas}
    # TODO - assuming the split on 64-bit is 128T:128T and on 32-bit 2:2 GB; query it
@@ -489,7 +487,6 @@ which bc >/dev/null || {
   exit 1
 }
 
-ORDER_BY_DESC_VA=1
 SHOW_KERNELSEG=0
 SHOW_USERSPACE=0
 
