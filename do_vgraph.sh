@@ -110,16 +110,6 @@ local end_dec=$(printf "%llu" 0x${int_end})
 gTotalLen=$(printf "%llu" $((end_dec-start_dec)))
 gFileLines=$(wc -l ${gINFILE} |awk '{print $1}')  # = # of VMAs
 decho "range: [${start_dec} to ${end_dec}]: total size=${gTotalLen}"
-
-# 32 or 64 bit OS?
-IS_64_BIT=1
-which getconf >/dev/null || {
-  echo "${name}: WARNING! getconf(1) missing, assuming 64-bit OS!"
-} && {
-  local bitw=$(getconf -a|grep -w LONG_BIT|awk '{print $2}')
-  [ ${bitw} -eq 32 ] && IS_64_BIT=0  # implies 32-bit
-}
-decho "64-bit OS? ${IS_64_BIT}"
 } # end get_range_info()
 
 #---
@@ -300,7 +290,7 @@ awk -F"${gDELIM}" '{print $2}' ${gINFILE} > ${TMPF}
  do 
    decho "va: $va"
    local va_dec=$(printf "%llu" 0x${va})
-   if (( $(echo "${va_dec} < ${X86_64_END_UVA_DEC}" |bc -l) )); then
+   if (( $(echo "${va_dec} < ${END_UVA_DEC}" |bc -l) )); then
      HIGHEST_VALID_UVA=${va}
 	 rm -f ${TMPF}
 	 return
@@ -327,10 +317,11 @@ setup_usparse_top()
   return
 }
 
- local gap_dec=$((X86_64_END_UVA_DEC-HIGHEST_VALID_UVA_DEC))
+ local gap_dec=$((END_UVA_DEC-HIGHEST_VALID_UVA_DEC))
  if [ ${gap_dec} -gt ${PAGE_SIZE} ]; then
   append_userspace_mapping "${SPARSE_ENTRY}" "${gap_dec}" ${HIGHEST_VALID_UVA} \
-     "${X86_64_HIGHEST_UVA}" "----" 0
+     "${END_UVA}" "----" 0
+     #"${HIGHEST_UVA}" "----" 0
  fi
 } # end setup_usparse_top()
 
@@ -414,7 +405,8 @@ main_wrapper()
  #----------- KERNEL-SPACE VAS calculation and drawing
  # Show kernelspace? Yes by default!
  if [ ${SHOW_KERNELSEG} -eq 1 ] ; then
-    get_kernel_segment_details
+    populate_kernel_segment_mappings
+    #get_kernel_segment_details
     graphit -k
  else
    decho "Skipping kernel segment display..."
@@ -432,8 +424,6 @@ main_wrapper()
  #printf "\n%s: Processing, pl wait ...\n" "${name}" 1>&2
 
  color_reset
- #[ ${SHOW_KERNELSEG} -eq 0 ] && disp_fmt
-
  setup_usparse_top
 
  # Loop over the 'infile', populating the global 'n-d' array gArray
@@ -547,7 +537,6 @@ while getopts "p:f:h?kudv" opt; do
             ;;
         f)
             gINFILE=${OPTARG}
-            #echo "-p passed; PID=${PID}"
             ;;
         k)
             SHOW_KERNELSEG=1
@@ -556,11 +545,10 @@ while getopts "p:f:h?kudv" opt; do
             SHOW_USERSPACE=1
             ;;
         d)
-            echo "[+] -d: run in debug mode"
+            echo "[i] -d: run in debug mode"
             DEBUG=1
             ;;
         v)
-            #echo "[+] -d: run in debug mode"
             VERBOSE=1
             ;;
         *)

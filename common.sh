@@ -29,6 +29,12 @@ source ${PFX}/color.sh || {
  exit 1
 }
 
+prompt()
+{
+ printf "[Enter] to continue... "
+ read
+}
+
 # If we're not in a GUI (X Windows) display, abort (reqd for yad)
 check_gui()
 {

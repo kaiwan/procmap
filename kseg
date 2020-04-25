@@ -1,5 +1,14 @@
 #!/bin/bash
 # kseg
+source ${PFX}/config || {
+ echo "${name}: fatal: could not source ${PFX}/config , aborting..."
+ exit 1
+}
+# All arch-specific vars are here!
+source ${ARCHFILE} || {
+ echo "${name}: fatal: could not source ${ARCHFILE} , aborting..."
+ exit 1
+}
 
 KSPARSE_ENTRY="<... K sparse region ...>"
 VAS_128TB_HOLE="<... Non-canonical hole ...>"
@@ -38,12 +47,12 @@ setup_ksparse_top()
 
  # Require the topmost valid kernel va, query it from the o/p of our
  # kernel component, the procmap LKM
- local top_kva=0x$(head -n1 ${KTMP} |awk -F"${gDELIM}" '{print $2}')
+ local top_kva=0x$(head -n1 ${KSEGFILE} |awk -F"${gDELIM}" '{print $2}')
 
- local gap_dec=$((X86_64_HIGHEST_KVA-top_kva))
+ local gap_dec=$((HIGHEST_KVA-top_kva))
  if [ ${gap_dec} -gt ${PAGE_SIZE} ]; then
   append_kernel_mapping "${KSPARSE_ENTRY}" "${gap_dec}" ${top_kva} \
-     "${X86_64_HIGHEST_KVA}" "---"
+     "${HIGHEST_KVA}" "---"
  fi
 } # end setup_ksparse_top()
 
@@ -163,15 +172,16 @@ setup_ksparse_lowest()
 # TODO ::
 #  this is ARCH-SPECIFIC !!!
 
-# $1 - X86_64_START_KVA
+# calculation: $1 - START_KVA
+#  ;the START_KVA value is in the ARCHFILE
 local kva_dec=$(printf "%llu" ${1})
-local X86_64_START_KVA_DEC=$(printf "%llu" ${X86_64_START_KVA})
-local gap_dec=$(bc <<< "(${kva_dec}-${X86_64_START_KVA_DEC})")
+#local START_KVA_DEC=$(printf "%llu" ${START_KVA})
+local gap_dec=$(bc <<< "(${kva_dec}-${START_KVA_DEC})")
 
-#decho "p1 = $1 , X86_64_START_KVA = ${X86_64_START_KVA} ; gap_dec=${gap_dec}"
+#decho "p1 = $1 , START_KVA = ${START_KVA} ; gap_dec=${gap_dec}"
 
 if [ ${gap_dec} -gt ${PAGE_SIZE} ]; then
-   append_kernel_mapping "${KSPARSE_ENTRY}" "${gap_dec}" ${X86_64_START_KVA} \
+   append_kernel_mapping "${KSPARSE_ENTRY}" "${gap_dec}" ${START_KVA} \
 		${1} "---"
 fi
 #set +x
@@ -179,52 +189,27 @@ fi
 
 setup_noncanonical_sparse_region()
 {
-# TODO :: this is ARCH SPECIFIC !!
+# TODO :: this is ARCH SPECIFIC !! and ONLY for 64-bit
 
 # the noncanonical 'hole' spans from 'start kva' to 'end uva'
-   append_kernel_mapping "${VAS_128TB_HOLE}" "${X86_64_NONCANONICAL_REG_SIZE}" \
-        ${X86_64_END_UVA} ${X86_64_START_KVA} "---"
-}
-
-# (Re)build the LKM - Loadable Kernel Module for this project
-build_lkm()
-{
-	 echo "[i] kseg: building the LKM ..."
-	 make clean >/dev/null 2>&1
-     make >/dev/null 2>&1 || {
-	    echo "${name}: kernel module \"${KMOD}\" build failed, aborting..."
-		return
-	 }
-     if [ ! -s ${KMOD}.ko ] ; then
-	    echo "${name}: kernel module \"${KMOD}\" not generated? aborting..."
-		return
-	 fi
-	 vecho " kseg: LKM built"
-}
-
-process_ktmp()
-{
- # Retrieve the PAGE_OFFSET and HIGHMEM lines from the KTMP file
- PAGE_OFFSET=$(grep "^PAGE_OFFSET" ${KTMP} |cut -d"${gDELIM}" -f2)
- HIGHMEM=$(grep "^high_memory" ${KTMP} |cut -d"${gDELIM}" -f2)
- decho "PAGE_OFFSET = ${PAGE_OFFSET} , HIGHMEM = ${HIGHMEM}"
-
- # Delete the PAGE_OFFSET and HIGHMEM lines from the KTMP file
- # as we don't want them in the processing loop that follows
- sed --in-place '/^PAGE_OFFSET/d' ${KTMP}
- sed --in-place '/^high_memory/d' ${KTMP}
+  if [ "${ARCH}" = "x86_64" ]; then
+   append_kernel_mapping "${VAS_128TB_HOLE}" "${NONCANONICAL_REG_SIZE}" \
+	    ${END_UVA} ${START_KVA} "---"
+  #elif [ "${ARCH}" = "Aarch64" ]; then
+  fi
 }
 
 show_x86_64_arch()
 {
 # For x86_64, 4-level paging : the typical default
-echo "X86_64_START_UVA = ${X86_64_START_UVA}"
-echo "X86_64_END_UVA = ${X86_64_END_UVA}"
-echo "X86_64_NONCANONICAL_REG_SIZE = ${X86_64_NONCANONICAL_REG_SIZE}"
-echo "X86_64_START_KVA = ${X86_64_START_KVA}"
+echo "START_UVA = ${START_UVA}"
+echo "END_UVA = ${END_UVA}"
+echo "NONCANONICAL_REG_SIZE = ${NONCANONICAL_REG_SIZE}"
+echo "START_KVA = ${START_KVA}"
 }
 
-get_kernel_segment_details()
+# init_kernel_lkm_get_details()
+init_kernel_lkm_get_details()
 {
 #set +x
 
@@ -268,13 +253,16 @@ get_kernel_segment_details()
   vecho " kseg: debugfs file is there"
 
   # Finally! generate the kernel seg details
-  KTMP=/tmp/ktmp.$$
-  sudo cat ${DBGFS_LOC}/${KMOD}/${DBGFS_FILENAME} > ${KTMP}
-  process_ktmp
-
+  sudo cat ${DBGFS_LOC}/${KMOD}/${DBGFS_FILENAME} > ${KSEGFILE}
   decho "kseg dtl:
-$(cat ${KTMP})"
+$(cat ${KSEGFILE})"
 
+  get_pgoff_highmem
+} # end init_kernel_lkm_get_details()
+
+# populate_kernel_segment_mappings()
+populate_kernel_segment_mappings()
+{
  setup_ksparse_top
 
  #---------- Loop over the kernel segment data records
@@ -282,13 +270,13 @@ $(cat ${KTMP})"
  local i=1
  local REC
  prevseg_start_kva=0
- for REC in $(cat ${KTMP})
+ for REC in $(cat ${KSEGFILE})
  do 
    decho "REC: $REC"
    interpret_kernel_rec ${REC} ${i}
    #printf "=== %06d / %06d\r" ${i} ${gFileLines}
    let i=i+1
- done #1>&2
+ done 1>&2
  #----------
 
  # TODO - ins k sparse region from last (lowest) valid k mapping to top end uva
@@ -301,13 +289,12 @@ $(cat ${KTMP})"
      setup_noncanonical_sparse_region
  fi
 
- [ ${DEBUG} -eq 0 ] && rm -f ${KTMP}
+ [ ${DEBUG} -eq 0 ] && rm -f ${KSEGFILE}
  #sudo rmmod ${KMOD}
 
  [ ${DEBUG} -eq 1 ] && show_gkArray
 
  cd ${TOP}
 
-} # end get_kernel_segment_details
+} # end populate_kernel_segment_mappings()
 
-#get_kernel_segment_details

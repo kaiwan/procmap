@@ -1,8 +1,8 @@
 #!/bin/bash
 # config
-# https://github.com/kaiwan/vasu_grapher.git
+# https://github.com/kaiwan/procmap
 #
-# Configuration file for the vasu_grapher project.
+# Configuration file for the procmap project. 
 set -a  # export all
 gDELIM=","
 VERBOSE=0
@@ -21,6 +21,8 @@ STATS_SHOW=1
 
 # kernel seg display configs
 SHOW_KERNELSEG=1
+KSEGFILE=/tmp/kseg_dtl
+ARCHFILE=/tmp/arch_dtl
 KERNELDIR=procmap_kernel
 KMOD=procmap
 DBGFS_LOC=$(mount |grep debugfs |awk '{print $3}')
@@ -35,41 +37,5 @@ GB_4=$(bc <<< "scale=6; 4.0*1024.0*1024.0*1024.0")
 TB_1=$(bc <<< "scale=0; 1*1024*1024*1024*1024")
 #TB_128=$(bc <<< "scale=6; 128.0*1024.0*1024.0*1024.0*1024.0")
 
-#######################################################################
-# Arch-specific details
-#######################################################################
-# To calculate stuff (like the kernel start va), we require:
-#  end_uva ; highest user va
-#  size of the sparse non-canonical region
+# Arch-specific config setup is in the 'vgraph_lib' file
 
-#----------------------------------------------------------------------
-# For x86_64, 4-level paging : the typical default
-#----------------------------------------------------------------------
-PAGE_SIZE=4096
-X86_64_USER_VAS_SIZE_TB=128
-X86_64_KERNEL_VAS_SIZE_TB=128
-
-# bash debugging TIP:
-#  set -x : turn tracing ON
-#  set +x : turn tracing OFF
-#set -x
-
-# TIP : for bash arithmetic w/ large #s, first calculate in *decimal* base using
-# bc(1), then convert it to hex as required (via printf)
-X86_64_START_UVA=0x0
-X86_64_END_UVA_DEC=$(bc <<< "(${X86_64_USER_VAS_SIZE_TB}*${TB_1}-1)")
-X86_64_END_UVA=$(printf "0x%llx" ${X86_64_END_UVA_DEC})
-
-# sparse non-canonical region size = 2^64 - (user VAS + kernel VAS)
-X86_64_NONCANONICAL_REG_SIZE=$(bc <<< "2^64-(${X86_64_USER_VAS_SIZE_TB}*${TB_1}+${X86_64_KERNEL_VAS_SIZE_TB}*${TB_1})")
-X86_64_NONCANONICAL_REG_SIZE_HEX=$(printf "0x%llx" ${X86_64_NONCANONICAL_REG_SIZE})
-
-# start kva = end uva + sparse non-canonical region size
-# For hex, bc(1) Requires the #s to be in UPPERCASE; so we use the ^^ op to achieve this (bash ver>=4)
-X86_64_START_KVA_DEC=$(bc <<< "(${X86_64_END_UVA_DEC}+${X86_64_NONCANONICAL_REG_SIZE}+1)")
-X86_64_START_KVA=$(printf "0x%llx" ${X86_64_START_KVA_DEC})
-X86_64_HIGHEST_KVA=0xffffffffffffffff
-#set +x
-
-
-PAGE_OFFSET_ON_32BIT=0xc0000000

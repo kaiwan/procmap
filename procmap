@@ -23,12 +23,17 @@
 #
 # Thus, we obtain a full 'picture', a COMPLETE MEMORY MAP of the given process's
 # VAS (Virtual Address Space)!
+# 
+# Common terms:
+#  kva = kernel virtual address
+#  uva =   user virtual address
 #
 # Note:- BSD has a utility by the same name: procmap(1), this project isn't
 # the same, though (quite obviously) some aspects are similar.
 #  (it's man page: https://man.openbsd.org/procmap.1)
 #
-# https://github.com/kaiwan/vasu_grapher.git
+# Project URL:
+# https://github.com/kaiwan/procmap
 #
 # Run this program; it invokes the other scripts as required.
 # Author:
@@ -42,6 +47,10 @@ name=$(basename $0)
 PFX=$(dirname $(which $0))    # dir in which this script and tools reside
 source ${PFX}/config || {
  echo "${name}: fatal: could not source configuration in file '${PFX}/config', aborting..."
+ exit 1
+}
+source ${PFX}/vgraph_lib.sh || {
+ echo "${name}: fatal: could not source configuration in file '${PFX}/vgraph_lib.sh', aborting..."
  exit 1
 }
 
@@ -133,12 +142,15 @@ sudo kill -0 ${PID} >/dev/null 2>&1 || {
 }
 # Verify it's not a kernel thread
 sudo readlink /proc/${PID}/exe >/dev/null || {
- echo "${name}: process with PID \"${PID}\" invalid; we believe it's a kernel thread. Aborting..."
+ echo "${name}: process with PID \"${PID}\" invalid; I believe it's a kernel thread. Aborting..."
  exit 1
 }
 
-LOG=log_vasu.txt
+LOG=log_procmap.txt
 TMPCSV=/tmp/vgrph.csv
+
+init_kernel_lkm_get_details |tee -a ${LOG}
+get_machine_type |tee -a ${LOG}
 
 # Invoke the prep_mapsfile script to prep the memory map file
 ${PFX}/prep_mapsfile.sh ${PID} ${TMPCSV} || exit 1
