@@ -1,5 +1,217 @@
 #!/bin/bash
 # vgraph_lib.sh
+name=$(basename $0)
+PFX=$(dirname $(which $0))    # dir in which 'procmap' and tools reside
+source ${PFX}/common.sh || {
+ echo "${name}: fatal: could not source ${PFX}/common.sh , aborting..."
+ exit 1
+}
+source ${PFX}/config || {
+ echo "${name}: fatal: could not source ${PFX}/config , aborting..."
+ exit 1
+}
+
+get_pgoff_highmem()
+{
+ # Retrieve the PAGE_OFFSET and HIGHMEM lines from the KSEGFILE file
+ PAGE_OFFSET=$(grep "^PAGE_OFFSET" ${KSEGFILE} |cut -d"${gDELIM}" -f2)
+ HIGHMEM=$(grep "^high_memory" ${KSEGFILE} |cut -d"${gDELIM}" -f2)
+ decho "PAGE_OFFSET = ${PAGE_OFFSET} , HIGHMEM = ${HIGHMEM}"
+
+ # Delete the PAGE_OFFSET and HIGHMEM lines from the KSEGFILE file
+ # as we don't want them in the processing loop that follows
+ sed --in-place '/^PAGE_OFFSET/d' ${KSEGFILE}
+ sed --in-place '/^high_memory/d' ${KSEGFILE}
+}
+
+# (Re)build the LKM - Loadable Kernel Module for this project
+build_lkm()
+{
+	 echo "[i] kseg: building the LKM ..."
+	 make clean >/dev/null 2>&1
+     make >/dev/null 2>&1 || {
+	    echo "${name}: kernel module \"${KMOD}\" build failed, aborting..."
+		return
+	 }
+     if [ ! -s ${KMOD}.ko ] ; then
+	    echo "${name}: kernel module \"${KMOD}\" not generated? aborting..."
+		return
+	 fi
+	 vecho " kseg: LKM built"
+}
+
+# init_kernel_lkm_get_details()
+init_kernel_lkm_get_details()
+{
+#set +x
+  vecho "init_kernel_lkm_get_details():"
+  if [ ! -d ${DBGFS_LOC} ] ; then
+ 	echo "${name}: kernel debugfs not supported or mounted? aborting..."
+ 	return
+  else
+    vecho " debugfs location verfied"
+  fi
+
+  TOP=$(pwd)
+  cd ${KERNELDIR} || return
+  #pwd
+
+  if [ ! -s ${KMOD}.ko ] ; then
+     build_lkm
+  fi
+
+  # Ok, the kernel module is there, lets insert it!
+  #ls -l ${KMOD}.ko
+  sudo rmmod ${KMOD} 2>/dev/null   # rm any stale instance
+  sudo insmod ./${KMOD}.ko || {
+	    echo "${name}: insmod(8) on kernel module \"${KMOD}\" failed, build again and retry..."
+        build_lkm
+	    sudo insmod ./${KMOD}.ko || return
+  }
+  lsmod |grep -q ${KMOD} || {
+	    echo "${name}: insmod(8) on kernel module \"${KMOD}\" failed? aborting..."
+		return
+  }
+  vecho " kseg: LKM inserted into kernel"
+  sudo ls ${DBGFS_LOC}/${KMOD}/${DBGFS_FILENAME} >/dev/null 2>&1 || {
+     echo "${name}: required debugfs file not present? aborting..."
+	 sudo rmmod ${KMOD}
+	 return
+  }
+  vecho " kseg: debugfs file is there"
+
+  # Finally! generate the kernel seg details
+  sudo cat ${DBGFS_LOC}/${KMOD}/${DBGFS_FILENAME} > ${KSEGFILE}
+  decho "kseg dtl:
+$(cat ${KSEGFILE})"
+
+  get_pgoff_highmem
+} # end init_kernel_lkm_get_details()
+
+#----------------------------------------------------------------------
+# For ARM-32, 2-level paging, 4k page
+#----------------------------------------------------------------------
+set_config_arm32()
+{
+  vecho "set_config_arm32():"
+PAGE_SIZE=4096
+
+# PAGE_OFFSET already set by the get_pgoff_highmem() func
+
+START_KVA=0x${PAGE_OFFSET}
+HIGHEST_KVA=0xffffffff
+
+START_UVA=0x0
+END_UVA_DEC=$(printf "%ld" $((0x${PAGE_OFFSET}-1)))
+END_UVA=$(printf "0x%lx" ${END_UVA_DEC})
+}
+
+#######################################################################
+# Arch-specific details
+#######################################################################
+# To calculate stuff (like the kernel start va), we require:
+#  end_uva ; highest user va
+#  size of the sparse non-canonical region
+
+#----------------------------------------------------------------------
+# For x86_64, 4-level paging, 4k page : the typical default
+#----------------------------------------------------------------------
+set_config_x86_64()
+{
+ARCH=x86_64
+PAGE_SIZE=4096
+USER_VAS_SIZE_TB=128
+KERNEL_VAS_SIZE_TB=128
+
+# bash debugging TIP:
+#  set -x : turn tracing ON
+#  set +x : turn tracing OFF
+#set -x
+
+# TIP : for bash arithmetic w/ large #s, first calculate in *decimal* base using
+# bc(1), then convert it to hex as required (via printf)
+# start kva = end uva + sparse non-canonical region size
+# For hex, bc(1) Requires the #s to be in UPPERCASE; so we use the ^^ op to
+#  achieve this (bash ver>=4)
+
+# sparse non-canonical region size = 2^64 - (user VAS + kernel VAS)
+NONCANONICAL_REG_SIZE=$(bc <<< "2^64-(${USER_VAS_SIZE_TB}*${TB_1}+${KERNEL_VAS_SIZE_TB}*${TB_1})")
+NONCANONICAL_REG_SIZE_HEX=$(printf "0x%llx" ${NONCANONICAL_REG_SIZE})
+
+END_UVA_DEC=$(bc <<< "(${USER_VAS_SIZE_TB}*${TB_1}-1)")
+END_UVA=$(printf "0x%llx" ${END_UVA_DEC})
+
+START_KVA_DEC=$(bc <<< "(${END_UVA_DEC}+${NONCANONICAL_REG_SIZE}+1)")
+START_KVA=$(printf "0x%llx" ${START_KVA_DEC})
+HIGHEST_KVA=0xffffffffffffffff
+START_UVA=0x0
+
+# We *require* these 'globals' in the other scripts
+cat > ${ARCHFILE} << @EOF@
+ARCH=x86_64
+IS_64_BIT=1
+PAGE_SIZE=4096
+USER_VAS_SIZE_TB=128
+KERNEL_VAS_SIZE_TB=128
+START_KVA_DEC=${START_KVA_DEC}
+START_KVA=${START_KVA}
+HIGHEST_KVA=0xffffffffffffffff
+NONCANONICAL_REG_SIZE=${NONCANONICAL_REG_SIZE}
+NONCANONICAL_REG_SIZE_HEX=${NONCANONICAL_REG_SIZE_HEX}
+START_UVA=0x0
+END_UVA_DEC=${END_UVA_DEC}
+END_UVA=${END_UVA}
+@EOF@
+}
+
+# get_machine_type()
+get_machine_type()
+{
+# 32 or 64 bit OS?
+IS_64_BIT=1
+which getconf >/dev/null || {
+  echo "${name}: WARNING! getconf(1) missing, assuming 64-bit OS!"
+} && {
+  local bitw=$(getconf -a|grep -w LONG_BIT|awk '{print $2}')
+  [ ${bitw} -eq 32 ] && IS_64_BIT=0  # implies 32-bit
+}
+
+local mach=$(uname -m)
+local cpu=${mach:0:3}
+
+if [ "${mach}" = "x86_64" ]; then
+   IS_X86_64=1
+   printf "x86_64\n"
+   set_config_x86_64
+elif [ "${cpu}" = "arm" ]; then
+   if [ ${IS_64_BIT} -eq 0 ] ; then
+      IS_ARM32=1
+      printf "ARM-32 (Aarch32)\n"
+      set_config_arm32
+   else
+      IS_ARM64=1
+      printf "ARM64 (Aarch64)\n"
+      #set_config_arm64
+   fi
+elif [ "${cpu}" = "x86" ]; then
+   if [ ${IS_64_BIT} -eq 0 ] ; then
+      IS_X86_32=1
+      printf "x86-32\n"
+      set_config_x86_32
+   fi
+else
+   printf "Sorry, your CPU (\"$(uname -m)\") isn't supported...\n"
+   # TODO - 'pl report this'
+   exit 1
+fi
+
+printf "64-bit OS? "
+[ ${IS_64_BIT} -eq 1 ] && {
+  printf "yes\n"
+} || {
+  printf "no\n"
+}
+} # end get_machine_type()
 
 # append_kernel_mapping()
 # Append a new n-dim entry in the gkArray[] data structure,
@@ -158,7 +370,7 @@ do
 	  # last loop iteration
       if [ "$1" = "-k" -a ${i} -eq $((${rows}-${DIM})) ] ; then
 	     tput bold
-         printf "%s %016lx\n" "${LIN_LAST_K}" ${X86_64_START_KVA}
+         printf "%s %016lx\n" "${LIN_LAST_K}" ${START_KVA}
 		 color_reset
 	  elif [ ${i} -ne 0 ] ; then
          printf "%s %016lx\n" "${LIN}" "${end_va}"
@@ -364,8 +576,8 @@ done
 if [ "${1}" = "-k" ] ; then
 	tput bold
     if [ ${IS_64_BIT} -eq 1 ] ; then
-	  printf "%s %016lx\n" "${LIN_FIRST_U}" "${X86_64_END_UVA}"
-	  #printf "%s %016lx\n" "${LIN_LAST_K}" "${X86_64_START_KVA}"
+	  printf "%s %016lx\n" "${LIN_FIRST_U}" "${END_UVA}"
+	  #printf "%s %016lx\n" "${LIN_LAST_K}" "${START_KVA}"
 	else
 	  printf "%s %08x\n" "${LIN_FIRST_U}" "${X86_END_UVA}"
 	  #printf "%s %08x\n" "${LIN_LAST_K}" "${X86_START_KVA}"
