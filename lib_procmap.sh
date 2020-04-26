@@ -356,8 +356,8 @@ local szKB=0 szMB=0 szGB=0 szTB=0 szPB=0
 
 local LIN_FIRST_K="+------------------  K E R N E L   S E G M E N T    end kva  ----------+"
 local  LIN_LAST_K="+------------------  K E R N E L   S E G M E N T  start kva  ----------+"
-local LIN_FIRST_U="+--------------------    U S E R   V A S    end uva  ------------------+"
-local  LIN_LAST_U="+--------------------    U S E R   V A S  start uva  ------------------+"
+local LIN_FIRST_U="+------------------      U S E R   V A S    end uva  ------------------+"
+local  LIN_LAST_U="+------------------      U S E R   V A S  start uva  ------------------+"
 local         LIN="+----------------------------------------------------------------------+"
 local ELLIPSE_LIN="~ .       .       .       .       .       .        .       .        .  ~"
 local   BOX_SIDES="|                                                                      |"
@@ -648,10 +648,12 @@ do
     oversized=0
 done
 
-# address space: the 'end uva' virt address
+# address space: the K-U boundary! on 32-bit, display both the start kva and
+# the 'end uva' virt addresses; on 64-bit, the noncanonical sparse region code
+# takes care of printing it correctly...
 if [ "${1}" = "-k" ] ; then
 	tput bold
-	printf "%s ${FMTSPC_VA}\n" "${LIN_LAST_K}" 0x${START_KVA}
+	[ ${IS_64_BIT} -eq 0 ] && printf "%s ${FMTSPC_VA}\n" "${LIN_LAST_K}" 0x${START_KVA}
 	printf "%s ${FMTSPC_VA}\n" "${LIN_FIRST_U}" 0x${END_UVA}
 	color_reset
 fi
@@ -660,11 +662,7 @@ fi
 #+----------------------------------------------------------------------+ 0000000000000000
 if [ "$1" = "-u" ] ; then
    tput bold
-   if [ ${IS_64_BIT} -eq 1 ] ; then
-      printf "%s %016lx\n" "${LIN_LAST_U}" "${start_va}"
-   else
-      printf "%s %08x\n" "${LIN}" "${start_va}"
-   fi
+   printf "%s ${FMTSPC_VA}\n" "${LIN_LAST_U}" ${start_va}
    color_reset
 fi
 } # end graphit()
