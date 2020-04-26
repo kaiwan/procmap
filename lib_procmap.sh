@@ -166,9 +166,6 @@ END_UVA=${END_UVA}
 #----------------------------------------------------------------------
 set_config_aarch32()
 {
-	decho "kseg file:
-	$(cat ${KSEGFILE})"
-set -x
   vecho "set_config_aarch32():"
 ARCH=Aarch32
 PAGE_SIZE=4096
@@ -192,9 +189,6 @@ END_UVA=$(printf "0x%lx" ${END_UVA_DEC})
 START_KVA=0x${PAGE_OFFSET}
 START_KVA_DEC=$(printf "%ld" ${START_KVA})
 HIGHEST_KVA=0xffffffff
-set +x
-
-prompt
 
 # We *require* these 'globals' in the other scripts
 # So we place all of them into a file and source this file in the
@@ -212,6 +206,30 @@ END_UVA=${END_UVA}
 @EOF@
 } # end set_config_aarch32()
 
+show_machine_kernel_dtl()
+{
+printf "Detected machine type: "
+if [ ${IS_X86_64} -eq 1 ] ; then
+   echo -n "x86_64"
+elif [ ${IS_Aarch32} -eq 1 ] ; then
+	echo -n "Aarch32 (ARM-32)"
+elif [ ${IS_Aarch64} -eq 1 ] ; then
+	echo -n "Aarch64 (ARM-64)"
+elif [ ${IS_X86_32} -eq 1 ] ; then
+      echo -n "x86-32"
+fi
+
+[ ${IS_64_BIT} -eq 1 ] && {
+  printf ",64-bit OS\n"
+} || {
+  printf ",32-bit OS\n"
+}
+
+if [ ${VERBOSE} -eq 1 -o ${DEBUG} -eq 1 ] ; then
+	echo "Kernel segment ::
+	$(grep -v "_DEC" ${ARCHFILE})"
+fi
+}
 
 #----------------------------------------------------------------------
 # get_machine_type()
@@ -229,25 +247,20 @@ which getconf >/dev/null || {
 local mach=$(uname -m)
 local cpu=${mach:0:3}
 
-printf "Detected machine type: "
 if [ "${mach}" = "x86_64" ]; then
    IS_X86_64=1
-   echo -n "x86_64"
    set_config_x86_64
 elif [ "${cpu}" = "arm" ]; then
    if [ ${IS_64_BIT} -eq 0 ] ; then
-      IS_ARM32=1
-      echo -n "ARM-32 (Aarch32)"
+      IS_Aarch32=1
       set_config_aarch32
    else
-      IS_ARM64=1
-      echo -n "ARM64 (Aarch64)"
+      IS_Aarch64=1
       #set_config_aarch64
    fi
 elif [ "${cpu}" = "x86" ]; then
    if [ ${IS_64_BIT} -eq 0 ] ; then
       IS_X86_32=1
-      echo -n "x86-32"
       set_config_x86_32
    fi
 else
@@ -256,11 +269,7 @@ else
    exit 1
 fi
 
-[ ${IS_64_BIT} -eq 1 ] && {
-  printf ",64-bit OS\n"
-} || {
-  printf ",32-bit OS\n"
-}
+show_machine_kernel_dtl
 } # end get_machine_type()
 
 # append_kernel_mapping()
