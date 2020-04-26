@@ -213,9 +213,30 @@ FMTSPC_VA=${FMTSPC_VA}
 @EOF@
 } # end set_config_aarch32()
 
+# human_readdbl_kernel_arch()
+human_readdbl_kernel_arch()
+{
+if [ ${VERBOSE} -eq 0 -a ${DEBUG} -eq 0 ] ; then
+   return
+fi
+
+local TMPF=/tmp/karch
+#grep -v "_DEC" ${ARCHFILE} > .tmp1
+awk -F= '{print $1, "=", $2}' ${ARCHFILE} > ${TMPF}
+
+local LIN="--------------------------------------------------"
+echo "${LIN}
+[v] Kernel segment details ::
+${LIN}
+$(cat ${TMPF})
+${LIN}"
+rm -f ${TMPF}
+} # end human_readdbl_kernel_arch()
+
 show_machine_kernel_dtl()
 {
 printf "Detected machine type: "
+tput bold
 if [ ${IS_X86_64} -eq 1 ] ; then
    echo -n "x86_64"
 elif [ ${IS_Aarch32} -eq 1 ] ; then
@@ -231,15 +252,9 @@ fi
 } || {
   printf ", 32-bit OS\n"
 }
+color_reset
 
-if [ ${VERBOSE} -eq 1 -o ${DEBUG} -eq 1 ] ; then
-	local LIN="--------------------------------------------------"
-	echo "${LIN}
-Kernel segment ::
-${LIN}
-$(grep -v "_DEC" ${ARCHFILE})
-${LIN}"
-fi
+human_readdbl_kernel_arch
 }
 
 #----------------------------------------------------------------------
