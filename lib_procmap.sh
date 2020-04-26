@@ -134,10 +134,10 @@ NONCANONICAL_REG_SIZE=$(bc <<< "2^64-(${USER_VAS_SIZE_TB}*${TB_1}+${KERNEL_VAS_S
 NONCANONICAL_REG_SIZE_HEX=$(printf "0x%llx" ${NONCANONICAL_REG_SIZE})
 
 END_UVA_DEC=$(bc <<< "(${USER_VAS_SIZE_TB}*${TB_1}-1)")
-END_UVA=$(printf "0x%llx" ${END_UVA_DEC})
+END_UVA=$(printf "%llx" ${END_UVA_DEC})
 
 START_KVA_DEC=$(bc <<< "(${END_UVA_DEC}+${NONCANONICAL_REG_SIZE}+1)")
-START_KVA=$(printf "0x%llx" ${START_KVA_DEC})
+START_KVA=$(printf "%llx" ${START_KVA_DEC})
 HIGHEST_KVA=0xffffffffffffffff
 START_UVA=0x0
 
