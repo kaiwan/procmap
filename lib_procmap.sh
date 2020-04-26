@@ -226,8 +226,12 @@ fi
 }
 
 if [ ${VERBOSE} -eq 1 -o ${DEBUG} -eq 1 ] ; then
-	echo "Kernel segment ::
-	$(grep -v "_DEC" ${ARCHFILE})"
+	local LIN="--------------------------------------------------"
+	echo "${LIN}
+Kernel segment ::
+${LIN}
+$(grep -v "_DEC" ${ARCHFILE})
+${LIN}"
 fi
 }
 
