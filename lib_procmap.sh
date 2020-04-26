@@ -354,8 +354,8 @@ local i k
 local segname seg_sz start_va end_va mode offset
 local szKB=0 szMB=0 szGB=0 szTB=0 szPB=0
 
-local LIN_FIRST_K="+------------------  K E R N E L   S E G M E N T    end kva  ----------+"
-local  LIN_LAST_K="+------------------  K E R N E L   S E G M E N T  start kva  ----------+"
+local LIN_FIRST_K="+------------------  K E R N E L   V A S    end kva  ------------------+"
+local  LIN_LAST_K="+------------------  K E R N E L   V A S  start kva  ------------------+"
 local LIN_FIRST_U="+------------------      U S E R   V A S    end uva  ------------------+"
 local  LIN_LAST_U="+------------------      U S E R   V A S  start uva  ------------------+"
 local         LIN="+----------------------------------------------------------------------+"
@@ -415,8 +415,6 @@ do
 	  return
 	fi
 
-#set -x
-	#szKB=$((${seg_sz}/1024))
     szKB=$(bc <<< "${seg_sz}/1024")
     [ ${szKB} -ge 1024 ] && szMB=$(bc <<< "scale=2; ${szKB}/1024.0") || szMB=0
     # !EMB: if we try and use simple bash arithmetic comparison, we get a 
@@ -433,35 +431,33 @@ do
     if (( $(echo "${szTB} > 1024" |bc -l) )); then
       szPB=$(bc <<< "scale=2; ${szTB}/1024.0")
     fi
-#set +x
 	decho "@@@ i=$i/${rows} , seg_sz = ${seg_sz}"
 
     #--- Drawing :-p  !
 	# the horizontal line with the end uva at the end of it
-	## the horizontal line with the start uva at the end of it
 	# the first actual print emitted!
 	# Eg.
 	# +----------------------------------------------------------------------+ 000055681263b000
-	# Changed to end_va first we now always print in descending order
+	# Changed to end_va @EOL as we now always print in descending order
 
-      # last loop iteration
-      if [ "$1" = "-k" -a ${i} -eq $((${rows}-${DIM})) ] ; then
-         if [ ${IS_64_BIT} -eq 1 ] ; then
+    # last loop iteration
+    if [ "$1" = "-k" -a ${i} -eq $((${rows}-${DIM})) ] ; then
+       if [ ${IS_64_BIT} -eq 1 ] ; then
            tput bold
            printf "%s ${FMTSPC_VA}\n" "${LIN_LAST_K}" 0x${START_KVA}
-	   color_reset
-	 else
+	       color_reset
+	   else
            printf "%s ${FMTSPC_VA}\n" "${LIN}" 0x${START_KVA}
-	 fi
-      elif [ ${i} -ne 0 ] ; then   # normal case
+	   fi
+    elif [ ${i} -ne 0 ] ; then   # normal case
          printf "%s ${FMTSPC_VA}\n" "${LIN}" "${end_va}"
-      else   # very first line
+    else   # very first line
          tput bold
          if [ "${1}" = "-k" ] ; then
             printf "%s ${FMTSPC_VA}\n" "${LIN_FIRST_K}" "${end_va}"
          fi
-	 color_reset
-      fi
+	color_reset
+    fi
 
 	#--- Collate and print the details of the current mapping (segment)
 	# Eg.
@@ -557,13 +553,12 @@ do
 
 	   # file offset
 	   tmp5c=$(printf "%s0x%s%s" $(fg_black) "${offset}" $(color_reset))
-	   #tmp5c=$(printf "%s0x%s" $(fg_black) "${offset}")
 	   tmp5c_nocolor=$(printf "0x%s" "${offset}")
 	   len_offset=${#tmp5c_nocolor}
 	fi
 
     # Calculate the strlen of the printed string, and thus calculate and print
-    # the appropriate number of spaces after until the "|" close-box symbol.
+    # the appropriate number of spaces after it until the "|" close-box symbol.
 	# Final strlen value:
 	local segnmlen=${#segname_nocolor}
 	if [ ${segnmlen} -lt 20 ]; then
@@ -585,11 +580,7 @@ do
     #decho "tlen=${tlen} spc_reqd=${spc_reqd}"
 
 	# the second actual print emitted!
-    if [ ${tlen} -lt ${#LIN} ] ; then
-		echo "${tmp1}${tmp2}${tmp3}${tmp4}${tmp5}${tmp7}${tmp5a}${tmp5b}${tmp5c}${tmp6}"
-	else
-		echo "${tmp1}${tmp2}${tmp3}${tmp4}${tmp5}${tmp7}${tmp5a}"
-	fi
+	echo "${tmp1}${tmp2}${tmp3}${tmp4}${tmp5}${tmp7}${tmp5a}${tmp5b}${tmp5c}${tmp6}"
 
     #--- NEW CALC for SCALING
     # Simplify: We base the 'height' of each segment on the number of digits
@@ -642,7 +633,6 @@ do
    	  printf "%s\n" "${BOX_SIDES}"
    	  if [ ${oversized} -eq 1 ] ; then
         [ ${x} -eq $(((LIMIT_SCALE_SZ-4)/2)) ] && printf "%s\n" "${ELLIPSE_LIN}"
-        #[ ${x} -eq $(((LIMIT_SCALE_SZ-1)/2)) ] && printf "%s\n" "${ELLIPSE_LIN}"
    	  fi
     done
     oversized=0
@@ -666,4 +656,3 @@ if [ "$1" = "-u" ] ; then
    color_reset
 fi
 } # end graphit()
-
