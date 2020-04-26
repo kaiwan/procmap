@@ -651,11 +651,8 @@ done
 # address space: the 'end uva' virt address
 if [ "${1}" = "-k" ] ; then
 	tput bold
-    #if [ ${IS_64_BIT} -eq 1 ] ; then
-	  printf "%s ${FMTSPC_VA}\n" "${LIN_FIRST_U}" 0x${END_UVA}
-#	else
-#	  printf "%s %08x\n" "${LIN_FIRST_U}" "${X86_END_UVA}"
-#	fi
+	printf "%s ${FMTSPC_VA}\n" "${LIN_LAST_K}" 0x${START_KVA}
+	printf "%s ${FMTSPC_VA}\n" "${LIN_FIRST_U}" 0x${END_UVA}
 	color_reset
 fi
 
