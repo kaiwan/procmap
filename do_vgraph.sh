@@ -379,8 +379,8 @@ main_wrapper()
  local nm=$(basename $(realpath /proc/$1/exe))
 
  tput bold
- printf "[=====--- Start memory map for %d:%s ---=====]\n" $1 ${nm}
- printf "[Full pathname: %s]\n" $(realpath /proc/$1/exe)
+ printf "[=====---  Start memory map for %d:%s  ---=====]\n" $1 ${nm}
+ printf "[Pathname: %s]\n" $(realpath /proc/$1/exe)
  color_reset
  disp_fmt
 
@@ -447,8 +447,8 @@ disp_fmt
 
  #--- Footer
  tput bold
- printf "\n[=====--- End memory map for %d:%s ---=====]\n" $1 ${nm}
- printf "[Full pathname: %s]\n" $(realpath /proc/$1/exe)
+ printf "\n[=====---  End memory map for %d:%s  ---=====]\n" $1 ${nm}
+ printf "[Pathname: %s]\n" $(realpath /proc/$1/exe)
  color_reset
 
  [ ${STATS_SHOW} -eq 1 ] && {
