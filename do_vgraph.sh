@@ -187,6 +187,9 @@ local seg_sz=$(printf "%llu" $((end_dec-start_dec)))  # in bytes
 #          col0     col1      col2       col3   col4    col5
 # row'n' [segname],[size],[start_uva],[end_uva],[mode],[offset]
 
+if [ "${offset}" = "00000000" ]; then
+   offset="0"
+fi
 
 # NOTE-
 # The '[vsyscall]' page is in kernel-space; hence, we only show it if
