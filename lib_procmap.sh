@@ -169,8 +169,6 @@ set_config_aarch32()
   vecho "set_config_aarch32():"
 ARCH=Aarch32
 PAGE_SIZE=4096
-#USER_VAS_SIZE_TB=128
-#KERNEL_VAS_SIZE_TB=128
 
 # 32-bit, so no sparse non-canonical region.
 # Retrieve the PAGE_OFFSET and HIGHMEM lines from the ARCHFILE file
@@ -182,13 +180,17 @@ decho "PAGE_OFFSET = ${PAGE_OFFSET} , HIGHMEM = ${HIGHMEM}"
 	exit 1
 }
 
-START_UVA=0x0
-END_UVA_DEC=$(printf "%ld" $((0x${PAGE_OFFSET}-1)))
-END_UVA=$(printf "0x%lx" ${END_UVA_DEC})
+HIGHEST_KVA=ffffffff
 
-START_KVA=0x${PAGE_OFFSET}
-START_KVA_DEC=$(printf "%ld" ${START_KVA})
-HIGHEST_KVA=0xffffffff
+# For Aarch32, we cannot simply assume that the 'start kva' is PAGE_OFFSET;
+# very often it's the start of the kernel module region which is *below*
+# PAGE_OFFSET; check for this and update..
+START_KVA=$(tail -n1 ${KSEGFILE} |cut -d"${gDELIM}" -f1)
+START_KVA_DEC=$(printf "%lu" 0x${START_KVA})
+
+END_UVA_DEC=$((0x${START_KVA}-1))
+END_UVA=$(printf "%lx" ${END_UVA_DEC})
+START_UVA=0x0
 
 # We *require* these 'globals' in the other scripts
 # So we place all of them into a file and source this file in the
