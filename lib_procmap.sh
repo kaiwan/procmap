@@ -158,6 +158,7 @@ NONCANONICAL_REG_SIZE_HEX=${NONCANONICAL_REG_SIZE_HEX}
 START_UVA=0x0
 END_UVA_DEC=${END_UVA_DEC}
 END_UVA=${END_UVA}
+FMTSPC_VA=${FMTSPC_VA}
 @EOF@
 } # end set_config_x86_64()
 
@@ -186,6 +187,9 @@ HIGHEST_KVA=ffffffff
 # very often it's the start of the kernel module region which is *below*
 # PAGE_OFFSET; check for this and update..
 START_KVA=$(tail -n1 ${KSEGFILE} |cut -d"${gDELIM}" -f1)
+if (( $(echo "0x${START_KVA^^} > 0x${PAGE_OFFSET^^}" |bc -l "obase=16") )); then
+  START_KVA=${PAGE_OFFSET}
+fi
 START_KVA_DEC=$(printf "%lu" 0x${START_KVA})
 
 END_UVA_DEC=$((0x${START_KVA}-1))
@@ -205,6 +209,7 @@ HIGHEST_KVA=0xffffffff
 START_UVA=0x0
 END_UVA_DEC=${END_UVA_DEC}
 END_UVA=${END_UVA}
+FMTSPC_VA=${FMTSPC_VA}
 @EOF@
 } # end set_config_aarch32()
 
@@ -249,6 +254,13 @@ which getconf >/dev/null || {
   local bitw=$(getconf -a|grep -w LONG_BIT|awk '{print $2}')
   [ ${bitw} -eq 32 ] && IS_64_BIT=0  # implies 32-bit
 }
+
+# Portable printing
+if [ ${IS_64_BIT} -eq 1 ] ; then
+   FMTSPC_VA="%016lx"
+else    # 32-bit
+   FMTSPC_VA="%08lx"
+fi
 
 local mach=$(uname -m)
 local cpu=${mach:0:3}
@@ -431,26 +443,25 @@ do
 	# Eg.
 	# +----------------------------------------------------------------------+ 000055681263b000
 	# Changed to end_va first we now always print in descending order
-    if [ ${IS_64_BIT} -eq 1 ] ; then
-	  # last loop iteration
+
+      # last loop iteration
       if [ "$1" = "-k" -a ${i} -eq $((${rows}-${DIM})) ] ; then
-	     tput bold
-         printf "%s %016lx\n" "${LIN_LAST_K}" ${START_KVA}
-		 color_reset
-	  elif [ ${i} -ne 0 ] ; then
-         printf "%s %016lx\n" "${LIN}" "${end_va}"
-	  else   # very first line
-	     tput bold
+         if [ ${IS_64_BIT} -eq 1 ] ; then
+           tput bold
+           printf "%s ${FMTSPC_VA}\n" "${LIN_LAST_K}" 0x${START_KVA}
+	   color_reset
+	 else
+           printf "%s ${FMTSPC_VA}\n" "${LIN}" 0x${START_KVA}
+	 fi
+      elif [ ${i} -ne 0 ] ; then   # normal case
+         printf "%s ${FMTSPC_VA}\n" "${LIN}" "${end_va}"
+      else   # very first line
+         tput bold
          if [ "${1}" = "-k" ] ; then
-            printf "%s %016lx\n" "${LIN_FIRST_K}" "${end_va}"
-		 #else
-         #   printf "%s %016lx\n" "${LIN_FIRST_U}" "${end_va}"
-		 fi
-		 color_reset
-	  fi
-    else
-      printf "%s %08x\n" "${LIN}" "${end_va}"
-    fi
+            printf "%s ${FMTSPC_VA}\n" "${LIN_FIRST_K}" "${end_va}"
+         fi
+	 color_reset
+      fi
 
 	#--- Collate and print the details of the current mapping (segment)
 	# Eg.
@@ -640,13 +651,11 @@ done
 # address space: the 'end uva' virt address
 if [ "${1}" = "-k" ] ; then
 	tput bold
-    if [ ${IS_64_BIT} -eq 1 ] ; then
-	  printf "%s %016lx\n" "${LIN_FIRST_U}" "${END_UVA}"
-	  #printf "%s %016lx\n" "${LIN_LAST_K}" "${START_KVA}"
-	else
-	  printf "%s %08x\n" "${LIN_FIRST_U}" "${X86_END_UVA}"
-	  #printf "%s %08x\n" "${LIN_LAST_K}" "${X86_START_KVA}"
-	fi
+    #if [ ${IS_64_BIT} -eq 1 ] ; then
+	  printf "%s ${FMTSPC_VA}\n" "${LIN_FIRST_U}" 0x${END_UVA}
+#	else
+#	  printf "%s %08x\n" "${LIN_FIRST_U}" "${X86_END_UVA}"
+#	fi
 	color_reset
 fi
 

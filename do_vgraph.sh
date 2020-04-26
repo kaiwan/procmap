@@ -299,7 +299,7 @@ setup_usparse_top()
   return
 }
 
- local gap_dec=$((END_UVA_DEC-HIGHEST_VALID_UVA_DEC))
+ local gap_dec=$(bc <<< "(${END_UVA_DEC}-${HIGHEST_VALID_UVA_DEC})")
  if [ ${gap_dec} -gt ${PAGE_SIZE} ]; then
   append_userspace_mapping "${SPARSE_ENTRY}" "${gap_dec}" ${HIGHEST_VALID_UVA} \
      "${END_UVA}" "----" 0
