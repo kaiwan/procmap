@@ -3,9 +3,9 @@
 # https://github.com/kaiwan/vasu_grapher.git
 #
 # Quick Description:
-# Don't invoke this directly, run the 'vasu_grapher' wrapper instead.
-# do_vgraph.sh: Support script for the vasu_grapher project; really, it's
-# where the stuff actually happens :)
+# Support script for the procmap project. Handles the user VAS population
+# into our array data structure.
+# Don't invoke this directly, run the 'procmap' wrapper instead.
 # "Draw" out, (somewhat) to scale, ranges of numbers in a vertically tiled 
 # format. For eg.: the output of /proc/iomem, /proc/vmalloc, 
 # /proc/<pid>/maps, etc etc
@@ -27,30 +27,6 @@
 # Our prep_mapsfile.sh script is invoked via the vasu_grapher wrapper to do
 # precisely this.
 #
-# TODO
-# [+] show Null trap vpage 0
-# [+] show sparse regions of the VAS
-# [+] separate config file
-#     - move config vars to a config file for user convenience
-# [ ] Validation: check input file for correct format
-# [.] Statistics
-#     [+] # VMAs, # sparse regions
-#     [+] space taken by valid regions & by sparse (%age as well of total)
-#     [ ] space taken by text, data, libs, stacks, ... regions (with %age)
-# [.] Segment Attributes
-#     [.] seg size
-#         [ ] RSS   [ ] PSS  [ ] Swap  [ ] Locked (?)    [use smaps!]
-#     [+] seg permissions
-# [ ] Kernel Segment details !   (requires root)
-# [ ] Reverse order: high-to-low address
-#
-# [ ] -h: horzontal render of process VAS
-#     [ ] horizontal scrolling w/ less(1)?
-# [ ] Graphical stuff-
-#  convert to reqd format
-#     [ ] write to SVG !
-#     [ ] interactive GUI
-#
 # Last Updated : 20Apr2020
 # Created      : 17Apr2020
 # 
@@ -70,12 +46,16 @@ source ${PFX}/config || {
  echo "${name}: fatal: could not source ${PFX}/config , aborting..."
  exit 1
 }
-source ${PFX}/vgraph_lib.sh || {
- echo "${name}: fatal: could not source ${PFX}/vgraph_lib.sh , aborting..."
+source ${PFX}/lib_procmap.sh || {
+ echo "${name}: fatal: could not source ${PFX}/lib_procmap.sh , aborting..."
  exit 1
 }
-source ${PFX}/kseg || {
- echo "${name}: fatal: could not source ${PFX}/kseg , aborting..."
+source ${PFX}/do_kernelseg.sh || {
+ echo "${name}: fatal: could not source ${PFX}/do_kernelseg.sh , aborting..."
+ exit 1
+}
+source ${ARCHFILE} || {
+ echo "${name}: fatal: could not source ${ARCHFILE} , aborting..."
  exit 1
 }
 
@@ -183,6 +163,7 @@ setup_nulltrap_page()
 #  $1 : the above CSV format string of 5 fields {start_uva,end_uva,mode,off,segname}
 #  $2 : loop index
 # Populate the global 'n-dim' (n=6) array gArray.
+# Arch-independent.
 interpret_rec()
 {
 local gap=0
@@ -274,6 +255,7 @@ decho "prevseg_name = ${prevseg_name}
 
 # query_highest_valid_uva()
 # Require the topmost valid userspace va, query it from the o/p of our
+# prep_mapfile.sh script
 # TODO : ARCH SPECIFIC !!
 query_highest_valid_uva()
 {
@@ -459,7 +441,6 @@ setup_nulltrap_page
 [ ${DEBUG} -eq 1 ] && showArray
 
 # draw it!
-
 [ ${SHOW_USERSPACE} -eq 1 ] && graphit -u
 
 disp_fmt
@@ -545,7 +526,6 @@ while getopts "p:f:h?kudv" opt; do
             SHOW_USERSPACE=1
             ;;
         d)
-            echo "[i] -d: run in debug mode"
             DEBUG=1
             ;;
         v)

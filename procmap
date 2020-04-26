@@ -49,8 +49,8 @@ source ${PFX}/config || {
  echo "${name}: fatal: could not source configuration in file '${PFX}/config', aborting..."
  exit 1
 }
-source ${PFX}/vgraph_lib.sh || {
- echo "${name}: fatal: could not source configuration in file '${PFX}/vgraph_lib.sh', aborting..."
+source ${PFX}/lib_procmap.sh || {
+ echo "${name}: fatal: could not source ${PFX}/lib_procmap.sh , aborting..."
  exit 1
 }
 

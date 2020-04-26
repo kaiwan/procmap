@@ -37,5 +37,4 @@ GB_4=$(bc <<< "scale=6; 4.0*1024.0*1024.0*1024.0")
 TB_1=$(bc <<< "scale=0; 1*1024*1024*1024*1024")
 #TB_128=$(bc <<< "scale=6; 128.0*1024.0*1024.0*1024.0*1024.0")
 
-# Arch-specific config setup is in the 'vgraph_lib' file
-
+# Arch-specific config setup is in the 'lib_procmap.sh' file

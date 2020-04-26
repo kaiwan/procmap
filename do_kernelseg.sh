@@ -1,5 +1,5 @@
 #!/bin/bash
-# kseg
+# do_kernelseg.sh
 source ${PFX}/config || {
  echo "${name}: fatal: could not source ${PFX}/config , aborting..."
  exit 1
