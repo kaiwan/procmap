@@ -16,6 +16,7 @@ source ${PFX}/config || {
 
 get_pgoff_highmem()
 {
+ vecho "get_pgoff_highmem()"
  # Retrieve the PAGE_OFFSET and HIGHMEM lines from the KSEGFILE file
  PAGE_OFFSET=$(grep "^PAGE_OFFSET" ${KSEGFILE} |cut -d"${gDELIM}" -f2)
  HIGHMEM=$(grep "^high_memory" ${KSEGFILE} |cut -d"${gDELIM}" -f2)
@@ -25,22 +26,30 @@ get_pgoff_highmem()
  # as we don't want them in the processing loop that follows
  sed --in-place '/^PAGE_OFFSET/d' ${KSEGFILE}
  sed --in-place '/^high_memory/d' ${KSEGFILE}
-}
+
+# We *require* these 'globals' again later in the script;
+# So we place them into a file and source this file in the
+# scripts that require it
+ cat > ${ARCHFILE} << @EOF@
+PAGE_OFFSET=${PAGE_OFFSET}
+HIGHMEM=${HIGHMEM}
+@EOF@
+} # end get_pgoff_highmem()
 
 # (Re)build the LKM - Loadable Kernel Module for this project
 build_lkm()
 {
-	 echo "[i] kseg: building the LKM ..."
-	 make clean >/dev/null 2>&1
-     make >/dev/null 2>&1 || {
-	    echo "${name}: kernel module \"${KMOD}\" build failed, aborting..."
-		return
-	 }
-     if [ ! -s ${KMOD}.ko ] ; then
-	    echo "${name}: kernel module \"${KMOD}\" not generated? aborting..."
-		return
-	 fi
-	 vecho " kseg: LKM built"
+ echo "[i] kseg: building the LKM ..."
+ make clean >/dev/null 2>&1
+ make >/dev/null 2>&1 || {
+    echo "${name}: kernel module \"${KMOD}\" build failed, aborting..."
+    return
+ }
+ if [ ! -s ${KMOD}.ko ] ; then
+    echo "${name}: kernel module \"${KMOD}\" not generated? aborting..."
+	return
+ fi
+ vecho " kseg: LKM built"
 }
 
 # init_kernel_lkm_get_details()
@@ -135,7 +144,7 @@ START_UVA=0x0
 # We *require* these 'globals' in the other scripts
 # So we place all of them into a file and source this file in the
 # scripts that require it
-cat > ${ARCHFILE} << @EOF@
+cat >> ${ARCHFILE} << @EOF@
 ARCH=x86_64
 IS_64_BIT=1
 PAGE_SIZE=4096
@@ -150,36 +159,47 @@ START_UVA=0x0
 END_UVA_DEC=${END_UVA_DEC}
 END_UVA=${END_UVA}
 @EOF@
-}
+} # end set_config_x86_64()
 
 #----------------------------------------------------------------------
-# For ARM-32, 2-level paging, 4k page
+# For Aarch32 (ARM-32), 2-level paging, 4k page
 #----------------------------------------------------------------------
-set_config_arm32()
+set_config_aarch32()
 {
-  vecho "set_config_arm32():"
+	decho "kseg file:
+	$(cat ${KSEGFILE})"
+set -x
+  vecho "set_config_aarch32():"
 ARCH=Aarch32
 PAGE_SIZE=4096
 #USER_VAS_SIZE_TB=128
 #KERNEL_VAS_SIZE_TB=128
 
-# PAGE_OFFSET already set by the get_pgoff_highmem() func
-# 32-bit, so no sparse non-canonical region
+# 32-bit, so no sparse non-canonical region.
+# Retrieve the PAGE_OFFSET and HIGHMEM lines from the ARCHFILE file
+PAGE_OFFSET=$(grep "^PAGE_OFFSET" ${ARCHFILE} |cut -d"=" -f2)
+HIGHMEM=$(grep "^HIGHMEM" ${ARCHFILE} |cut -d"=" -f2)
+decho "PAGE_OFFSET = ${PAGE_OFFSET} , HIGHMEM = ${HIGHMEM}"
+[ -z "${PAGE_OFFSET}" ] && {
+	echo "ERROR: Aarch32: couldn't fetch the PAGE_OFFSET value, aborting..."
+	exit 1
+}
 
-#END_UVA_DEC=$(bc <<< "(${PAGE_OFFSET}-1)")
-#END_UVA=$(printf "0x%llx" ${END_UVA_DEC})
+START_UVA=0x0
 END_UVA_DEC=$(printf "%ld" $((0x${PAGE_OFFSET}-1)))
 END_UVA=$(printf "0x%lx" ${END_UVA_DEC})
 
 START_KVA=0x${PAGE_OFFSET}
-START_KVA_DEC=$(print "%ld" ${START_KVA})
+START_KVA_DEC=$(printf "%ld" ${START_KVA})
 HIGHEST_KVA=0xffffffff
-START_UVA=0x0
+set +x
+
+prompt
 
 # We *require* these 'globals' in the other scripts
 # So we place all of them into a file and source this file in the
 # scripts that require it
-cat > ${ARCHFILE} << @EOF@
+cat >> ${ARCHFILE} << @EOF@
 ARCH=Aarch32
 IS_64_BIT=0
 PAGE_SIZE=4096
@@ -190,7 +210,7 @@ START_UVA=0x0
 END_UVA_DEC=${END_UVA_DEC}
 END_UVA=${END_UVA}
 @EOF@
-}
+} # end set_config_aarch32()
 
 
 #----------------------------------------------------------------------
@@ -218,11 +238,11 @@ elif [ "${cpu}" = "arm" ]; then
    if [ ${IS_64_BIT} -eq 0 ] ; then
       IS_ARM32=1
       echo -n "ARM-32 (Aarch32)"
-      set_config_arm32
+      set_config_aarch32
    else
       IS_ARM64=1
       echo -n "ARM64 (Aarch64)"
-      #set_config_arm64
+      #set_config_aarch64
    fi
 elif [ "${cpu}" = "x86" ]; then
    if [ ${IS_64_BIT} -eq 0 ] ; then
