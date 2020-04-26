@@ -1,5 +1,8 @@
 #!/bin/bash
-# vgraph_lib.sh
+# lib_procmap.sh
+#
+# Support script for the procmap project.
+# Has several 'library' routines.
 name=$(basename $0)
 PFX=$(dirname $(which $0))    # dir in which 'procmap' and tools reside
 source ${PFX}/common.sh || {
@@ -88,24 +91,6 @@ $(cat ${KSEGFILE})"
   get_pgoff_highmem
 } # end init_kernel_lkm_get_details()
 
-#----------------------------------------------------------------------
-# For ARM-32, 2-level paging, 4k page
-#----------------------------------------------------------------------
-set_config_arm32()
-{
-  vecho "set_config_arm32():"
-PAGE_SIZE=4096
-
-# PAGE_OFFSET already set by the get_pgoff_highmem() func
-
-START_KVA=0x${PAGE_OFFSET}
-HIGHEST_KVA=0xffffffff
-
-START_UVA=0x0
-END_UVA_DEC=$(printf "%ld" $((0x${PAGE_OFFSET}-1)))
-END_UVA=$(printf "0x%lx" ${END_UVA_DEC})
-}
-
 #######################################################################
 # Arch-specific details
 #######################################################################
@@ -118,6 +103,7 @@ END_UVA=$(printf "0x%lx" ${END_UVA_DEC})
 #----------------------------------------------------------------------
 set_config_x86_64()
 {
+  vecho "set_config_x86_64():"
 ARCH=x86_64
 PAGE_SIZE=4096
 USER_VAS_SIZE_TB=128
@@ -147,6 +133,8 @@ HIGHEST_KVA=0xffffffffffffffff
 START_UVA=0x0
 
 # We *require* these 'globals' in the other scripts
+# So we place all of them into a file and source this file in the
+# scripts that require it
 cat > ${ARCHFILE} << @EOF@
 ARCH=x86_64
 IS_64_BIT=1
@@ -164,6 +152,48 @@ END_UVA=${END_UVA}
 @EOF@
 }
 
+#----------------------------------------------------------------------
+# For ARM-32, 2-level paging, 4k page
+#----------------------------------------------------------------------
+set_config_arm32()
+{
+  vecho "set_config_arm32():"
+ARCH=Aarch32
+PAGE_SIZE=4096
+#USER_VAS_SIZE_TB=128
+#KERNEL_VAS_SIZE_TB=128
+
+# PAGE_OFFSET already set by the get_pgoff_highmem() func
+# 32-bit, so no sparse non-canonical region
+
+#END_UVA_DEC=$(bc <<< "(${PAGE_OFFSET}-1)")
+#END_UVA=$(printf "0x%llx" ${END_UVA_DEC})
+END_UVA_DEC=$(printf "%ld" $((0x${PAGE_OFFSET}-1)))
+END_UVA=$(printf "0x%lx" ${END_UVA_DEC})
+
+START_KVA=0x${PAGE_OFFSET}
+START_KVA_DEC=$(print "%ld" ${START_KVA})
+HIGHEST_KVA=0xffffffff
+START_UVA=0x0
+
+# We *require* these 'globals' in the other scripts
+# So we place all of them into a file and source this file in the
+# scripts that require it
+cat > ${ARCHFILE} << @EOF@
+ARCH=Aarch32
+IS_64_BIT=0
+PAGE_SIZE=4096
+START_KVA_DEC=${START_KVA_DEC}
+START_KVA=${START_KVA}
+HIGHEST_KVA=0xffffffff
+START_UVA=0x0
+END_UVA_DEC=${END_UVA_DEC}
+END_UVA=${END_UVA}
+@EOF@
+}
+
+
+#----------------------------------------------------------------------
 # get_machine_type()
 get_machine_type()
 {
@@ -179,37 +209,37 @@ which getconf >/dev/null || {
 local mach=$(uname -m)
 local cpu=${mach:0:3}
 
+printf "Detected machine type: "
 if [ "${mach}" = "x86_64" ]; then
    IS_X86_64=1
-   printf "x86_64\n"
+   echo -n "x86_64"
    set_config_x86_64
 elif [ "${cpu}" = "arm" ]; then
    if [ ${IS_64_BIT} -eq 0 ] ; then
       IS_ARM32=1
-      printf "ARM-32 (Aarch32)\n"
+      echo -n "ARM-32 (Aarch32)"
       set_config_arm32
    else
       IS_ARM64=1
-      printf "ARM64 (Aarch64)\n"
+      echo -n "ARM64 (Aarch64)"
       #set_config_arm64
    fi
 elif [ "${cpu}" = "x86" ]; then
    if [ ${IS_64_BIT} -eq 0 ] ; then
       IS_X86_32=1
-      printf "x86-32\n"
+      echo -n "x86-32"
       set_config_x86_32
    fi
 else
-   printf "Sorry, your CPU (\"$(uname -m)\") isn't supported...\n"
+   printf "\n\nSorry, your CPU (\"$(uname -m)\") isn't supported...\n"
    # TODO - 'pl report this'
    exit 1
 fi
 
-printf "64-bit OS? "
 [ ${IS_64_BIT} -eq 1 ] && {
-  printf "yes\n"
+  printf ",64-bit OS\n"
 } || {
-  printf "no\n"
+  printf ",32-bit OS\n"
 }
 } # end get_machine_type()
 
