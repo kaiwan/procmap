@@ -231,11 +231,7 @@ if [ ${DetectedSparse} -eq 1 -a "${prevseg_name}" != "[vsyscall]" ]; then
   append_userspace_mapping "${SPARSE_ENTRY}" ${gap} ${sparse_start_uva} \
      ${prevseg_start_uva_hex} "----" 0
 
-  # Stats
-  [ ${STATS_SHOW} -eq 1 ] && {
-      let gNumSparse=gNumSparse+1
-      let gTotalSparseSize=gTotalSparseSize+gap
-  }
+  inc_sparse ${gap}
 fi
 
 prevseg_start_uva=${start_dec}
@@ -306,48 +302,10 @@ setup_usparse_top()
  if [ ${gap_dec} -gt ${PAGE_SIZE} ]; then
   append_userspace_mapping "${SPARSE_ENTRY}" "${gap_dec}" ${HIGHEST_VALID_UVA} \
      "${END_UVA}" "----" 0
-     #"${HIGHEST_UVA}" "----" 0
+
+  inc_sparse ${gap_dec}
  fi
 } # end setup_usparse_top()
-
-# Display the number passed in a human-readable fashion
-# As appropriate, also in KB, MB, GB, TB.
-# $1 : the (large) number to display
-# $2 : the total space size 'out of' (for percentage calculation)
-#    percent = ($1/$2)*100
-# $3 : the message string
-largenum_display()
-{
-	local szKB=0 szMB=0 szGB=0 szTB=0
-
-     # !EMB: if we try and use simple bash arithmetic comparison, we get a 
-     # "integer expression expected" err; hence, use bc(1):
-     [ ${1} -ge 1024 ] && szKB=$(bc <<< "scale=6; ${1}/1024.0") || szKB=0
-     #[ ${szKB} -ge 1024 ] && szMB=$(bc <<< "scale=6; ${szKB}/1024.0") || szMB=0
-     if (( $(echo "${szKB} > 1024" |bc -l) )); then
-       szMB=$(bc <<< "scale=6; ${szKB}/1024.0")
-     fi
-     if (( $(echo "${szMB} > 1024" |bc -l) )); then
-       szGB=$(bc <<< "scale=6; ${szMB}/1024.0")
-     fi
-     if (( $(echo "${szGB} > 1024" |bc -l) )); then
-       szTB=$(bc <<< "scale=6; ${szGB}/1024.0")
-     fi
-
-     printf " $3 %llu bytes = %9.6f KB" ${1} ${szKB}
-     if (( $(echo "${szKB} > 1024" |bc -l) )); then
-       printf " = %9.6f MB" ${szMB}
-       if (( $(echo "${szMB} > 1024" |bc -l) )); then
-         printf " =  %9.6f GB" ${szGB}
-       fi
-       if (( $(echo "${szGB} > 1024" |bc -l) )); then
-         printf " =  %9.6f TB" ${szTB}
-       fi
-     fi
-
-     local pcntg=$(bc <<< "scale=12; (${1}/${2})*100.0")
-     printf "\n  i.e. %2.6f%%" ${pcntg}
-} # end largenum_display()
 
 disp_fmt()
 {
@@ -363,6 +321,7 @@ disp_fmt()
 #  $1 : PID of process
 main_wrapper()
 {
+ local PID=$1
  local szKB szMB szGB
 
  prep_file
@@ -378,12 +337,12 @@ main_wrapper()
  printf " https://github.com/kaiwan/procmap\n\n"
  date
 
- #local nm=$(trim_string_middle $(realpath /proc/$1/exe) 50)
- local nm=$(basename $(realpath /proc/$1/exe))
+ #local nm=$(trim_string_middle $(realpath /proc/${PID}/exe) 50)
+ local nm=$(basename $(sudo realpath /proc/${PID}/exe))
 
  tput bold
- printf "[=====---  Start memory map for %d:%s  ---=====]\n" $1 ${nm}
- printf "[Pathname: %s]\n" $(realpath /proc/$1/exe)
+ printf "[=====---  Start memory map for %d:%s  ---=====]\n" ${PID} ${nm}
+ printf "[Pathname: %s]\n" $(sudo realpath /proc/${PID}/exe)
  color_reset
  disp_fmt
 
@@ -433,8 +392,7 @@ local prevseg_start_uva_hex=$(printf "%llx" ${prevseg_start_uva})
 if [ ${gap_dec} -gt ${PAGE_SIZE} ]; then
   append_userspace_mapping "${SPARSE_ENTRY}" ${gap_dec} ${PAGE_SIZE} \
      ${prevseg_start_uva_hex} "----" 0
-  let gNumSparse=gNumSparse+1
-  let gTotalSparseSize=gTotalSparseSize+gap
+  inc_sparse ${gap}
 fi
 
 # Setup the NULL trap page: the very last entry
@@ -449,20 +407,31 @@ disp_fmt
 
  #--- Footer
  tput bold
- printf "\n[=====---  End memory map for %d:%s  ---=====]\n" $1 ${nm}
- printf "[Pathname: %s]\n" $(realpath /proc/$1/exe)
+ printf "\n[=====---  End memory map for %d:%s  ---=====]\n" ${PID} ${nm}
+ printf "[Pathname: %s]\n" $(sudo realpath /proc/${PID}/exe)
  color_reset
 
- [ ${STATS_SHOW} -eq 1 ] && {
-   # Paranoia
-   local numvmas=$(sudo wc -l /proc/$1/maps |awk '{print $1}')
-   [ ${gFileLines} -ne ${numvmas} ] && printf " [!] Warning! # VMAs does not match /proc/$1/maps\n"
-   let numvmas=numvmas+1  # for the NULL trap page
+ stats ${PID}
+} # end main_wrapper()
 
-   printf "=== Statistics: ===\n %d VMAs (segments or mappings)" ${numvmas}
+stats()
+{
+if [ ${STATS_SHOW} -eq 0 ]; then
+   return
+fi
+local PID=$1
+
+# Paranoia
+   local numvmas=$(sudo wc -l /proc/${PID}/maps |awk '{print $1}')
+   #[ ${gFileLines} -ne ${numvmas} ] && printf " [!] Warning! # VMAs does not match /proc/${PID}/maps\n"
+   # The [vsyscall] VMA shows up but the NULL trap doesn't
+   [ ${SHOW_VSYSCALL_PAGE} -eq 1 ] && let numvmas=numvmas+1  # for the NULL trap page
+
+   printf "\n=== Statistics for Userspace: ===\n %d VMAs (segments or mappings)" ${numvmas}
    # TODO - assuming the split on 64-bit is 128T:128T and on 32-bit 2:2 GB; query it
    [ ${SPARSE_SHOW} -eq 1 ] && {
      printf ", %d sparse regions\n" ${gNumSparse}
+     #USER_VAS_SIZE
      if [ ${IS_64_BIT} -eq 1 ]; then
       largenum_display ${gTotalSparseSize} ${TB_128} "Total user virtual address space that is Sparse :\n"
      else
@@ -477,8 +446,7 @@ disp_fmt
     largenum_display ${gTotalSegSize} ${GB_4} "\n Total user virtual address space that is valid (mapped) memory :\n"
    fi
    printf "\n===\n"
- } # stats show
-} # end main_wrapper()
+}
 
 usage()
 {

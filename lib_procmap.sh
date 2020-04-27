@@ -14,6 +14,57 @@ source ${PFX}/config || {
  exit 1
 }
 
+
+# inc_sparse()
+# Parameters:
+#   $1 : size of the sparse region (decimal, bytes)
+inc_sparse()
+{
+  [ ${SPARSE_SHOW} -eq 1 ] && {
+    let gNumSparse=gNumSparse+1
+    let gTotalSparseSize=gTotalSparseSize+$1
+  }
+} # end inc_sparse()
+
+# Display the number passed in a human-readable fashion
+# As appropriate, also in KB, MB, GB, TB.
+# $1 : the (large) number to display
+# $2 : the total space size 'out of' (for percentage calculation)
+#    percent = ($1/$2)*100
+# $3 : the message string
+largenum_display()
+{
+	local szKB=0 szMB=0 szGB=0 szTB=0
+
+     # !EMB: if we try and use simple bash arithmetic comparison, we get a 
+     # "integer expression expected" err; hence, use bc(1):
+     [ ${1} -ge 1024 ] && szKB=$(bc <<< "scale=6; ${1}/1024.0") || szKB=0
+     #[ ${szKB} -ge 1024 ] && szMB=$(bc <<< "scale=6; ${szKB}/1024.0") || szMB=0
+     if (( $(echo "${szKB} > 1024" |bc -l) )); then
+       szMB=$(bc <<< "scale=6; ${szKB}/1024.0")
+     fi
+     if (( $(echo "${szMB} > 1024" |bc -l) )); then
+       szGB=$(bc <<< "scale=6; ${szMB}/1024.0")
+     fi
+     if (( $(echo "${szGB} > 1024" |bc -l) )); then
+       szTB=$(bc <<< "scale=6; ${szGB}/1024.0")
+     fi
+
+     printf " $3 %llu bytes = %9.6f KB" ${1} ${szKB}
+     if (( $(echo "${szKB} > 1024" |bc -l) )); then
+       printf " = %9.6f MB" ${szMB}
+       if (( $(echo "${szMB} > 1024" |bc -l) )); then
+         printf " =  %9.6f GB" ${szGB}
+       fi
+       if (( $(echo "${szGB} > 1024" |bc -l) )); then
+         printf " =  %9.6f TB" ${szTB}
+       fi
+     fi
+
+     local pcntg=$(bc <<< "scale=12; (${1}/${2})*100.0")
+     printf "\n  i.e. %2.6f%%" ${pcntg}
+} # end largenum_display()
+
 get_pgoff_highmem()
 {
  vecho "get_pgoff_highmem()"
@@ -139,7 +190,13 @@ END_UVA=$(printf "%llx" ${END_UVA_DEC})
 START_KVA_DEC=$(bc <<< "(${END_UVA_DEC}+${NONCANONICAL_REG_SIZE}+1)")
 START_KVA=$(printf "%llx" ${START_KVA_DEC})
 HIGHEST_KVA=0xffffffffffffffff
+HIGHEST_KVA_DEC=$(printf "%llu" ${HIGHEST_KVA})
 START_UVA=0x0
+START_UVA_DEC=0
+
+# Calculate size of K and U VAS's
+KERNEL_VAS_SIZE=$(bc <<< "(${HIGHEST_KVA_DEC}-${START_KVA_DEC}+1)")
+  USER_VAS_SIZE=$(bc <<< "(${END_UVA_DEC}-${START_UVA_DEC}+1)")
 
 # We *require* these 'globals' in the other scripts
 # So we place all of them into a file and source this file in the
@@ -158,6 +215,8 @@ NONCANONICAL_REG_SIZE_HEX=${NONCANONICAL_REG_SIZE_HEX}
 START_UVA=0x0
 END_UVA_DEC=${END_UVA_DEC}
 END_UVA=${END_UVA}
+KERNEL_VAS_SIZE=${KERNEL_VAS_SIZE}
+USER_VAS_SIZE=${USER_VAS_SIZE}
 FMTSPC_VA=${FMTSPC_VA}
 @EOF@
 } # end set_config_x86_64()
@@ -182,6 +241,7 @@ decho "PAGE_OFFSET = ${PAGE_OFFSET} , HIGHMEM = ${HIGHMEM}"
 }
 
 HIGHEST_KVA=ffffffff
+HIGHEST_KVA_DEC=$(printf "%lu" 0x${HIGHEST_KVA})
 
 # For Aarch32 (and possibly other arch's as well), we cannot simply assume
 # that the 'start kva' is PAGE_OFFSET; very often it's the start of the kernel
@@ -195,6 +255,11 @@ START_KVA_DEC=$(printf "%lu" 0x${START_KVA})
 END_UVA_DEC=$((0x${START_KVA}-1))
 END_UVA=$(printf "%lx" ${END_UVA_DEC})
 START_UVA=0x0
+START_UVA_DEC=0
+
+# Calculate size of K and U VAS's
+KERNEL_VAS_SIZE=$(bc <<< "(${HIGHEST_KVA_DEC}-${START_KVA_DEC}+1)")
+  USER_VAS_SIZE=$(bc <<< "(${END_UVA_DEC}-${START_UVA_DEC}+1)")
 
 # We *require* these 'globals' in the other scripts
 # So we place all of them into a file and source this file in the
