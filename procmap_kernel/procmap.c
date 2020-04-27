@@ -58,9 +58,7 @@ DEFINE_MUTEX(mtx);
  * Display kernel segment details as applicable to the architecture we're
  * currently running upon.
  * Format (for most of the details):
- *  |<name of region>:   start_kva - end_kva        | [ size in KB/MB/GB]
- * f.e. on an x86_64 VM w/ 2047 MB RAM
- *  |lowmem region:   0xffff92dac0000000 - 0xffff92db3fff0000 | [ 2047 MB = 1 GB]
+ *   start_kva,end_kva,<mode>,<name-of-region>
  *
  * We try to order it by descending address (here, kva's) but this doesn't
  * always work out as ordering of regions differs by arch.

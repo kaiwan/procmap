@@ -17,7 +17,7 @@ EMB=0  # set to 1 for 'embedded' systems; simpler [no float point, etc]
 
 SPARSE_SHOW=1
 SHOW_VSYSCALL_PAGE=0
-STATS_SHOW=1
+STATS_SHOW=0
 
 # kernel seg display configs
 SHOW_KERNELSEG=1

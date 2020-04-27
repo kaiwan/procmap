@@ -391,7 +391,6 @@ main_wrapper()
  # Show kernelspace? Yes by default!
  if [ ${SHOW_KERNELSEG} -eq 1 ] ; then
     populate_kernel_segment_mappings
-    #get_kernel_segment_details
     graphit -k
  else
    decho "Skipping kernel segment display..."
