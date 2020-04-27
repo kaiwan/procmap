@@ -1,0 +1,10 @@
+# .gitignore
+# Ignore these files/dirs
+# ref: https://www.atlassian.com/git/tutorials/saving-changes/gitignore
+hello*
+log*
+colours_256_test.png
+
+# **/logs => a dir named 'logs'
+**/bkp*
+**/.tmp*
