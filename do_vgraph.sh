@@ -468,20 +468,28 @@ fi
    printf "\n===\n"
 
    #--- Memory occupied by this process
-   printf "Memory Usage stats for process PID %d:\n" ${PID}
+   local totalram_kb=$(grep "^MemTotal" /proc/meminfo |cut -d: -f2|awk '{print $1}')
+   local totalram=$(bc <<< "${totalram_kb}*1024")
+   printf "Total Memory (RAM) on this system:\n"
+   largenum_display ${totalram}
+
+   printf "\n\nMemory Usage stats for process PID %d:\n" ${PID}
    printf "Via ps(1):\n"
 # ps aux|head -n1
 # USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
-   ps aux |awk -v pid=${PID} '$2==pid {printf(" %MEM=%u   VSZ=%lu KB   RSS=%lu KB\n", $4,$5,$6)}'
+   ps aux |awk -v pid=${PID} '$2==pid {printf(" %%MEM=%u   VSZ=%lu KB   \
+RSS=%lu KB\n", $4,$5,$6)}'
 
-   which smem >/dev/null 2>&1 && {
+  which smem >/dev/null 2>&1 && {
    printf "Via smem(8):\n"
 # smem|head -n1
 # PID User     Command                         Swap      USS      PSS      RSS 
    smem |awk -v pid=${PID} '$1==pid {printf(" swap=%u   USS=%lu KB   \
 PSS=%lu KB   RSS=%lu KB\n", $4,$5,$6,$7)}'
-   }
-   printf "===\n"
+  } || {
+    vecho "smem(8) not installed, skipping..."
+  }
+  printf "===\n"
 } # end stats()
 
 usage()
