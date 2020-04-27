@@ -35,6 +35,16 @@ prompt()
  read
 }
 
+# ref: https://stackoverflow.com/questions/369758/how-to-trim-whitespace-from-a-bash-variable
+trim() {
+    local var="$*"
+    # remove leading whitespace characters
+    var="${var#"${var%%[![:space:]]*}"}"
+    # remove trailing whitespace characters
+    var="${var%"${var##*[![:space:]]}"}"   
+    printf '%s' "$var"
+}
+
 # If we're not in a GUI (X Windows) display, abort (reqd for yad)
 check_gui()
 {
