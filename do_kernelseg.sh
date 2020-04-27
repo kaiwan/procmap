@@ -40,7 +40,9 @@ done
 
 # Setup the kernel Sparse region at the very top (high) end of the VAS
 # in the gkArray[]
-# TODO : ARCH SPECIFIC !!
+# ARCH SPECIFIC ! See the arch-specific config setup func in  lib_procmap.sh
+# to see the actual values specified; it's sourced here via the
+# 'source ${ARCHFILE}' line above!
 setup_ksparse_top()
 {
  gkRow=0
@@ -56,9 +58,78 @@ setup_ksparse_top()
  fi
 } # end setup_ksparse_top()
 
-#decho() {
-# echo "$@"
-#}
+# pa2va
+# Convert the given phy addr (pa), to a kernel va (kva)
+# CAREFUL!
+#  We do so by exploiting the fact that the kernel direct-maps all platform
+# RAM into the kernel segment starting at PAGE_OFFSET (i.e. into the lowmem
+# region). So,
+#   kva = pa + PAGE_OFFSET
+# HOWEVER, this ONLY holds true for direct-mapped kernel RAM not for ANYTHING
+# else!
+# We EXPECT to ONLY be passed a physical addr that maps to the kernel direct-
+# mapped addresses - lowmem addr.
+# Parameters:
+#   $1 : phy addr (pa)
+pa2va()
+{
+# TIP : for bash arithmetic w/ large #s, first calculate in *decimal* base using
+# bc(1), then convert it to hex as required (via printf)
+local pgoff_dec=$(printf "%llu" 0x${PAGE_OFFSET})
+local pa_dec=$(printf "%llu" 0x${1})
+local kva=$(bc <<< "${pa_dec}+${pgoff_dec}")
+printf "${FMTSPC_VA}" ${kva}
+} # end pa2va
+
+# setup_kernelimg_mappings
+# Setup mappings for the kernel image itself; this usually consists of (could
+# be fewer entries on some arch's):
+# sudo grep -w "Kernel" /proc/iomem
+#   297c00000-2988031d0 : Kernel code
+#   2988031d1-29926c5bf : Kernel data
+#   2994ea000-29978ffff : Kernel bss
+# BUT, Carefully NOTE - the above are PHYSICAL ADDR, not kva's;
+# So, we'll have to convert them to kva's and then insert them (in order by
+# descending kva) into our gkArray[] data structure.
+setup_kernelimg_mappings()
+{
+local TMPF=/tmp/kimgpa
+local start_pa end_pa mapname
+local start_kva end_kva
+
+sudo grep -w "Kernel" /proc/iomem > ${TMPF}
+
+#--- loop over the kernel image recs
+ IFS=$'\n'
+ local i=1
+ local REC
+ for REC in $(cat ${TMPF})
+ do
+   #decho "REC: $REC"
+   start_pa=$(echo "${REC}" |cut -d"-" -f1)
+   start_pa=$(trim ${start_pa})
+   end_pa=$(echo "${REC}" |cut -d"-" -f2 |cut -d":" -f1)
+   end_pa=$(trim ${end_pa})
+   mapname=$(echo "${REC}" |cut -d":" -f2)
+   mapname=$(trim ${mapname})
+
+   # Convert pa to kva
+   start_kva=$(pa2va ${start_pa})
+   #echo "start_kva = ${start_kva}"
+   end_kva=$(pa2va ${end_pa})
+
+   # Write to 'kernel seg' file
+   # ksegfile record fmt:
+   #  start-kva,end-kva,perms,name
+   echo "${start_kva},${end_kva},r-x,${mapname}" >> ${KSEGFILE}
+   let i=i+1
+ done 1>&2
+ #----------
+
+# Sort by descending kva!
+
+[ ${DEBUG} -eq 0 ] && rm -f ${TMPF}
+} # end setup_kernelimg_mappings
 
 #------------------ i n t e r p r e t _ r e c -------------------------
 # Interpret record (a CSV 'line' from the input stream) and populate the
@@ -97,7 +168,7 @@ local seg_sz=$(printf "%llu" $((end_dec-start_dec)))  # in bytes
 # row'n' [regname],[size],[start_kva],[end_kva],[mode]
 
 # TODO
-# vsyscall: manually retrieve detail into gkArray[]
+# vsyscall: manually place detail into gkArray[]
 
 #------------ Sparse Detection
 if [ ${KSPARSE_SHOW} -eq 1 ]; then
@@ -122,8 +193,11 @@ decho "$2: seg=${name} prevseg_name=${prevseg_name} ,  gkRow=${gkRow} "
 
  if [ ${DetectedSparse} -eq 1 ]; then
     local prevseg_start_kva_hex=$(printf "0x%llx" ${prevseg_start_kva})
-    local start_kva_hex=$((${prevseg_start_kva_hex}-${gap_hex}))
-	append_kernel_mapping "${KSPARSE_ENTRY}" "${gap}" ${start_kva_hex} \
+    #local start_kva_hex=$((${prevseg_start_kva_hex}-${gap_hex}))
+    local start_kva_dec=$(bc <<< "(${prevseg_start_kva}-${gap})")
+    local start_kva_sparse=$(printf "0x%llx" ${start_kva_dec})
+
+	append_kernel_mapping "${KSPARSE_ENTRY}" "${gap}" ${start_kva_sparse} \
 		${prevseg_start_kva_hex} "---"
 
     # Stats
@@ -155,22 +229,18 @@ decho "prevseg_name = ${prevseg_name}
 #   $1 : prev segment/mapping start va (in hex)
 setup_ksparse_lowest()
 {
-#set -x
- # TODO - verify!
  # The highest uva:
- #  On 32-bit = kernel PAGE_OFFSET-1
+ #  On 32-bit = it can be the modules region on Aarch32
  #  On 64-bit = it varies with the arch
  #   x86_64: Ref: <kernel-src>/Documentation/x86/x86_64/mm.rst
  #     Start addr    |   Offset   |     End addr     |  Size   | VM area description
  #  0000000000000000 |    0       | 00007fffffffffff |  128 TB | user-space virtual memory, different per mm
  #
- # NOTE- this info is encoded into the 'config' file, pl refer to it.
+ # NOTE- this info is encoded into the arch-specific config setup code in
+ # lib_procmap.sh, pl refer to it.
 
 # The way to perform arithmetic in bash on large #s is to use bc(1);
 # AND to to decimal arithmetic and then convert to hex if required!
-
-# TODO ::
-#  this is ARCH-SPECIFIC !!!
 
 # calculation: $1 - START_KVA
 #  ;the START_KVA value is in the ARCHFILE
@@ -181,15 +251,14 @@ local gap_dec=$(bc <<< "(${kva_dec}-${START_KVA_DEC})")
 #decho "p1 = $1 , START_KVA = ${START_KVA} ; gap_dec=${gap_dec}"
 
 if [ ${gap_dec} -gt ${PAGE_SIZE} ]; then
-   append_kernel_mapping "${KSPARSE_ENTRY}" "${gap_dec}" ${START_KVA} \
+   append_kernel_mapping "${KSPARSE_ENTRY}" "${gap_dec}" 0x${START_KVA} \
 		${1} "---"
 fi
-#set +x
 } # end setup_ksparse_lowest()
 
 setup_noncanonical_sparse_region()
 {
-# TODO :: this is ARCH SPECIFIC !! and ONLY for 64-bit
+# this is ARCH SPECIFIC and ONLY for 64-bit
 
 # the noncanonical 'hole' spans from 'start kva' to 'end uva'
   if [ "${ARCH}" = "x86_64" ]; then
@@ -199,30 +268,15 @@ setup_noncanonical_sparse_region()
   fi
 }
 
-show_x86_64_arch()
-{
-# For x86_64, 4-level paging : the typical default
-echo "START_UVA = ${START_UVA}"
-echo "END_UVA = ${END_UVA}"
-echo "NONCANONICAL_REG_SIZE = ${NONCANONICAL_REG_SIZE}"
-echo "START_KVA = ${START_KVA}"
-}
-
 # init_kernel_lkm_get_details()
 init_kernel_lkm_get_details()
 {
-#set +x
-
- #echo "[+] Kernel Segment details"
  if [ ! -d ${DBGFS_LOC} ] ; then
 	echo "${name}: kernel debugfs not supported or mounted? aborting..."
 	return
  else
     vecho " debugfs location verfied"
  fi
-
-#show_x86_64_arch
-#exit 0
 
   TOP=$(pwd)
   cd ${KERNELDIR} || return
@@ -264,6 +318,7 @@ $(cat ${KSEGFILE})"
 populate_kernel_segment_mappings()
 {
  setup_ksparse_top
+ #setup_kernelimg_mappings
 
  #---------- Loop over the kernel segment data records
  export IFS=$'\n'
