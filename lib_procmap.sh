@@ -462,7 +462,8 @@ do
            printf "%s ${FMTSPC_VA}\n" "${LIN_LAST_K}" 0x${START_KVA}
 	       color_reset
 	   else
-           printf "%s ${FMTSPC_VA}\n" "${LIN}" 0x${START_KVA}
+           printf "%s ${FMTSPC_VA}\n" "${LIN}" ${end_va}
+           #printf "%s ${FMTSPC_VA}\n" "${LIN}" 0x${START_KVA}
 	   fi
     elif [ ${i} -ne 0 ] ; then   # normal case
          printf "%s ${FMTSPC_VA}\n" "${LIN}" "${end_va}"
