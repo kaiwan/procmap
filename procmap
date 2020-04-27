@@ -75,8 +75,8 @@ Options:
  -u : show ONLY the usermode mappings or segments (not kernel VAS)
  -k : show ONLY the kernel-space mappings or segments (not user VAS)
   [default is to show BOTH]
+ -v : verbose mode (try it!)
  -d : debug mode
- -v : verbose mode
 " 1>&2
 }
 

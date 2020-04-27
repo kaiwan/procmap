@@ -147,10 +147,13 @@ setup_nulltrap_page()
   local pgsz_hex=$(printf "%x" ${PAGE_SIZE})
   append_userspace_mapping "${NULLTRAP_STR}" ${PAGE_SIZE} 0 \
      ${pgsz_hex} "----" 0
+
+  # RELOOK? Treat the NULL trap page as a sparse region??
+  inc_sparse ${PAGE_SIZE}
 } # end setup_nulltrap_page()
 
 
-#------------------ i n t e r p r e t _ r e c -------------------------
+#------------- i n t e r p r e t _ u s e r _ r e c ---------------------
 # Interpret record (a CSV 'line' from the input stream) and populate the
 # gArr[] n-dim array.
 # Format:
@@ -164,7 +167,7 @@ setup_nulltrap_page()
 #  $2 : loop index
 # Populate the global 'n-dim' (n=6) array gArray.
 # Arch-independent.
-interpret_rec()
+interpret_user_rec()
 {
 local gap=0
 local start_uva=$(echo "${1}" |cut -d"${gDELIM}" -f1)
@@ -182,6 +185,8 @@ local segment=$(echo "${1}" |cut -d"${gDELIM}" -f5)
 local start_dec=$(printf "%llu" 0x${start_uva})
 local end_dec=$(printf "%llu" 0x${end_uva})
 local seg_sz=$(printf "%llu" $((end_dec-start_dec)))  # in bytes
+
+local DetectedSparse=0
 
 # The global 6d-array's format is:
 #          col0     col1      col2       col3   col4    col5
@@ -204,53 +209,53 @@ fi
 #------------ Sparse Detection
 if [ ${SPARSE_SHOW} -eq 1 ]; then
 
-DetectedSparse=0
+ decho "$2: seg=${segment} prevseg_name=${prevseg_name} ,  gRow=${gRow} "
 
-decho "$2: seg=${segment} prevseg_name=${prevseg_name} ,  gRow=${gRow} "
+ # Detect sparse region, and if present, insert into the gArr[].
+ # Sparse region detected by condition:
+ #  gap = this-segment-start - prev-segment-end > 1 page
+ # Wait! With order by Descending va, we should take the prev segment's
+ # start uva (not the end uva)!
+ #  gap = prev_seg_start - this-segment-end > 1 page
 
-# Detect sparse region, and if present, insert into the gArr[].
-# Sparse region detected by condition:
-#  gap = this-segment-start - prev-segment-end > 1 page
-# Wait! With order by Descending va, we should take the prev segment's
-# start uva (not the end uva)!
-#  gap = prev_seg_start - this-segment-end > 1 page
+ if [ "${segment}" != "[vsyscall]" ]; then
+   #decho "end_dec=${end_dec} prevseg_start_uva=${prevseg_start_uva}"
+   gap=$((${prevseg_start_uva}-${end_dec}))
+   local gap_hex=$(printf "0x%llx" ${gap})
+   decho "gap = ${gap}"
+   [ ${gap} -gt ${PAGE_SIZE} ] && DetectedSparse=1
+ fi
 
-if [ "${segment}" != "[vsyscall]" ]; then
-  #decho "end_dec=${end_dec} prevseg_start_uva=${prevseg_start_uva}"
-  gap=$((${prevseg_start_uva}-${end_dec}))
-  local gap_hex=$(printf "0x%llx" ${gap})
-  decho "gap = ${gap}"
-  [ ${gap} -gt ${PAGE_SIZE} ] && DetectedSparse=1
-fi
+ if [ ${DetectedSparse} -eq 1 -a "${prevseg_name}" != "[vsyscall]" ]; then
+   local prevseg_start_uva_hex=$(printf "%x" ${prevseg_start_uva})
+   #decho "prevseg_start_uva_hex=${prevseg_start_uva_hex}  gap = ${gap_hex}"
+   local sparse_start_uva=$((0x${prevseg_start_uva_hex}-${gap_hex}))
+ 
+   append_userspace_mapping "${SPARSE_ENTRY}" ${gap} ${sparse_start_uva} \
+      ${prevseg_start_uva_hex} "----" 0
 
-if [ ${DetectedSparse} -eq 1 -a "${prevseg_name}" != "[vsyscall]" ]; then
-  local prevseg_start_uva_hex=$(printf "%x" ${prevseg_start_uva})
-  #decho "prevseg_start_uva_hex=${prevseg_start_uva_hex}  gap = ${gap_hex}"
-  local sparse_start_uva=$((0x${prevseg_start_uva_hex}-${gap_hex}))
+   inc_sparse ${gap}
+ fi
 
-  append_userspace_mapping "${SPARSE_ENTRY}" ${gap} ${sparse_start_uva} \
-     ${prevseg_start_uva_hex} "----" 0
-
-  inc_sparse ${gap}
-fi
-
-prevseg_start_uva=${start_dec}
+ prevseg_start_uva=${start_dec}
 fi
 #--------------
 
+#if [ ${DetectedSparse} -eq 0 ]; then
 #--- Populate the global array
 append_userspace_mapping "${segment}" ${seg_sz} ${start_uva} \
      ${end_uva} "${mode}" ${offset}
 
-[ ${STATS_SHOW} -eq 1 ] && {
-  let gTotalSegSize=${gTotalSegSize}+${seg_sz}
-  # does NOT include the null trap; that's correct
-}
+#[ ${STATS_SHOW} -eq 1 ] && {
+#  let gTotalSegSize=${gTotalSegSize}+${seg_sz}
+  #decho " ^^^ inc; seg=${segment}, seg_sz=${seg_sz}; total= ${gTotalSegSize}"
+#}
+#fi
 
 prevseg_name=${segment}
-decho "prevseg_name = ${prevseg_name}
-"
-} # end interpret_rec()
+#decho "prevseg_name = ${prevseg_name}
+#"
+} # end interpret_user_rec()
 
 # query_highest_valid_uva()
 # Require the topmost valid userspace va, query it from the o/p of our
@@ -316,6 +321,22 @@ disp_fmt()
  fi
 }
 
+total_size_userspc()
+{
+local TMPF=/tmp/pmutmp
+showArray > ${TMPF}
+# rm first header line and lines with 'Sparse' in them..
+sed --in-place '1,3d' ${TMPF}
+sed --in-place '/Sparse/d' ${TMPF}
+# rm last line, it has the null trap page
+sed --in-place '$d' ${TMPF}
+
+# cumulatively total the 2nd field, the size
+gTotalSegSize=$(awk -F, 'total+=$2 ; END {print total}' ${TMPF} |tail -n1)
+#echo "gTotalSegSize = ${gTotalSegSize} bytes"
+[ ${DEBUG} -eq 0 ] && rm -f ${TMPF}
+}
+
 #--------------------------- m a i n _ w r a p p e r -------------------
 # Parameters:
 #  $1 : PID of process
@@ -342,7 +363,7 @@ main_wrapper()
 
  tput bold
  printf "[=====---  Start memory map for %d:%s  ---=====]\n" ${PID} ${nm}
- printf "[Pathname: %s]\n" $(sudo realpath /proc/${PID}/exe)
+ printf "[Pathname: %s ]\n" $(sudo realpath /proc/${PID}/exe)
  color_reset
  disp_fmt
 
@@ -374,7 +395,7 @@ main_wrapper()
  for REC in $(cat ${gINFILE})
  do 
    decho "REC: $REC"
-   interpret_rec ${REC} ${i}
+   interpret_user_rec ${REC} ${i}
    printf "=== %06d / %06d\r" ${i} ${gFileLines}
    let i=i+1
  done 1>&2
@@ -399,6 +420,7 @@ fi
 setup_nulltrap_page
 
 [ ${DEBUG} -eq 1 ] && showArray
+total_size_userspc
 
 # draw it!
 [ ${SHOW_USERSPACE} -eq 1 ] && graphit -u
@@ -408,56 +430,71 @@ disp_fmt
  #--- Footer
  tput bold
  printf "\n[=====---  End memory map for %d:%s  ---=====]\n" ${PID} ${nm}
- printf "[Pathname: %s]\n" $(sudo realpath /proc/${PID}/exe)
+ printf "[Pathname: %s ]\n" $(sudo realpath /proc/${PID}/exe)
  color_reset
 
  stats ${PID}
 } # end main_wrapper()
 
+# stats()
 stats()
 {
 if [ ${STATS_SHOW} -eq 0 ]; then
    return
 fi
-local PID=$1
 
-# Paranoia
+   printf "\n=== Statistics ===\n"
+   printf "\nTotal Kernel VAS (Virtual Address Space):\n"
+   largenum_display ${KERNEL_VAS_SIZE}
+   printf "\nTotal User VAS (Virtual Address Space):\n"
+   largenum_display ${USER_VAS_SIZE}
+
+   local PID=$1
    local numvmas=$(sudo wc -l /proc/${PID}/maps |awk '{print $1}')
    #[ ${gFileLines} -ne ${numvmas} ] && printf " [!] Warning! # VMAs does not match /proc/${PID}/maps\n"
    # The [vsyscall] VMA shows up but the NULL trap doesn't
    [ ${SHOW_VSYSCALL_PAGE} -eq 1 ] && let numvmas=numvmas+1  # for the NULL trap page
 
-   printf "\n=== Statistics for Userspace: ===\n %d VMAs (segments or mappings)" ${numvmas}
-   # TODO - assuming the split on 64-bit is 128T:128T and on 32-bit 2:2 GB; query it
+   printf "\n\n=== Statistics for Userspace: ===\n%d VMAs (segments or mappings)" ${numvmas}
    [ ${SPARSE_SHOW} -eq 1 ] && {
-     printf ", %d sparse regions\n" ${gNumSparse}
-     #USER_VAS_SIZE
-     if [ ${IS_64_BIT} -eq 1 ]; then
-      largenum_display ${gTotalSparseSize} ${TB_128} "Total user virtual address space that is Sparse :\n"
-     else
-      largenum_display ${gTotalSparseSize} ${GB_4} "Total user virtual address space that is Sparse :\n"
-     fi
-   } # sparse show
+     printf ", %d sparse regions (includes NULL trap page)\n" ${gNumSparse}
+     printf "Total User VAS that is Sparse memory:\n"
+     largenum_display ${gTotalSparseSize} ${USER_VAS_SIZE}
+   }
 
    # Valid regions (segments) total size
-   if [ ${IS_64_BIT} -eq 1 ]; then
-    largenum_display ${gTotalSegSize} ${TB_128} "\n Total user virtual address space that is valid (mapped) memory :\n"
-   else
-    largenum_display ${gTotalSegSize} ${GB_4} "\n Total user virtual address space that is valid (mapped) memory :\n"
-   fi
+   printf "\nTotal User VAS that's valid (mapped) memory:\n"
+   largenum_display ${gTotalSegSize} ${USER_VAS_SIZE}
    printf "\n===\n"
-}
+
+   #--- Memory occupied by this process
+   printf "Memory Usage stats for process PID %d:\n" ${PID}
+   printf "Via ps(1):\n"
+# ps aux|head -n1
+# USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+   ps aux |awk -v pid=${PID} '$2==pid {printf(" %MEM=%u   VSZ=%lu KB   RSS=%lu KB\n", $4,$5,$6)}'
+
+   which smem >/dev/null 2>&1 && {
+   printf "Via smem(8):\n"
+# smem|head -n1
+# PID User     Command                         Swap      USS      PSS      RSS 
+   smem |awk -v pid=${PID} '$1==pid {printf(" swap=%u   USS=%lu KB   \
+PSS=%lu KB   RSS=%lu KB\n", $4,$5,$6,$7)}'
+   }
+   printf "===\n"
+} # end stats()
 
 usage()
 {
   echo "Usage: ${name} -u -k [-d] -p PID-of-process -f input-CSV-filename(5 column format)
   -f : input CSV file
-  -k : show kernel-space
-  -u : show userspace
+  -k : show only kernel-space
+  -u : show only userspace
    [default: show BOTH]
   -d : run in debug mode
   -v : run in verbose mode"
 }
+
 
 ##### 'main' : execution starts here #####
 
@@ -484,7 +521,6 @@ while getopts "p:f:h?kudv" opt; do
                 ;;
         p)
             PID=${OPTARG}
-            #echo "-p passed; PID=${PID}"
             ;;
         f)
             gINFILE=${OPTARG}

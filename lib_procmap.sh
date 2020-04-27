@@ -27,11 +27,11 @@ inc_sparse()
 } # end inc_sparse()
 
 # Display the number passed in a human-readable fashion
-# As appropriate, also in KB, MB, GB, TB.
+# As appropriate, also in KB, MB, GB, TB
 # $1 : the (large) number to display
-# $2 : the total space size 'out of' (for percentage calculation)
-#    percent = ($1/$2)*100
-# $3 : the message string
+# $2 : OPTIONAL PARAM: 
+#      the total space size 'out of' (for percentage calculation)
+#      percent = ($1/$2)*100
 largenum_display()
 {
 	local szKB=0 szMB=0 szGB=0 szTB=0
@@ -39,7 +39,7 @@ largenum_display()
      # !EMB: if we try and use simple bash arithmetic comparison, we get a 
      # "integer expression expected" err; hence, use bc(1):
      [ ${1} -ge 1024 ] && szKB=$(bc <<< "scale=6; ${1}/1024.0") || szKB=0
-     #[ ${szKB} -ge 1024 ] && szMB=$(bc <<< "scale=6; ${szKB}/1024.0") || szMB=0
+
      if (( $(echo "${szKB} > 1024" |bc -l) )); then
        szMB=$(bc <<< "scale=6; ${szKB}/1024.0")
      fi
@@ -50,7 +50,8 @@ largenum_display()
        szTB=$(bc <<< "scale=6; ${szGB}/1024.0")
      fi
 
-     printf " $3 %llu bytes = %9.6f KB" ${1} ${szKB}
+     #printf "%s: %llu bytes = %9.6f KB" ${3} ${1} ${szKB}
+     printf " %llu bytes = %9.6f KB" ${1} ${szKB}
      if (( $(echo "${szKB} > 1024" |bc -l) )); then
        printf " = %9.6f MB" ${szMB}
        if (( $(echo "${szMB} > 1024" |bc -l) )); then
@@ -61,8 +62,10 @@ largenum_display()
        fi
      fi
 
-     local pcntg=$(bc <<< "scale=12; (${1}/${2})*100.0")
-     printf "\n  i.e. %2.6f%%" ${pcntg}
+     if [ $# -eq 2 ] ; then
+       local pcntg=$(bc <<< "scale=12; (${1}/${2})*100.0")
+       printf "\n  i.e. %2.6f%%" ${pcntg}
+	 fi
 } # end largenum_display()
 
 get_pgoff_highmem()
@@ -87,6 +90,7 @@ HIGHMEM=${HIGHMEM}
 @EOF@
 } # end get_pgoff_highmem()
 
+# build_lkm()
 # (Re)build the LKM - Loadable Kernel Module for this project
 build_lkm()
 {
@@ -101,7 +105,7 @@ build_lkm()
 	return
  fi
  vecho " kseg: LKM built"
-}
+} # end build_lkm()
 
 # init_kernel_lkm_get_details()
 init_kernel_lkm_get_details()
@@ -513,7 +517,7 @@ do
     if (( $(echo "${szTB} > 1024" |bc -l) )); then
       szPB=$(bc <<< "scale=2; ${szTB}/1024.0")
     fi
-	decho "@@@ i=$i/${rows} , seg_sz = ${seg_sz}"
+	#decho "@@@ i=$i/${rows} , seg_sz = ${seg_sz}"
 
     #--- Drawing :-p  !
 	# the horizontal line with the end uva at the end of it
