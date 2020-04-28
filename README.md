@@ -1,5 +1,5 @@
 # procmap
-** procmap is designed to be a simple console/CLI utility to visualize the complete memory map of a Linux process, in effect, to visualize both the kernel and user Virtual Address Space (VAS).**
+**procmap is designed to be a simple console/CLI utility to visualize the complete memory map of a Linux process, in effect, to visualize both the kernel and user Virtual Address Space (VAS).**
 
 It outputs a simple visualization, in a vertically-tiled format **ordered by descending virtual address**, of the complete memory map of a given process (see **screenshots** below). The script has the intelligence to show kernel and userspace mappings as well as the inevitable 'holes' or sparse memory regions that will be present. On 64-bit systems, it will even show the so-called non-canonical 'hole' (typically close to 16,384 PB on the x86_64).
 
@@ -63,7 +63,7 @@ User utils:
 
 Also of course, you require *root* access (to install the kernel module, and get the details of any process from /proc/PID/<...>).
 
-
+***Screenshots!***
 As an example, below, we run our script on process PID 1 on an x86_64 Ubuntu 18.04 Linux box. The resulting putput is pretty large; thus, we show a few (four) partial screenshots below; this should be enough to help you visualize the typical output. Of course, nothing beats cloning this project and trying it out yourself!
 
 ![screenshot 1 of 4 of vasu_grapher run](Screenshot1_x86_64.png)
