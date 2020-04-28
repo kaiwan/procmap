@@ -1,30 +1,98 @@
-# vasu_grapher
-*VASU = Virtual Address Space Usermode*. **A simple console/CLI utility to "graph" (visualize) the Linux user mode process VAS, in effect, the userspace memory map**.
+# procmap
+** procmap is designed to be a simple console/CLI utility to visualize the complete memory map of a Linux process, in effect, to visualize both the kernel and user Virtual Address Space (VAS).**
 
-A simple visualization (in a vertically-tiled format) of the userspace memory map of a given process. It works by iterating over the /proc/PID/maps pseudo-file of a given process. It color-codes and shows the following details (comma separated) for each segment (or mapping):
+It outputs a simple visualization, in a vertically-tiled format **ordered by descending virtual address**, of the complete memory map of a given process (see **screenshots** below). The script has the intelligence to show kernel and userspace mappings as well as the inevitable 'holes' or sparse memory regions that will be present. On 64-bit systems, it will even show the so-called non-canonical 'hole' (typically close to 16,384 PB on the x86_64).
+
+***Usage:***
+
+    $ ./procmap
+    Usage: procmap [options] -p PID-to-show-memory-map-of
+    Options:
+     -u : show ONLY the usermode mappings or segments (not kernel VAS)
+     -k : show ONLY the kernel-space mappings or segments (not user VAS)
+      [default is to show BOTH]
+     -v : verbose mode (try it!)
+     -d : debug mode
+    $ 
+
+
+
+***How does it work?***
+
+**In a nutshell, kernel-space:**
+
+The kernel memory map is garnered via the kernel component of this project - a *Loadable Kernel Module*. It collates all required information and makes that info available to userspace via a common interfacing technique - a debugfs (pseudo) file. Particulars:
+
+Assuming the debugfs filesystem is mounted at /sys/kernel/debug, the kernel module sets up a debugfs file here:
+` /sys/kernel/debug/procmap/disp_kernelseg_details`
+
+Reading this file generates the required kernel information, which the scripts interpret and display.
+
+**In a nutshell, userspace:**
+
+The userspace memory map is collated and displayed by iterating over the `/proc/PID/maps` pseudo-file of the given process.
+
+For both kernel and userspace, the procmap script color-codes and shows the following details (comma separated) for each segment (or mapping):
  - the start user virtual address (uva) to the right extreme of the line seperator
  - the segment name
- - it's size (appropriately, in KB/MB/GB)
+ - it's size (appropriately, in KB/MB/GB/TB)
  - it's mode (permissions; highlights if null or .WX for security)
- - the type of mapping (p=private, s=shared)
- - if a file mapping, the offset from thebeginning of the file (0x0 for anonymous or starts at BOF)
+ - the type of mapping (p=private, s=shared) (only userspace)
+ - if a file mapping, the offset from the beginning of the file (0x0 for anonymous or starts at BOF) (only userspace)
 
-To aid with visualization of the process VAS, we show the relative "length" of a segment (or mapping) via it's height. The script works on both 32 and 64-bit Linux OS (lightly tested, request more testing and bug/issue reports please).
+To aid with visualization of the process VAS, we show the relative vertical "length" of a segment or mapping via it's height.
 
-As an example, below, we run our script on process PID 1 on an x86_64 Ubuntu 18.04 Linux box, and
-display partial screenshots of the beginning and end of the output:
+The script works on both 32 and 64-bit Linux OS (lightly tested, I request more testing and bug/issue reports please!).
 
-![screenshot 1 of 2 of vasu_grapher run](scrshot1.png)
+***Requirements:***
+
+Kernel:
+
+- Linux kernel 3.0 or later (technically, >= 2.6.12 should work)
+- debugfs must be supported and mounted
+- proc fs must be supported and mounted
+- you should have the rights to build and insmod(8) a third-party (us!) kernel module on your box
+
+User utils:
+
+- bash(1)
+- bc(1)
+- smem(8)
+- build system (make, gcc, binutils, etc)
+- common utils typically always installed on a Linux system (grep, ps, cut, cat, getopts, etc)
+
+Also of course, you require *root* access (to install the kernel module, and get the details of any process from /proc/PID/<...>).
+
+
+As an example, below, we run our script on process PID 1 on an x86_64 Ubuntu 18.04 Linux box. The resulting putput is pretty large; thus, we show a few (four) partial screenshots below; this should be enough to help you visualize the typical output. Of course, nothing beats cloning this project and trying it out yourself!
+
+![screenshot 1 of 4 of vasu_grapher run](Screenshot1_x86_64.png)
 
 [...]
 
-![screenshot 2 of 2 of vasu_grapher run](scrshot2.png)
+![screenshot 2 of 4 of vasu_grapher run](Screenshot2_x86_64.png)
 
-**Note-**
-- As of now, we also show some statistics when done- the amount and percentage of memory in the total VAS that is just 'sparse' (empty; on 64-bit systems it can be very high!) vs the actually used memory amount and percentage.
+[...]
 
-- Currently, at the end of the 'graph', the memory above the usermode addr space is shown as a 'sparse' region; in reality, on 32-bit systems, this is the kernel VAS! ... and on 64-bit systems, this _is_ sparse space (huge), followed by the kernel VAS. I shall work on updating this as such..
+![screenshot 3 of 4 of vasu_grapher run](Screenshot3_x86_64.png)
 
-- As a bonus, the output is logged - appended - to the file log_vasu.txt. Look up this log when done.
+[...]
+
+![screenshot 4 of 4 of vasu_grapher run](Screenshot4_x86_64.png)
+
+[...]
+
+
+**Note:**
+
+- As of now, we also show some statistics when done:
+     - total sizes of kernel and user VAS's
+     - the amount and percentage of memory in the userspace VAS that is just 'sparse' (empty; on 64-bit systems it can be very high!) vs the actually used memory amount and percentage
+     - total RAM reported by the system
+     - memory usage statistics for this process via:
+        - ps(1)
+        - smem(8)
+
+- As a bonus, the output is logged - appended - to the file log_procmap.txt. Look up this log when done.
 
 [End doc]
