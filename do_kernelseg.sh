@@ -131,13 +131,13 @@ sudo grep -w "Kernel" /proc/iomem > ${TMPF}
 [ ${DEBUG} -eq 0 ] && rm -f ${TMPF}
 } # end setup_kernelimg_mappings
 
-#------------------ i n t e r p r e t _ r e c -------------------------
-# Interpret record (a CSV 'line' from the input stream) and populate the
-# gkArr[] n-dim array.
+#----------- i n t e r p r e t _ k e r n e l _ r e c -------------------
+# Interpret record (a CSV 'line' passed as $1) and populate the gkArray[]
+# n-dim array.
 # Format:
 #  start_kva,end_kva,mode,name_of_region
 #     ; kva = kernel virtual address
-# eg.
+# eg. $1 =
 #  0xffff9be100000000,0xffff9be542800000,rwx,lowmem region
 #
 # Parameters:
@@ -184,7 +184,10 @@ decho "$2: seg=${name} prevseg_name=${prevseg_name} ,  gkRow=${gkRow} "
   if [ $2 -eq 1 ] ; then   # ignore the first kernel region
      decho "k sparse check: skipping first kernel region"
   else
-	 decho "prevseg_start_kva=${prevseg_start_kva}"
+     local end_hex=$(printf "0x%llx" ${end_dec})
+     prevseg_start_kva_hex=$(printf "0x%llx" ${prevseg_start_kva})
+
+	 decho "@@ gap = prevseg_start_kva_hex: ${prevseg_start_kva_hex} -  end_hex: ${end_hex}"
      gap=$(bc <<< "(${prevseg_start_kva}-${end_dec})")
      local gap_hex=$(printf "0x%llx" ${gap})
      decho "gap = ${gap}"
@@ -192,8 +195,6 @@ decho "$2: seg=${name} prevseg_name=${prevseg_name} ,  gkRow=${gkRow} "
   fi
 
  if [ ${DetectedSparse} -eq 1 ]; then
-    local prevseg_start_kva_hex=$(printf "0x%llx" ${prevseg_start_kva})
-    #local start_kva_hex=$((${prevseg_start_kva_hex}-${gap_hex}))
     local start_kva_dec=$(bc <<< "(${prevseg_start_kva}-${gap})")
     local start_kva_sparse=$(printf "0x%llx" ${start_kva_dec})
 

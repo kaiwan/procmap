@@ -70,11 +70,11 @@ largenum_display()
 
 get_pgoff_highmem()
 {
- vecho "get_pgoff_highmem()"
+ vecho " get PAGE_OFFSET and highmem values"
  # Retrieve the PAGE_OFFSET and HIGHMEM lines from the KSEGFILE file
  PAGE_OFFSET=$(grep "^PAGE_OFFSET" ${KSEGFILE} |cut -d"${gDELIM}" -f2)
  HIGHMEM=$(grep "^high_memory" ${KSEGFILE} |cut -d"${gDELIM}" -f2)
- decho "PAGE_OFFSET = ${PAGE_OFFSET} , HIGHMEM = ${HIGHMEM}"
+ decho "PAGE_OFFSET = ${PAGE_OFFSET} , high_memory = ${HIGHMEM}"
 
  # Delete the PAGE_OFFSET and HIGHMEM lines from the KSEGFILE file
  # as we don't want them in the processing loop that follows
@@ -86,7 +86,7 @@ get_pgoff_highmem()
 # scripts that require it
  cat > ${ARCHFILE} << @EOF@
 PAGE_OFFSET=${PAGE_OFFSET}
-HIGHMEM=${HIGHMEM}
+high_memory=${HIGHMEM}
 @EOF@
 } # end get_pgoff_highmem()
 
@@ -104,14 +104,14 @@ build_lkm()
     echo "${name}: kernel module \"${KMOD}\" not generated? aborting..."
 	return
  fi
- vecho " kseg: LKM built"
+ vecho " kernel: LKM built"
 } # end build_lkm()
 
 # init_kernel_lkm_get_details()
 init_kernel_lkm_get_details()
 {
 #set +x
-  vecho "init_kernel_lkm_get_details():"
+  vecho "kernel: init kernel LKM and get details:"
   if [ ! -d ${DBGFS_LOC} ] ; then
  	echo "${name}: kernel debugfs not supported or mounted? aborting..."
  	return
@@ -139,13 +139,13 @@ init_kernel_lkm_get_details()
 	    echo "${name}: insmod(8) on kernel module \"${KMOD}\" failed? aborting..."
 		return
   }
-  vecho " kseg: LKM inserted into kernel"
+  vecho " LKM inserted into kernel"
   sudo ls ${DBGFS_LOC}/${KMOD}/${DBGFS_FILENAME} >/dev/null 2>&1 || {
      echo "${name}: required debugfs file not present? aborting..."
 	 sudo rmmod ${KMOD}
 	 return
   }
-  vecho " kseg: debugfs file present"
+  vecho " debugfs file present"
 
   # Finally! generate the kernel seg details
   sudo cat ${DBGFS_LOC}/${KMOD}/${DBGFS_FILENAME} > ${KSEGFILE}
@@ -167,7 +167,7 @@ $(cat ${KSEGFILE})"
 #----------------------------------------------------------------------
 set_config_x86_64()
 {
-  vecho "set_config_x86_64():"
+  vecho "set config for x86_64:"
 ARCH=x86_64
 PAGE_SIZE=4096
 USER_VAS_SIZE_TB=128
@@ -200,6 +200,7 @@ START_UVA_DEC=0
 
 # Calculate size of K and U VAS's
 KERNEL_VAS_SIZE=$(bc <<< "(${HIGHEST_KVA_DEC}-${START_KVA_DEC}+1)")
+# user VAS size is the kernel macro TASK_SIZE (?)
   USER_VAS_SIZE=$(bc <<< "(${END_UVA_DEC}-${START_UVA_DEC}+1)")
 
 # We *require* these 'globals' in the other scripts
@@ -230,7 +231,7 @@ FMTSPC_VA=${FMTSPC_VA}
 #----------------------------------------------------------------------
 set_config_aarch32()
 {
-  vecho "set_config_aarch32():"
+  vecho "set config for Aarch32:"
 ARCH=Aarch32
 PAGE_SIZE=4096
 
@@ -292,7 +293,6 @@ if [ ${VERBOSE} -eq 0 -a ${DEBUG} -eq 0 ] ; then
 fi
 
 local TMPF=/tmp/karch
-#grep -v "_DEC" ${ARCHFILE} > .tmp1
 awk -F= '{print $1, "=", $2}' ${ARCHFILE} > ${TMPF}
 
 local LIN="--------------------------------------------------"
@@ -430,8 +430,11 @@ append_userspace_mapping()
 } # end append_userspace_mapping()
 
 #---------------------- g r a p h i t ---------------------------------
-# Iterates over the global '6d' array gArr[] 'drawing' the vgraph.
+# Iterates over the global n-dim arrays 'drawing' the vgraph.
+#  when invoked with -k, it iterates over the gkArray[] ds
+#  when invoked with -u, it iterates over the gArray[] ds
 # Data driven tech!
+#
 # Parameters:
 #   $1 : -u|-k ; -u => userspace , -k = kernel-space
 graphit()
@@ -469,6 +472,7 @@ do
 	local tmp4_nocolor tmp5a_nocolor tmp5b_nocolor tmp5c_nocolor
 	local tmp5 tmp5_nocolor
 	local tmp7 tmp7_nocolor
+	local archfile_entry archfile_entry_label
 
     #--- Retrieve values from the array
 	if [ "$1" = "-u" ] ; then
@@ -519,6 +523,8 @@ do
     fi
 	#decho "@@@ i=$i/${rows} , seg_sz = ${seg_sz}"
 
+decho "end_va = ${end_va}   ,   start_va = ${start_va}"
+
     #--- Drawing :-p  !
 	# the horizontal line with the end uva at the end of it
 	# the first actual print emitted!
@@ -526,8 +532,7 @@ do
 	# +----------------------------------------------------------------------+ 000055681263b000
 	# Changed to end_va @EOL as we now always print in descending order
 
-    # last loop iteration
-    if [ "$1" = "-k" -a ${i} -eq $((${rows}-${DIM})) ] ; then
+    if [ "$1" = "-k" -a ${i} -eq $((${rows}-${DIM})) ] ; then   # last loop iteration
        if [ ${IS_64_BIT} -eq 1 ] ; then
            tput bold
            printf "%s ${FMTSPC_VA}\n" "${LIN_LAST_K}" 0x${START_KVA}
@@ -536,8 +541,22 @@ do
            printf "%s ${FMTSPC_VA}\n" "${LIN}" ${end_va}
            #printf "%s ${FMTSPC_VA}\n" "${LIN}" 0x${START_KVA}
 	   fi
-    elif [ ${i} -ne 0 ] ; then   # normal case
-         printf "%s ${FMTSPC_VA}\n" "${LIN}" "${end_va}"
+    elif [ ${i} -ne 0 ] ; then   # ** normal case **
+         printf "%s ${FMTSPC_VA}" "${LIN}" "${end_va}"
+		 # Check, if the currently printed 'end_va' matches an entry in our ARCHFILE;
+		 # If so, print the entry 'label' (name); f.e. 0x.... <-- PAGE_OFFSET
+		 # TODO: buggy when -k option passed, ok when both VAS's are displayed
+#set -x
+		 archfile_entry=$(grep "${end_va:2}" ${ARCHFILE})  # leave out the '0x' part
+		 [ ! -z "${archfile_entry}" ] && {
+		   archfile_entry_label=$(echo "${archfile_entry}" |cut -d"=" -f1)
+           tput bold
+		   printf " <-- %s\n" "${archfile_entry_label}"
+	       color_reset
+		 } || {
+		   printf "\n"
+		 }
+#set +x
     else   # very first line
          tput bold
          if [ "${1}" = "-k" ] ; then
