@@ -433,7 +433,16 @@ disp_fmt
  printf "[Pathname: %s ]\n" $(sudo realpath /proc/${PID}/exe)
  color_reset
 
- stats ${PID}
+ if [ ${VERBOSE} -eq 1 ]; then
+    printf "\n[v] "
+    runcmd sudo ls -l ${PRCS_PATHNAME}
+    printf "\n[v] "
+    runcmd sudo file ${PRCS_PATHNAME}
+	# arch-specific:
+    printf "\n[v] "
+    runcmd sudo ldd ${PRCS_PATHNAME}
+    printf "\n"
+ fi
 } # end main_wrapper()
 
 # stats()

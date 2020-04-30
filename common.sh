@@ -35,6 +35,16 @@ prompt()
  read
 }
 
+# runcmd
+# Parameters
+#   $1 ... : params are the command to run
+runcmd()
+{
+[ $# -eq 0 ] && return
+echo "$@"
+eval "$@"
+}
+
 # ref: https://stackoverflow.com/questions/369758/how-to-trim-whitespace-from-a-bash-variable
 trim() {
     local var="$*"
