@@ -673,7 +673,7 @@ decho "end_va = ${end_va}   ,   start_va = ${start_va}"
 		   tmp5a="${tmp5a} "
 		fi
 	else
-		tmp5a=$(printf "%s,%s" $(fg_black) "${perms}")
+		tmp5a=$(printf "%s,%s%s" $(fg_black) "${perms}" $(color_reset))
 	    if [ "$1" = "-u" ] ; then # addn comma only for userspace
 		   tmp5a="${tmp5a},"
 		else                      # to compensate, addn space for kernel
@@ -685,7 +685,7 @@ decho "end_va = ${end_va}   ,   start_va = ${start_va}"
 
 	# userspace: mapping type and file offset
 	if [ "$1" = "-u" ] ; then
-	   tmp5b=$(printf "%s%s%s," $(fg_blue) "${maptype}" $(fg_black))
+	   tmp5b=$(printf "%s%s%s,%s" $(fg_blue) "${maptype}" $(fg_black) $(color_reset))
 	   tmp5b_nocolor=$(printf "%s," "${maptype}")
 	   len_maptype=${#tmp5b_nocolor}
 
