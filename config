@@ -42,3 +42,8 @@ IS_X86_64=0
 IS_Aarch32=0
 IS_Aarch64=0
 IS_X86_32=0
+
+# Colors; FG = foreground color
+FG_MAPNAME=fg_navyblue
+FG_KVAR=fg_darkgreen
+

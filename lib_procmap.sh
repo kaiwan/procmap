@@ -584,7 +584,8 @@ decho "end_va = ${end_va}   ,   start_va = ${start_va}"
 		 [ ! -z "${archfile_entry}" ] && {
 		   archfile_entry_label=$(echo "${archfile_entry}" |cut -d"=" -f1)
            tput bold
-		   printf "  <-- %s\n" "${archfile_entry_label}"
+		   printf "%s  <-- %s\n" $(${FG_KVAR}) "${archfile_entry_label}"
+		   #printf "  <-- %s\n" "${archfile_entry_label}"
 	       color_reset
 		 } || {
 		   printf "\n"
@@ -602,7 +603,7 @@ decho "end_va = ${end_va}   ,   start_va = ${start_va}"
 	# |<... Sparse Region ...> [ 14.73 MB] [----,0x0]                        |
 
 	# Print segment name
-	tmp1=$(printf "%s|%20s " $(fg_orange) ${segname})
+	tmp1=$(printf "%s|%20s " $(${FG_MAPNAME}) ${segname})
 	local segname_nocolor=$(printf "|%20s " ${segname})
 
 	# Colour and Print segment size according to scale; in KB or MB or GB or TB or PB

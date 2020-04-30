@@ -23,6 +23,8 @@
 #--- Foreground Colors
 fg_black() { tput setaf 0 
 }
+fg_darkgrey() { tput setaf 232
+}
 fg_red() { tput setaf 1
 }
 fg_purple() { tput setaf 125
