@@ -348,21 +348,22 @@ main_wrapper()
  prep_file
  get_range_info
  export IFS=$'\n'
- local i=0
 
  #--- Header
  tput bold
  printf "\n[==================---     P R O C M A P     ---==================]\n"
  color_reset
- printf "Process Virtual Address Space (VAS) Visualization project\n"
- printf " https://github.com/kaiwan/procmap\n\n"
+ printf "Process Virtual Address Space (VAS) Visualization utility\n"
+ printf "https://github.com/kaiwan/procmap\n\n"
  date
 
- #local nm=$(trim_string_middle $(realpath /proc/${PID}/exe) 50)
- local nm=$(basename $(sudo realpath /proc/${PID}/exe))
+ PRCS_PATHNAME=$(sudo realpath /proc/${PID}/exe)
+
+ #PRCS_NAME=$(trim_string_middle $(realpath /proc/${PID}/exe) 50)
+ PRCS_NAME=$(basename ${PRCS_PATHNAME})
 
  tput bold
- printf "[=====---  Start memory map for %d:%s  ---=====]\n" ${PID} ${nm}
+ printf "[=====---  Start memory map for %d:%s  ---=====]\n" ${PID} ${PRCS_NAME}
  printf "[Pathname: %s ]\n" $(sudo realpath /proc/${PID}/exe)
  color_reset
  disp_fmt
@@ -391,12 +392,12 @@ main_wrapper()
  setup_usparse_top
 
  # Loop over the 'infile', populating the global 'n-d' array gArray
- local REC
+ local i=0 REC
  for REC in $(cat ${gINFILE})
  do 
    decho "REC: $REC"
    interpret_user_rec ${REC} ${i}
-   printf "=== %06d / %06d\r" ${i} ${gFileLines}
+   printf "=== %06d / %06d\r" ${i} $((${gFileLines}-1))
    let i=i+1
  done 1>&2
 
@@ -429,8 +430,8 @@ disp_fmt
 
  #--- Footer
  tput bold
- printf "\n[=====---  End memory map for %d:%s  ---=====]\n" ${PID} ${nm}
- printf "[Pathname: %s ]\n" $(sudo realpath /proc/${PID}/exe)
+ printf "\n[=====---  End memory map for %d:%s  ---=====]\n" ${PID} ${PRCS_NAME}
+ printf "[Pathname: %s ]\n" ${PRCS_PATHNAME}
  color_reset
 
  if [ ${VERBOSE} -eq 1 ]; then
@@ -443,6 +444,8 @@ disp_fmt
     runcmd sudo ldd ${PRCS_PATHNAME}
     printf "\n"
  fi
+
+ stats ${PID} ${PRCS_NAME}
 } # end main_wrapper()
 
 # stats()
@@ -459,12 +462,16 @@ fi
    largenum_display ${USER_VAS_SIZE}
 
    local PID=$1
+   local name="$2"
    local numvmas=$(sudo wc -l /proc/${PID}/maps |awk '{print $1}')
    #[ ${gFileLines} -ne ${numvmas} ] && printf " [!] Warning! # VMAs does not match /proc/${PID}/maps\n"
    # The [vsyscall] VMA shows up but the NULL trap doesn't
    [ ${SHOW_VSYSCALL_PAGE} -eq 1 ] && let numvmas=numvmas+1  # for the NULL trap page
 
-   printf "\n\n=== Statistics for Userspace: ===\n%d VMAs (segments or mappings)" ${numvmas}
+   printf "\n\n=== Statistics for Userspace: ===\n"
+   printf "For PID %d:%s\n" ${PID} ${name}
+   printf " %d VMAs (segments or mappings)" ${numvmas}
+
    [ ${SPARSE_SHOW} -eq 1 ] && {
      printf ", %d sparse regions (includes NULL trap page)\n" ${gNumSparse}
      printf "Total User VAS that is Sparse memory:\n"
@@ -482,7 +489,7 @@ fi
    printf "Total reported memory (RAM) on this system:\n"
    largenum_display ${totalram}
 
-   printf "\n\nMemory Usage stats for process PID %d:\n" ${PID}
+   printf "\n\nMemory Usage stats for process PID %d:%s\n" ${PID} ${name}
    printf "Via ps(1):\n"
 # ps aux|head -n1
 # USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
@@ -496,7 +503,7 @@ RSS=%lu KB\n", $4,$5,$6)}'
    sudo smem |awk -v pid=${PID} '$1==pid {printf(" swap=%u   USS=%lu KB   \
 PSS=%lu KB   RSS=%lu KB\n", $4,$5,$6,$7)}'
   } || {
-    vecho "smem(8) not installed, skipping..."
+    vecho "smem(8) not installed? skipping..."
   }
   printf "===\n"
 } # end stats()

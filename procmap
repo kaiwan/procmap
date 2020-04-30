@@ -137,7 +137,7 @@ PFX=$(dirname $(which $0))    # dir in which 'vasu_grapher' and tools reside
 }
 # Check for process existence
 sudo kill -0 ${PID} >/dev/null 2>&1 || {
- echo "${name}: process with PID \"$1\" invalid (or dead now?) Aborting..."
+ echo "${name}: process with PID \"${PID}\" invalid (or dead now?) Aborting..."
  exit 1
 }
 # Verify it's not a kernel thread
