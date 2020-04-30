@@ -167,6 +167,7 @@ static void query_kernelseg_details(char *buf)
 	strncat(buf, tmpbuf, strlen(tmpbuf));
 #endif
 
+	/* Enhancement: also pass along other key kernel vars */
 	memset(tmpbuf, 0, TMPMAX);
 	snprintf(tmpbuf, TMPMAX,
 		"PAGE_OFFSET," FMTSPC "\n"

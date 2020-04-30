@@ -70,14 +70,37 @@ sed -i "s/47m//g" ${1}
 
 usage()
 {
- echo "Usage: ${name} [options] -p PID-to-show-memory-map-of
+ cat << @EOF@
+Usage: ${name} [options] -p PID-to-show-memory-map-of
+
 Options:
  -u : show ONLY the usermode mappings or segments (not kernel VAS)
  -k : show ONLY the kernel-space mappings or segments (not user VAS)
   [default is to show BOTH]
  -v : verbose mode (try it!)
  -d : debug mode
-" 1>&2
+
+-----------------------------
+Caveats / Limitations:
+-----------------------------
+- This utility is in the early stages of development and is continually
+  evolving. As of now, in terms of the precise arch-specific kernel
+  memory layout specifics, it's almost certaily incomplete. For example, as of
+  now we don't (can't?) show every kernel mapping as documented in the kernel
+  (for the x86_64, here: Documentation/x86/x86_64/mm.rst); f.e., the kernel
+  vmemmap region, guard hole, etc are not shown explcitly - they are simply
+  within one of the sparse regions on the map
+
+- procmap currently supports the following CPu arch's:
+    x86_64, Aarch32
+  I intend to support x86-32, Aarch64 shortly; other archs - could use help
+
+- Kernel mappings: the precise 'mode' (perms) of each mapping being unclear (to
+  me), I simply put in what seems logical (but am unsure of it's accuracy).
+  Knowledgeable persons, pl help!
+
+@EOF@
+ 1>&2
 }
 
 
