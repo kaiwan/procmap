@@ -268,52 +268,6 @@ setup_noncanonical_sparse_region()
   fi
 }
 
-# init_kernel_lkm_get_details()
-init_kernel_lkm_get_details()
-{
- if [ ! -d ${DBGFS_LOC} ] ; then
-	echo "${name}: kernel debugfs not supported or mounted? aborting..."
-	return
- else
-    vecho " debugfs location verfied"
- fi
-
-  TOP=$(pwd)
-  cd ${KERNELDIR} || return
-  #pwd
-
-  if [ ! -s ${KMOD}.ko ] ; then
-     build_lkm
-  fi
-
-  # Ok, the kernel module is there, lets insert it!
-  #ls -l ${KMOD}.ko
-  sudo rmmod ${KMOD} 2>/dev/null   # rm any stale instance
-  sudo insmod ./${KMOD}.ko || {
-	    echo "${name}: insmod(8) on kernel module \"${KMOD}\" failed, build again and retry..."
-        build_lkm
-	    sudo insmod ./${KMOD}.ko || return
-  }
-  lsmod |grep -q ${KMOD} || {
-	    echo "${name}: insmod(8) on kernel module \"${KMOD}\" failed? aborting..."
-		return
-  }
-  vecho " kseg: LKM inserted into kernel"
-  sudo ls ${DBGFS_LOC}/${KMOD}/${DBGFS_FILENAME} >/dev/null 2>&1 || {
-     echo "${name}: required debugfs file not present? aborting..."
-	 sudo rmmod ${KMOD}
-	 return
-  }
-  vecho " kseg: debugfs file is there"
-
-  # Finally! generate the kernel seg details
-  sudo cat ${DBGFS_LOC}/${KMOD}/${DBGFS_FILENAME} > ${KSEGFILE}
-  decho "kseg dtl:
-$(cat ${KSEGFILE})"
-
-  get_pgoff_highmem
-} # end init_kernel_lkm_get_details()
-
 # populate_kernel_segment_mappings()
 populate_kernel_segment_mappings()
 {

@@ -145,7 +145,7 @@ init_kernel_lkm_get_details()
 	 sudo rmmod ${KMOD}
 	 return
   }
-  vecho " kseg: debugfs file is there"
+  vecho " kseg: debugfs file present"
 
   # Finally! generate the kernel seg details
   sudo cat ${DBGFS_LOC}/${KMOD}/${DBGFS_FILENAME} > ${KSEGFILE}
