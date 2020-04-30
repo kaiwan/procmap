@@ -60,6 +60,10 @@ DEFINE_MUTEX(mtx);
  * Format (for most of the details):
  *   start_kva,end_kva,<mode>,<name-of-region>
  *
+ * CAREFUL: An ABI:
+ * We depend on the <name-of-region> field (in the usermode scripts);
+ * do NOT simply change it.
+ *
  * We try to order it by descending address (here, kva's) but this doesn't
  * always work out as ordering of regions differs by arch.
  *
@@ -133,7 +137,7 @@ static void query_kernelseg_details(char *buf)
 		(TYPECST)VMALLOC_START, (TYPECST)VMALLOC_END);
 	strncat(buf, tmpbuf, strlen(tmpbuf));
 
-	/* lowmem region */
+	/* lowmem region: spans from PAGE_OFFSET to high_memory */
 	memset(tmpbuf, 0, TMPMAX);
 	snprintf(tmpbuf, TMPMAX,
 		FMTSPC "," FMTSPC ",rwx,lowmem region\n",
@@ -167,6 +171,7 @@ static void query_kernelseg_details(char *buf)
 	strncat(buf, tmpbuf, strlen(tmpbuf));
 #endif
 
+#if 0
 	/* Enhancement: also pass along other key kernel vars */
 	memset(tmpbuf, 0, TMPMAX);
 	snprintf(tmpbuf, TMPMAX,
@@ -174,6 +179,7 @@ static void query_kernelseg_details(char *buf)
 		"high_memory," FMTSPC "\n",
 		(TYPECST)PAGE_OFFSET, (TYPECST)high_memory);
 	strncat(buf, tmpbuf, strlen(tmpbuf));
+#endif
 }
 
 /* Our debugfs file 1's read callback function */

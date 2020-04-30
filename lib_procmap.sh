@@ -68,27 +68,56 @@ largenum_display()
 	 fi
 } # end largenum_display()
 
-get_pgoff_highmem()
+# parse_ksegfile_getvars()
+# Here, we parse information obtained via procmap's kernel component - the
+# procmap LKM (loadable kernel module); it's already been written into the
+# file ${KSEGFILE} (via it's debugfs file from the
+# init_kernel_lkm_get_details() function)
+parse_ksegfile_getvars()
 {
- vecho " get PAGE_OFFSET and highmem values"
+ vecho " Parsing in various kernel variables as required"
+ VECTORS_BASE=$(grep -w "vector" ${KSEGFILE} |cut -d"${gDELIM}" -f1)
+ FIXADDR_START=$(grep -w "fixmap" ${KSEGFILE} |cut -d"${gDELIM}" -f1)
+ MODULES_VADDR=$(grep -w "module" ${KSEGFILE} |cut -d"${gDELIM}" -f1)
+ MODULES_END=$(grep -w "module" ${KSEGFILE} |cut -d"${gDELIM}" -f2)
+ KASAN_SHADOW_START=$(grep -w "KASAN" ${KSEGFILE} |cut -d"${gDELIM}" -f1)
+ KASAN_SHADOW_END=$(grep -w "KASAN" ${KSEGFILE} |cut -d"${gDELIM}" -f2)
+ VMALLOC_START=$(grep -w "vmalloc" ${KSEGFILE} |cut -d"${gDELIM}" -f1)
+ VMALLOC_END=$(grep -w "vmalloc" ${KSEGFILE} |cut -d"${gDELIM}" -f2)
+ PAGE_OFFSET=$(grep -w "lowmem" ${KSEGFILE} |cut -d"${gDELIM}" -f1)
+ high_memory=$(grep -w "lowmem" ${KSEGFILE} |cut -d"${gDELIM}" -f2)
+ PKMAP_BASE=$(grep -w "HIGHMEM" ${KSEGFILE} |cut -d"${gDELIM}" -f1)
+
+[ 0 -eq 1 ] && {
  # Retrieve the PAGE_OFFSET and HIGHMEM lines from the KSEGFILE file
  PAGE_OFFSET=$(grep "^PAGE_OFFSET" ${KSEGFILE} |cut -d"${gDELIM}" -f2)
  HIGHMEM=$(grep "^high_memory" ${KSEGFILE} |cut -d"${gDELIM}" -f2)
  decho "PAGE_OFFSET = ${PAGE_OFFSET} , high_memory = ${HIGHMEM}"
 
  # Delete the PAGE_OFFSET and HIGHMEM lines from the KSEGFILE file
- # as we don't want them in the processing loop that follows
+ # as we don't want them in the kernel map processing loop that follows
  sed --in-place '/^PAGE_OFFSET/d' ${KSEGFILE}
  sed --in-place '/^high_memory/d' ${KSEGFILE}
+}
 
 # We *require* these 'globals' again later in the script;
-# So we place them into a file and source this file in the
-# scripts that require it
+# So we place them into an 'arch' file (in descending order by kva) and source
+# this file in the scripts that require it.
+# It's arch-dependent, some vars may be NULL; that's okay.
  cat > ${ARCHFILE} << @EOF@
+VECTORS_BASE=${VECTORS_BASE}
+FIXADDR_START=${FIXADDR_START}
+MODULES_VADDR=${MODULES_VADDR}
+MODULES_END=${MODULES_END}
+KASAN_SHADOW_START=${KASAN_SHADOW_START}
+KASAN_SHADOW_END=${KASAN_SHADOW_END}
+VMALLOC_START=${VMALLOC_START}
+VMALLOC_END=${VMALLOC_END}
 PAGE_OFFSET=${PAGE_OFFSET}
-high_memory=${HIGHMEM}
+high_memory=${high_memory}
+PKMAP_BASE=${PKMAP_BASE}
 @EOF@
-} # end get_pgoff_highmem()
+} # end parse_ksegfile_getvars()
 
 # build_lkm()
 # (Re)build the LKM - Loadable Kernel Module for this project
@@ -149,10 +178,12 @@ init_kernel_lkm_get_details()
 
   # Finally! generate the kernel seg details
   sudo cat ${DBGFS_LOC}/${KMOD}/${DBGFS_FILENAME} > ${KSEGFILE}
+  # CSV fmt:
+  #  start_kva,end_kva,mode,name-of-region
   decho "kseg dtl:
 $(cat ${KSEGFILE})"
 
-  get_pgoff_highmem
+  parse_ksegfile_getvars
 } # end init_kernel_lkm_get_details()
 
 #######################################################################
@@ -207,6 +238,7 @@ KERNEL_VAS_SIZE=$(bc <<< "(${HIGHEST_KVA_DEC}-${START_KVA_DEC}+1)")
 # So we place all of them into a file and source this file in the
 # scripts that require it
 cat >> ${ARCHFILE} << @EOF@
+
 ARCH=x86_64
 IS_64_BIT=1
 PAGE_SIZE=4096
@@ -292,16 +324,18 @@ if [ ${VERBOSE} -eq 0 -a ${DEBUG} -eq 0 ] ; then
    return
 fi
 
-local TMPF=/tmp/karch
-awk -F= '{print $1, "=", $2}' ${ARCHFILE} > ${TMPF}
+local TMPF1=/tmp/karch1 TMPF2=/tmp/karch2
+awk -F= 'NF > 1 {print $1, "=", $2}' ${ARCHFILE} > ${TMPF1}
+awk 'NF == 3 {print $0}' ${TMPF1} > ${TMPF2}
+sed --in-place '/FMTSPC_VA/ d' ${TMPF2}
 
 local LIN="--------------------------------------------------"
 echo "${LIN}
 [v] Kernel segment details ::
 ${LIN}
-$(cat ${TMPF})
+$(cat ${TMPF2})
 ${LIN}"
-rm -f ${TMPF}
+rm -f ${TMPF1} ${TMPF2}
 } # end human_readdbl_kernel_arch()
 
 show_machine_kernel_dtl()
@@ -546,17 +580,15 @@ decho "end_va = ${end_va}   ,   start_va = ${start_va}"
 		 # Check, if the currently printed 'end_va' matches an entry in our ARCHFILE;
 		 # If so, print the entry 'label' (name); f.e. 0x.... <-- PAGE_OFFSET
 		 # TODO: buggy when -k option passed, ok when both VAS's are displayed
-#set -x
-		 archfile_entry=$(grep "${end_va:2}" ${ARCHFILE})  # leave out the '0x' part
+		 archfile_entry=$(grep "${end_va:2}" ${ARCHFILE})  # ${end_va:2} => leave out the '0x' part
 		 [ ! -z "${archfile_entry}" ] && {
 		   archfile_entry_label=$(echo "${archfile_entry}" |cut -d"=" -f1)
            tput bold
-		   printf " <-- %s\n" "${archfile_entry_label}"
+		   printf "  <-- %s\n" "${archfile_entry_label}"
 	       color_reset
 		 } || {
 		   printf "\n"
 		 }
-#set +x
     else   # very first line
          tput bold
          if [ "${1}" = "-k" ] ; then
