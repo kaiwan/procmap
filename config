@@ -7,6 +7,7 @@ set -a  # export all
 gDELIM=","
 VERBOSE=0
 DEBUG=0
+LOCATE_SPEC=""
 
 LIMIT_SCALE_SZ=20
 LARGE_SPACE=12
@@ -43,7 +44,8 @@ IS_Aarch32=0
 IS_Aarch64=0
 IS_X86_32=0
 
-# Colors; FG = foreground color
+# Colors
+# Find the curr encoded color functions (fg_xxx, bg_yyy) in the color.sh script
+# FG = foreground color
 FG_MAPNAME=fg_navyblue
 FG_KVAR=fg_darkgreen
-

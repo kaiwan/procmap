@@ -1,6 +1,5 @@
 #!/bin/bash
 # do_vgraph.sh
-# https://github.com/kaiwan/vasu_grapher.git
 #
 # Quick Description:
 # Support script for the procmap project. Handles the user VAS population
@@ -371,7 +370,7 @@ main_wrapper()
  #----------- KERNEL-SPACE VAS calculation and drawing
  # Show kernelspace? Yes by default!
  if [ ${SHOW_KERNELSEG} -eq 1 ] ; then
-    populate_kernel_segment_mappings
+    populate_kernel_segment_mappings "${LOCATE_SPEC}"
     graphit -k
  else
    decho "Skipping kernel segment display..."
@@ -539,7 +538,7 @@ which bc >/dev/null || {
 SHOW_KERNELSEG=0
 SHOW_USERSPACE=0
 
-while getopts "p:f:h?kudv" opt; do
+while getopts "p:f:l:h?kudv" opt; do
     case "${opt}" in
         h|\?) usage ; exit 0
                 ;;
@@ -548,6 +547,10 @@ while getopts "p:f:h?kudv" opt; do
             ;;
         f)
             gINFILE=${OPTARG}
+            ;;
+        l)
+            LOCATE_SPEC=${OPTARG}
+            #echo "LOCATE_SPEC=${LOCATE_SPEC}"
             ;;
         k)
             SHOW_KERNELSEG=1

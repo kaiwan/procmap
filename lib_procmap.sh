@@ -14,6 +14,37 @@ source ${PFX}/config || {
  exit 1
 }
 
+LOCATED_REGION_ENTRY="<--LOCATED-->"
+
+# locate_region()
+# Insert a 'locate region'? (passed via -l)
+# Parameters:
+#   $1 = start virtual addr of the region to check for intersection (hex)
+#   $2 =   end virtual addr of the region to check for intersection (hex)
+locate_region()
+{
+#set -x
+ local start_va_dec=$(printf "%llu" $1)
+ local   end_va_dec=$(printf "%llu" $2)
+#set +x
+
+ if (( $(echo "${LOC_STARTADDR_DEC} >= ${start_va_dec}" |bc -l) )) ; then
+    if (( $(echo "${LOC_STARTADDR_DEC} <= ${end_va_dec}" |bc -l) )) ; then
+       #echo " @@@ locate region! ins special mapping into the gkArray[] ds"
+	   echo " <-------- located :: start = ${LOC_STARTADDR} of length ${LOC_LEN} KB -------->"
+
+	   #local loc_len_hex=0x$(printf "%llx" ${LOC_LEN})
+	   local loc_len_bytes=$((LOC_LEN*1024))
+	   local loc_end_va_dec=$(bc <<< "${LOC_STARTADDR_DEC}+${loc_len_bytes}")
+	   LOC_END_VA=0x$(printf "%llx" ${loc_end_va_dec})
+
+	   # if kva
+       do_append_kernel_mapping "${LOCATED_REGION_ENTRY}" "${loc_len_bytes}" ${LOC_STARTADDR} \
+	      ${LOC_END_VA} "..."
+	   # else, for user region
+    fi
+ fi
+} # end locate_region()
 
 # inc_sparse()
 # Parameters:
@@ -410,7 +441,7 @@ fi
 show_machine_kernel_dtl
 } # end get_machine_type()
 
-# append_kernel_mapping()
+# do_append_kernel_mapping()
 # Append a new n-dim entry in the gkArray[] data structure,
 # creating, in effect, a new mapping
 # Parameters:
@@ -419,7 +450,7 @@ show_machine_kernel_dtl
 #   $3 : start va of mapping/segment
 #   $4 : end va of mapping/segment
 #   $5 : mode (perms) of mapping/segment
-append_kernel_mapping()
+do_append_kernel_mapping()
 {
   # row'n' [segname],[size],[start_uva],[end_uva],[mode],[offset]
   gkArray[${gkRow}]="${1}"
@@ -428,12 +459,19 @@ append_kernel_mapping()
   let gkRow=gkRow+1
   gkArray[${gkRow}]=${3}        # start kva
   let gkRow=gkRow+1
-  gkArray[${gkRow}]="${4}"  # end (higher) kva
+  gkArray[${gkRow}]="${4}"      # end (higher) kva
   let gkRow=gkRow+1
   gkArray[${gkRow}]="${5}"
   let gkRow=gkRow+1
-  #let gNumSparse=gNumSparse+1
-} # end append_kernel_mapping()
+} # end do_append_kernel_mapping()
+
+append_kernel_mapping()
+{
+  # $3 = start va
+  # $4 = end va
+  do_append_kernel_mapping "$1" $2 $3 $4 $5
+  [ ${LOC_LEN} -ne 0 ] && locate_region $3 $4
+}
 
 # append_userspace_mapping()
 # Append a new n-dim entry in the gArray[] data structure,
@@ -484,6 +522,9 @@ local  LIN_LAST_U="+------------------      U S E R   V A S  start uva  --------
 local         LIN="+----------------------------------------------------------------------+"
 local ELLIPSE_LIN="~ .       .       .       .       .       .        .       .        .  ~"
 local   BOX_SIDES="|                                                                      |"
+local LIN_LOCATED_REGION="       +------------------------------------------------------+"
+local MARK_LOCATION="X"
+
 local linelen=$((${#LIN}-2))
 local oversized=0
 
@@ -559,6 +600,7 @@ do
 
 decho "end_va = ${end_va}   ,   start_va = ${start_va}"
 
+
     #--- Drawing :-p  !
 	# the horizontal line with the end uva at the end of it
 	# the first actual print emitted!
@@ -576,7 +618,25 @@ decho "end_va = ${end_va}   ,   start_va = ${start_va}"
            #printf "%s ${FMTSPC_VA}\n" "${LIN}" 0x${START_KVA}
 	   fi
     elif [ ${i} -ne 0 ] ; then   # ** normal case **
-         printf "%s ${FMTSPC_VA}" "${LIN}" "${end_va}"
+
+		 #============ -l option: LOCATE region ! ======================
+         if [ "${segname}" = "${LOCATED_REGION_ENTRY}" ]; then
+		    tput bold; fg_red
+			if [ ${IS_64_BIT} -eq 1 ] ; then
+               printf "|                          %s ${FMTSPC_VA}                          |\n" \
+			        "${MARK_LOCATION}" ${LOC_STARTADDR}
+			else
+               printf "|                              %s ${FMTSPC_VA}                              |\n" \
+			        "${MARK_LOCATION}" ${LOC_STARTADDR}
+			fi
+			color_reset
+		    oversized=0
+			continue
+            #printf "%s ${FMTSPC_VA}" "${LIN_LOCATED_REGION}" ${LOC_END_VA}
+		 else
+            printf "%s ${FMTSPC_VA}" "${LIN}" "${end_va}"
+		 fi
+
 		 # Check, if the currently printed 'end_va' matches an entry in our ARCHFILE;
 		 # If so, print the entry 'label' (name); f.e. 0x.... <-- PAGE_OFFSET
 		 # TODO: buggy when -k option passed, ok when both VAS's are displayed
@@ -725,8 +785,9 @@ decho "end_va = ${end_va}   ,   start_va = ${start_va}"
     # Simplify: We base the 'height' of each segment on the number of digits
     # in the segment size (in bytes)!
     segscale=${#seg_sz}    # strlen(seg_sz)
-    [ ${segscale} -lt 4 ] && {   # min seg size is 4096 bytes
-        echo "${name}: fatal error, segscale (# digits) <= 3! Aborting..."
+	# Exception to this check: if we're in a 'located region' (via -l option)
+    [ "${segname}" != "${LOCATED_REGION_ENTRY}" -a ${segscale} -lt 4 ] && {   # min seg size is 4096 bytes
+        echo "procmap:graphit(): fatal error, segscale (# digits) <= 3! Aborting..."
 	    echo "Kindly report this as a bug, thanks!"
 	    exit 1
     }
@@ -759,9 +820,7 @@ decho "end_va = ${end_va}   ,   start_va = ${start_va}"
     #---
 
     # draw the sides of the 'box'
-    #[ ${box_height} -ge ${LIMIT_SCALE_SZ} ] && {
     [ ${box_height} -ge ${LARGE_SPACE} ] && {
-   	  #box_height=${LIMIT_SCALE_SZ}
    	  oversized=1
     }
 

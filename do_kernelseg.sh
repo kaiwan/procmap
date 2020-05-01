@@ -40,9 +40,9 @@ done
 
 # Setup the kernel Sparse region at the very top (high) end of the VAS
 # in the gkArray[]
-# ARCH SPECIFIC ! See the arch-specific config setup func in  lib_procmap.sh
+# ARCH SPECIFIC ! See the arch-specific config setup func in lib_procmap.sh
 # to see the actual values specified; it's sourced here via the
-# 'source ${ARCHFILE}' line above!
+# 'source ${ARCHFILE}' done at the beginning!
 setup_ksparse_top()
 {
  gkRow=0
@@ -50,6 +50,8 @@ setup_ksparse_top()
  # Require the topmost valid kernel va, query it from the o/p of our
  # kernel component, the procmap LKM
  local top_kva=0x$(head -n1 ${KSEGFILE} |awk -F"${gDELIM}" '{print $2}')
+
+ #locate_region ${top_kva} ${HIGHEST_KVA}
 
  local gap_dec=$((HIGHEST_KVA-top_kva))
  if [ ${gap_dec} -gt ${PAGE_SIZE} ]; then
@@ -261,10 +263,10 @@ setup_noncanonical_sparse_region()
 {
 # this is ARCH SPECIFIC and ONLY for 64-bit
 
-# the noncanonical 'hole' spans from 'start kva' to 'end uva'
+# the noncanonical 'hole' spans from 'start kva' down to 'end uva'
   if [ "${ARCH}" = "x86_64" ]; then
    append_kernel_mapping "${VAS_128TB_HOLE}" "${NONCANONICAL_REG_SIZE}" \
-	    ${END_UVA} ${START_KVA} "---"
+	    0x${END_UVA} 0x${START_KVA} "---"
   #elif [ "${ARCH}" = "Aarch64" ]; then
   fi
 }
@@ -272,6 +274,14 @@ setup_noncanonical_sparse_region()
 # populate_kernel_segment_mappings()
 populate_kernel_segment_mappings()
 {
+ LOC_LEN=0
+ decho "pop_ks(): LOCATE_SPEC = ${LOCATE_SPEC}"
+ if [ ! -z "${LOCATE_SPEC}" ]; then
+   LOC_STARTADDR=$(echo "${LOCATE_SPEC}" |cut -d, -f1)
+   LOC_STARTADDR_DEC=$(printf "%llu" ${LOC_STARTADDR})
+   LOC_LEN=$(echo "${LOCATE_SPEC}" |cut -d, -f2)
+ fi
+
  setup_ksparse_top
  #setup_kernelimg_mappings
 

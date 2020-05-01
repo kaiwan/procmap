@@ -66,6 +66,7 @@ sed -i "s/^\;166m//g" ${1}
 sed -i "s/^mm//g" ${1}
 sed -i "s/^5\;166m//g" ${1}
 sed -i "s/47m//g" ${1}
+#[ ${DEBUG} -eq 0 ] && rm -f sed*
 }
 
 usage()
@@ -77,8 +78,22 @@ Options:
  -u : show ONLY the usermode mappings or segments (not kernel VAS)
  -k : show ONLY the kernel-space mappings or segments (not user VAS)
   [default is to show BOTH]
- -v : verbose mode (try it!)
+ -v : verbose mode (try it! see below for details)
+ -l <start-vaddr>,<length_KB> : locate a given region within the process VAS
+     start-vaddr : a virtual address in hexadecimal
+          length : length of the region to locate in KB
  -d : debug mode
+
+
+*Verbose* mode (-v):
+ Most verbose messages are preceded by '[v]' to help you identify them
+In addition to the 'usual', the output now includes:
+ - kernel segment details (prior to showing the kernel VAS); useful for system
+   developers/BSP
+ - progress messages
+ - a header/footer legend for the mappings
+ - at the end, upon the process / executable in question, we perform:
+     - an ls -l, file, ldd commands.
 
 -----------------------------
 Caveats / Limitations:
@@ -112,9 +127,16 @@ Caveats / Limitations:
 }
 
 PID=0
-while getopts "p:h?ukdv" opt; do
+
+[ 1 -eq 1 ] && {
+#while getopts "p:h?ukvld" opt; do
+#while getopts "p:h?ukvl::d --long debug --long verbose -- locate:: -- help" opt; do
+
+# ref: https://wiki.bash-hackers.org/howto/getopts_tutorial
+# TODO: long args?
+while getopts "p:h?ukvdl::" opt; do
     case "${opt}" in
-	h|\?) usage ; exit 0
+	    h|\?) usage ; exit 0
 		;;
         p)
 	    PID=${OPTARG}
@@ -128,6 +150,10 @@ while getopts "p:h?ukdv" opt; do
 	    echo "[i] -k: will display ONLY kernel VAS"
 		SHOW_USERSPACE=0
             ;;
+        l)
+		LOCATE_SPEC=${OPTARG}
+	    echo "[i] -l: locate region from (${LOCATE_SPEC}) (start-vaddr,len-in-Kb)"
+            ;;
         d)
 	    export DEBUG=1
 	    echo "[i] -d: running in DEBUG mode"
@@ -137,11 +163,12 @@ while getopts "p:h?ukdv" opt; do
 	    echo "[i] -v: running in VERBOSE mode"
             ;;
         *)
-            usage
+        usage; exit 1
             ;;
     esac
 done
 shift $((OPTIND-1))
+}
 
 [ ${PID} -eq 0 ] && {
  echo "Specifying the PID with -p is mandatory"
@@ -184,7 +211,7 @@ if [ "${ARCH}" = "Aarch32" ]; then
 fi
 
 # Invoke the worker script to 'draw' the memory map
-#  Usage: do_vgraph [-s] [-d] -p PID-of-process -f input-CSV-filename(5 column format)
+#  Usage: do_vgraph [-d] -p PID-of-process -f input-CSV-filename(5 column format)
 #  -v : run in verbose mode
 #  -d : run in debug mode"
 dovg_cmdline="-p ${PID} -f ${TMPCSV}"
@@ -192,6 +219,7 @@ dovg_cmdline="-p ${PID} -f ${TMPCSV}"
 [ ${VERBOSE} -eq 1 ] && dovg_cmdline="${dovg_cmdline} -v"
 [ ${SHOW_KERNELSEG} -eq 1 ] && dovg_cmdline="${dovg_cmdline} -k"
 [ ${SHOW_USERSPACE} -eq 1 ] && dovg_cmdline="${dovg_cmdline} -u"
+[ ! -z "${LOCATE_SPEC}" ] && dovg_cmdline="${dovg_cmdline} -l ${LOCATE_SPEC}"
 
 ${PFX}/do_vgraph.sh ${dovg_cmdline} | tee -a ${LOG} 
 
