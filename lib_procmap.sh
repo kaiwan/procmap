@@ -19,29 +19,42 @@ LOCATED_REGION_ENTRY="<--LOCATED-->"
 # locate_region()
 # Insert a 'locate region'? (passed via -l)
 # Parameters:
-#   $1 = start virtual addr of the region to check for intersection (hex)
-#   $2 =   end virtual addr of the region to check for intersection (hex)
+#   $1 = -u|-k; -u => from userspace, -k => from kernel-space
+#   $2 = start virtual addr of the region to check for intersection (hex)
+#   $3 =   end virtual addr of the region to check for intersection (hex)
 locate_region()
 {
+ local lr_start_va=$2 lr_end_va=$3
+ [ "${lr_start_va:0:2}" != "0x" ] && lr_start_va=0x$2
+ [ "${lr_end_va:0:2}" != "0x" ] && lr_end_va=0x$3
 #set -x
- local start_va_dec=$(printf "%llu" $1)
- local   end_va_dec=$(printf "%llu" $2)
+
+# TODO / RELOOK
+# Error:
+#/home/kaiwan/gitLinux_repos/procmap/lib_procmap.sh: line 32: printf: 558ba488c000: invalid number
+#/home/kaiwan/gitLinux_repos/procmap/lib_procmap.sh: line 32: printf: 558ba488b000: invalid number
+ local start_va_dec=$(printf "%llu" ${lr_start_va} 2>/dev/null)
+ local   end_va_dec=$(printf "%llu" ${lr_end_va} 2>/dev/null)
+
+ #local start_va_dec=$(printf "%llu" 0x${2})
+ #local   end_va_dec=$(printf "%llu" 0x${3})
 #set +x
 
  if (( $(echo "${LOC_STARTADDR_DEC} >= ${start_va_dec}" |bc -l) )) ; then
     if (( $(echo "${LOC_STARTADDR_DEC} <= ${end_va_dec}" |bc -l) )) ; then
-       #echo " @@@ locate region! ins special mapping into the gkArray[] ds"
-	   echo " <-------- located :: start = ${LOC_STARTADDR} of length ${LOC_LEN} KB -------->"
+	   decho " <-------- located :: start = ${LOC_STARTADDR} of length ${LOC_LEN} KB -------->"
 
-	   #local loc_len_hex=0x$(printf "%llx" ${LOC_LEN})
 	   local loc_len_bytes=$((LOC_LEN*1024))
 	   local loc_end_va_dec=$(bc <<< "${LOC_STARTADDR_DEC}+${loc_len_bytes}")
 	   LOC_END_VA=0x$(printf "%llx" ${loc_end_va_dec})
 
-	   # if kva
-       do_append_kernel_mapping "${LOCATED_REGION_ENTRY}" "${loc_len_bytes}" ${LOC_STARTADDR} \
-	      ${LOC_END_VA} "..."
-	   # else, for user region
+	   if [ "$1" = "-k" ]; then
+         do_append_kernel_mapping "${LOCATED_REGION_ENTRY}" "${loc_len_bytes}" ${LOC_STARTADDR} \
+	        ${LOC_END_VA} "..."
+	   elif [ "$1" = "-u" ]; then
+         do_append_userspace_mapping "${LOCATED_REGION_ENTRY}" "${loc_len_bytes}" ${LOC_STARTADDR} \
+	        ${LOC_END_VA} "..." 0
+       fi
     fi
  fi
 } # end locate_region()
@@ -362,7 +375,7 @@ sed --in-place '/FMTSPC_VA/ d' ${TMPF2}
 
 local LIN="--------------------------------------------------"
 echo "${LIN}
-[v] Kernel segment details ::
+[v] System details detected ::
 ${LIN}
 $(cat ${TMPF2})
 ${LIN}"
@@ -470,10 +483,10 @@ append_kernel_mapping()
   # $3 = start va
   # $4 = end va
   do_append_kernel_mapping "$1" $2 $3 $4 $5
-  [ ${LOC_LEN} -ne 0 ] && locate_region $3 $4
+  [ ${LOC_LEN} -ne 0 ] && locate_region -k $3 $4
 }
 
-# append_userspace_mapping()
+# do_append_userspace_mapping()
 # Append a new n-dim entry in the gArray[] data structure,
 # creating, in effect, a new mapping
 # Parameters:
@@ -483,7 +496,7 @@ append_kernel_mapping()
 #   $4 : end va of mapping/segment
 #   $5 : mode (perms) + mapping type (p|s) of mapping/segment
 #   $6 : file offset (hex) of mapping/segment
-append_userspace_mapping()
+do_append_userspace_mapping()
 {
   # row'n' [segname],[size],[start_uva],[end_uva],[mode],[offset]
   gArray[${gRow}]="${1}"
@@ -492,14 +505,22 @@ append_userspace_mapping()
   let gRow=gRow+1
   gArray[${gRow}]=${3}        # start kva
   let gRow=gRow+1
-  gArray[${gRow}]=${4}  # end (higher) kva
+  gArray[${gRow}]=${4}        # end (higher) kva
   let gRow=gRow+1
   gArray[${gRow}]="${5}"
   let gRow=gRow+1
   gArray[${gRow}]=${6}
   let gRow=gRow+1
-  #let gNumSparse=gNumSparse+1
-} # end append_userspace_mapping()
+} # end do_append_userspace_mapping()
+
+# append_userspace_mapping()
+append_userspace_mapping()
+{
+  # $3 = start va
+  # $4 = end va
+  do_append_userspace_mapping "$1" $2 $3 $4 $5 $6
+  [ ${LOC_LEN} -ne 0 ] && locate_region -u $3 $4
+}
 
 #---------------------- g r a p h i t ---------------------------------
 # Iterates over the global n-dim arrays 'drawing' the vgraph.
@@ -603,6 +624,7 @@ decho "end_va = ${end_va}   ,   start_va = ${start_va}"
 
     #--- Drawing :-p  !
 	# the horizontal line with the end uva at the end of it
+	#=====================================
 	# the first actual print emitted!
 	# Eg.
 	# +----------------------------------------------------------------------+ 000055681263b000
@@ -620,6 +642,7 @@ decho "end_va = ${end_va}   ,   start_va = ${start_va}"
     elif [ ${i} -ne 0 ] ; then   # ** normal case **
 
 		 #============ -l option: LOCATE region ! ======================
+		 if [ 1 -eq 1 ] ; then
          if [ "${segname}" = "${LOCATED_REGION_ENTRY}" ]; then
 		    tput bold; fg_red
 			if [ ${IS_64_BIT} -eq 1 ] ; then
@@ -632,8 +655,11 @@ decho "end_va = ${end_va}   ,   start_va = ${start_va}"
 			color_reset
 		    oversized=0
 			continue
-            #printf "%s ${FMTSPC_VA}" "${LIN_LOCATED_REGION}" ${LOC_END_VA}
-		 else
+		 fi
+		 fi
+
+		 #=== ** normal case ** ===
+         if [ "${segname}" != "${LOCATED_REGION_ENTRY}" ]; then
             printf "%s ${FMTSPC_VA}" "${LIN}" "${end_va}"
 		 fi
 
@@ -666,7 +692,7 @@ decho "end_va = ${end_va}   ,   start_va = ${start_va}"
 	tmp1=$(printf "%s|%20s " $(${FG_MAPNAME}) ${segname})
 	local segname_nocolor=$(printf "|%20s " ${segname})
 
-	# Colour and Print segment size according to scale; in KB or MB or GB or TB or PB
+	# Colour and Print segment *size* according to scale; in KB or MB or GB or TB or PB
 	tlen=0
     if (( $(echo "${szKB} < 1024" |bc -l) )); then
 		# print KB only
@@ -778,8 +804,11 @@ decho "end_va = ${end_va}   ,   start_va = ${start_va}"
 	fi
     #decho "tlen=${tlen} spc_reqd=${spc_reqd}"
 
-	# the second actual print emitted!
-	echo "${tmp1}${tmp2}${tmp3}${tmp4}${tmp5}${tmp7}${tmp5a}${tmp5b}${tmp5c}${tmp6}"
+	#================ The second actual print emitted!
+	# f.e:
+	# "|              [heap]  [ 132 KB,rw-,p,0x0]                             |"
+    echo "${tmp1}${tmp2}${tmp3}${tmp4}${tmp5}${tmp7}${tmp5a}${tmp5b}${tmp5c}${tmp6}"
+
 
     #--- NEW CALC for SCALING
     # Simplify: We base the 'height' of each segment on the number of digits

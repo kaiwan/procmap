@@ -208,7 +208,8 @@ fi
 #------------ Sparse Detection
 if [ ${SPARSE_SHOW} -eq 1 ]; then
 
- decho "$2: seg=${segment} prevseg_name=${prevseg_name} ,  gRow=${gRow} "
+ decho "
+$2: seg=${segment} prevseg_name=${prevseg_name} ,  gRow=${gRow} "
 
  # Detect sparse region, and if present, insert into the gArr[].
  # Sparse region detected by condition:
@@ -226,9 +227,12 @@ if [ ${SPARSE_SHOW} -eq 1 ]; then
  fi
 
  if [ ${DetectedSparse} -eq 1 -a "${prevseg_name}" != "[vsyscall]" ]; then
-   local prevseg_start_uva_hex=$(printf "%x" ${prevseg_start_uva})
-   #decho "prevseg_start_uva_hex=${prevseg_start_uva_hex}  gap = ${gap_hex}"
-   local sparse_start_uva=$((0x${prevseg_start_uva_hex}-${gap_hex}))
+   local prevseg_start_uva_hex=$(printf "%llx" ${prevseg_start_uva})
+   local sparse_start_uva_dec=$((${prevseg_start_uva}-${gap}))
+#   local sparse_start_uva=$((0x${prevseg_start_uva_hex}-${gap_hex}))
+   local sparse_start_uva=$(printf "%llx" ${sparse_start_uva_dec})
+   decho "prevseg_start_uva_hex=${prevseg_start_uva_hex}  gap = ${gap_hex} sparse_start_uva=${sparse_start_uva}"
+   #prompt
  
    append_userspace_mapping "${SPARSE_ENTRY}" ${gap} ${sparse_start_uva} \
       ${prevseg_start_uva_hex} "----" 0
@@ -367,10 +371,19 @@ main_wrapper()
  color_reset
  disp_fmt
 
+ LOC_LEN=0
+ #decho "LOCATE_SPEC = ${LOCATE_SPEC}"
+ # Any specific region to locate in the memory map?
+ if [ ! -z "${LOCATE_SPEC}" ]; then
+   LOC_STARTADDR=$(echo "${LOCATE_SPEC}" |cut -d, -f1)
+   LOC_STARTADDR_DEC=$(printf "%llu" ${LOC_STARTADDR})
+   LOC_LEN=$(echo "${LOCATE_SPEC}" |cut -d, -f2)
+ fi
+
  #----------- KERNEL-SPACE VAS calculation and drawing
  # Show kernelspace? Yes by default!
  if [ ${SHOW_KERNELSEG} -eq 1 ] ; then
-    populate_kernel_segment_mappings "${LOCATE_SPEC}"
+    populate_kernel_segment_mappings
     graphit -k
  else
    decho "Skipping kernel segment display..."

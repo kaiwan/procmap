@@ -49,3 +49,4 @@ IS_X86_32=0
 # FG = foreground color
 FG_MAPNAME=fg_navyblue
 FG_KVAR=fg_darkgreen
+FG_LOC=fg_red

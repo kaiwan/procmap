@@ -274,14 +274,6 @@ setup_noncanonical_sparse_region()
 # populate_kernel_segment_mappings()
 populate_kernel_segment_mappings()
 {
- LOC_LEN=0
- decho "pop_ks(): LOCATE_SPEC = ${LOCATE_SPEC}"
- if [ ! -z "${LOCATE_SPEC}" ]; then
-   LOC_STARTADDR=$(echo "${LOCATE_SPEC}" |cut -d, -f1)
-   LOC_STARTADDR_DEC=$(printf "%llu" ${LOC_STARTADDR})
-   LOC_LEN=$(echo "${LOCATE_SPEC}" |cut -d, -f2)
- fi
-
  setup_ksparse_top
  #setup_kernelimg_mappings
 
