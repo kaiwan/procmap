@@ -132,6 +132,7 @@ parse_ksegfile_getvars()
  high_memory=$(grep -w "lowmem" ${KSEGFILE} |cut -d"${gDELIM}" -f2)
  PKMAP_BASE=$(grep -w "HIGHMEM" ${KSEGFILE} |cut -d"${gDELIM}" -f1)
 
+ # TODO: DEAD code, (test some more &) remove
 [ 0 -eq 1 ] && {
  # Retrieve the PAGE_OFFSET and HIGHMEM lines from the KSEGFILE file
  PAGE_OFFSET=$(grep "^PAGE_OFFSET" ${KSEGFILE} |cut -d"${gDELIM}" -f2)
@@ -276,7 +277,7 @@ START_UVA_DEC=0
 # Calculate size of K and U VAS's
 KERNEL_VAS_SIZE=$(bc <<< "(${HIGHEST_KVA_DEC}-${START_KVA_DEC}+1)")
 # user VAS size is the kernel macro TASK_SIZE (?)
-  USER_VAS_SIZE=$(bc <<< "(${END_UVA_DEC}-${START_UVA_DEC}+1)")
+USER_VAS_SIZE=$(bc <<< "(${END_UVA_DEC}-${START_UVA_DEC}+1)")
 
 # We *require* these 'globals' in the other scripts
 # So we place all of them into a file and source this file in the
@@ -665,7 +666,7 @@ decho "end_va = ${end_va}   ,   start_va = ${start_va}"
 
 		 # Check, if the currently printed 'end_va' matches an entry in our ARCHFILE;
 		 # If so, print the entry 'label' (name); f.e. 0x.... <-- PAGE_OFFSET
-		 # TODO: buggy when -k option passed, ok when both VAS's are displayed
+		 # TODO: x86_64: buggy when -k option passed, ok when both VAS's are displayed
 		 archfile_entry=$(grep "${end_va:2}" ${ARCHFILE})  # ${end_va:2} => leave out the '0x' part
 		 [ ! -z "${archfile_entry}" ] && {
 		   archfile_entry_label=$(echo "${archfile_entry}" |cut -d"=" -f1)
