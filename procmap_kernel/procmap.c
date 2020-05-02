@@ -83,7 +83,7 @@ static void query_kernelseg_details(char *buf)
 	snprintf(tmpbuf, TMPMAX,
 	FMTSPC "," FMTSPC ",r--,vector table\n",
 	(TYPECST)VECTORS_BASE, (TYPECST)VECTORS_BASE+PAGE_SIZE);
-	strncat(buf, tmpbuf, strlen(tmpbuf));
+	strncat(buf, tmpbuf, TMPMAX-1);
 #endif
 
 	/* kernel fixmap region */
@@ -105,7 +105,7 @@ static void query_kernelseg_details(char *buf)
 	snprintf(tmpbuf, TMPMAX,
 		FMTSPC "," FMTSPC ",r--,fixmap region\n",
 		(TYPECST)FIXADDR_START, (TYPECST)FIXADDR_START+FIXADDR_SIZE);
-	strncat(buf, tmpbuf, strlen(tmpbuf));
+	strncat(buf, tmpbuf, TMPMAX-1);
 #endif
 
 	/* kernel module region
@@ -119,7 +119,7 @@ static void query_kernelseg_details(char *buf)
 	snprintf(tmpbuf, TMPMAX,
 		FMTSPC "," FMTSPC ",rwx,module region\n",
 		(TYPECST)MODULES_VADDR, (TYPECST)MODULES_END);
-	strncat(buf, tmpbuf, strlen(tmpbuf));
+	strncat(buf, tmpbuf, TMPMAX-1);
 #endif
 
 #ifdef CONFIG_KASAN  // KASAN region: Kernel Address SANitizer
@@ -127,7 +127,7 @@ static void query_kernelseg_details(char *buf)
 	snprintf(tmpbuf, TMPMAX,
 	FMTSPC "," FMTSPC ",rw-,KASAN shadow\n",
 	(TYPECST)KASAN_SHADOW_START, (TYPECST)KASAN_SHADOW_END);
-	strncat(buf, tmpbuf, strlen(tmpbuf));
+	strncat(buf, tmpbuf, TMPMAX-1);
 #endif
 
 	/* vmalloc region */
@@ -135,14 +135,14 @@ static void query_kernelseg_details(char *buf)
 	snprintf(tmpbuf, TMPMAX,
 		FMTSPC "," FMTSPC ",rw-,vmalloc region\n",
 		(TYPECST)VMALLOC_START, (TYPECST)VMALLOC_END);
-	strncat(buf, tmpbuf, strlen(tmpbuf));
+	strncat(buf, tmpbuf, TMPMAX-1);
 
 	/* lowmem region: spans from PAGE_OFFSET to high_memory */
 	memset(tmpbuf, 0, TMPMAX);
 	snprintf(tmpbuf, TMPMAX,
 		FMTSPC "," FMTSPC ",rwx,lowmem region\n",
 		(TYPECST)PAGE_OFFSET, (TYPECST)high_memory);
-	strncat(buf, tmpbuf, strlen(tmpbuf));
+	strncat(buf, tmpbuf, TMPMAX-1);
 
 	/* (possible) highmem region;  may be present on some 32-bit systems */
 #ifdef CONFIG_HIGHMEM
@@ -150,7 +150,7 @@ static void query_kernelseg_details(char *buf)
 	snprintf(tmpbuf, TMPMAX,
 	FMTSPC "," FMTSPC ",rwx,HIGHMEM region\n",
 	(TYPECST)PKMAP_BASE, (TYPECST)(PKMAP_BASE)+(LAST_PKMAP*PAGE_SIZE));
-	strncat(buf, tmpbuf, strlen(tmpbuf));
+	strncat(buf, tmpbuf, TMPMAX-1);
 #endif
 
 	/*
@@ -168,7 +168,7 @@ static void query_kernelseg_details(char *buf)
 	snprintf(tmpbuf, TMPMAX,
 		FMTSPC "," FMTSPC ",rwx,module region:\n",
 		(TYPECST)MODULES_VADDR, (TYPECST)MODULES_END);
-	strncat(buf, tmpbuf, strlen(tmpbuf));
+	strncat(buf, tmpbuf, TMPMAX-1);
 #endif
 
 #if 0
@@ -178,7 +178,7 @@ static void query_kernelseg_details(char *buf)
 		"PAGE_OFFSET," FMTSPC "\n"
 		"high_memory," FMTSPC "\n",
 		(TYPECST)PAGE_OFFSET, (TYPECST)high_memory);
-	strncat(buf, tmpbuf, strlen(tmpbuf));
+	strncat(buf, tmpbuf, TMPMAX-1);
 #endif
 }
 
