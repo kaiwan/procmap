@@ -451,10 +451,13 @@ disp_fmt
     runcmd sudo ls -l ${PRCS_PATHNAME}
     printf "\n[v] "
     runcmd sudo file ${PRCS_PATHNAME}
-	# arch-specific:
-    printf "\n[v] "
-    runcmd sudo ldd ${PRCS_PATHNAME}
-    printf "\n"
+
+    which ldd >/dev/null 2>&1 && {
+	  # arch-specific?
+      printf "\n[v] "
+      runcmd sudo ldd ${PRCS_PATHNAME}
+      printf "\n"
+    }
  fi
 
  stats ${PID} ${PRCS_NAME}
@@ -509,7 +512,7 @@ fi
 RSS=%lu KB\n", $4,$5,$6)}'
 
   which smem >/dev/null 2>&1 && {
-   printf "Via smem(8):\n"
+   printf "Via smem(8) [might take a while, pl wait ...] :\n"
 # smem|head -n1
 # PID User     Command                         Swap      USS      PSS      RSS 
    sudo smem |awk -v pid=${PID} '$1==pid {printf(" swap=%u   USS=%lu KB   \

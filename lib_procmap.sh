@@ -268,9 +268,9 @@ END_UVA=$(printf "%llx" ${END_UVA_DEC})
 
 START_KVA_DEC=$(bc <<< "(${END_UVA_DEC}+${NONCANONICAL_REG_SIZE}+1)")
 START_KVA=$(printf "%llx" ${START_KVA_DEC})
-HIGHEST_KVA=0xffffffffffffffff
-HIGHEST_KVA_DEC=$(printf "%llu" ${HIGHEST_KVA})
-START_UVA=0x0
+HIGHEST_KVA=ffffffffffffffff
+HIGHEST_KVA_DEC=$(printf "%llu" 0x${HIGHEST_KVA})
+START_UVA=0
 START_UVA_DEC=0
 
 # Calculate size of K and U VAS's
@@ -666,7 +666,11 @@ decho "end_va = ${end_va}   ,   start_va = ${start_va}"
 		 # Check, if the currently printed 'end_va' matches an entry in our ARCHFILE;
 		 # If so, print the entry 'label' (name); f.e. 0x.... <-- PAGE_OFFSET
 		 # TODO: buggy when -k option passed, ok when both VAS's are displayed
-		 archfile_entry=$(grep "${end_va:2}" ${ARCHFILE})  # ${end_va:2} => leave out the '0x' part
+		 if [ "${end_va:0:2}" = "0x" ]; then
+		    archfile_entry=$(grep "${end_va:2}" ${ARCHFILE})  # ${end_va:2} => leave out the '0x' part
+		 else
+		    archfile_entry=$(grep "${end_va}" ${ARCHFILE})
+		 fi
 		 [ ! -z "${archfile_entry}" ] && {
 		   archfile_entry_label=$(echo "${archfile_entry}" |cut -d"=" -f1)
            tput bold
