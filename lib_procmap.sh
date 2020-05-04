@@ -902,7 +902,10 @@ done
 # takes care of printing it correctly...
 if [ "${1}" = "-k" ] ; then
 	tput bold
-	[ ${IS_64_BIT} -eq 0 ] && printf "%s ${FMTSPC_VA}\n" "${LIN_LAST_K}" 0x${START_KVA}
+	[ ${IS_64_BIT} -eq 0 ] && {
+	   printf "%s ${FMTSPC_VA}" "${LIN_LAST_K}" 0x${START_KVA}
+	   insert_arch_label ${START_KVA}
+	}
 	printf "%s ${FMTSPC_VA}\n" "${LIN_FIRST_U}" 0x${END_UVA}
 	color_reset
 fi
