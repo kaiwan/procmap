@@ -536,7 +536,6 @@ show_located_region_in_map()
 			fi
 			color_reset
 		    oversized=0
-#			continue
 }
 
 # Kernel-only:
@@ -547,18 +546,30 @@ insert_arch_label()
 {
 local end_va=$1 archfile_entry archfile_entry_label
 
-	 if [ "${end_va:0:2}" = "0x" ]; then
-		    archfile_entry=$(grep "${end_va:2}" ${ARCHFILE})  # ${end_va:2} => leave out the '0x' part
-		 else
-		    archfile_entry=$(grep "${end_va}" ${ARCHFILE})
-		 fi
-		 [ ! -z "${archfile_entry}" ] && {
-		   archfile_entry_label=$(echo "${archfile_entry}" |cut -d"=" -f1)
-           tput bold
-		   printf "%s  <-- %s\n" $(${FG_KVAR}) "${archfile_entry_label}"
-		   #printf "  <-- %s\n" "${archfile_entry_label}"
-	       color_reset
-		 }
+ if [ "${end_va:0:2}" = "0x" ]; then
+	    archfile_entry=$(grep "${end_va:2}" ${ARCHFILE})  # ${end_va:2} => leave out the '0x' part
+ else
+	    archfile_entry=$(grep "${end_va}" ${ARCHFILE})
+ fi
+ [ -z "${archfile_entry}" ] && {
+    printf "\n"
+	return
+ }
+
+ # Ok, we have a kernel arch entry; get it's name
+ archfile_entry_label=$(echo "${archfile_entry}" |cut -d"=" -f1)
+
+ # The values can overlap! F.e on some Aarch32, both PAGE_OFFSET and
+ #  MODULES_END coincide (at 0x80000000); ditto for MODULES_VADDR and START_KVA
+ local entrylen=$(echo "${archfile_entry_label}" |wc -l)
+ if [ ${entrylen} -ge 2 ]; then
+    archfile_entry_label=$(tr '\n' '/' <<<"${archfile_entry_label}")
+	archfile_entry_label=${archfile_entry_label::-1}  # rm last '/'
+ fi
+
+ tput bold
+ printf "%s  <-- %s\n" $(${FG_KVAR}) "${archfile_entry_label}"
+ color_reset
 }
 #---------------------- g r a p h i t ---------------------------------
 # Iterates over the global n-dim arrays 'drawing' the vgraph.
@@ -671,12 +682,14 @@ decho "nm = ${segname} ,  end_va = ${end_va}   ,   start_va = ${start_va}"
     if [ "$1" = "-k" -a ${i} -eq $((${rows}-${DIM})) ] ; then   # last loop iteration
        if [ ${IS_64_BIT} -eq 1 ] ; then
            tput bold
-           printf "%s ${FMTSPC_VA}\n" "${LIN_LAST_K}" 0x${START_KVA}
+           printf "%s ${FMTSPC_VA}" "${LIN_LAST_K}" 0x${START_KVA}
 	       color_reset
 	   else
-           printf "%s ${FMTSPC_VA}\n" "${LIN}" ${end_va}
+           printf "%s ${FMTSPC_VA}" "${LIN}" ${end_va}
            #printf "%s ${FMTSPC_VA}\n" "${LIN}" 0x${START_KVA}
 	   fi
+	   insert_arch_label ${end_va}
+	   #printf "\n"
     elif [ ${i} -ne 0 ] ; then   # ** normal case **
 
 		 #============ -l option: LOCATE region ! ======================
