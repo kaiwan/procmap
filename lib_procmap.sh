@@ -644,7 +644,8 @@ decho "end_va = ${end_va}   ,   start_va = ${start_va}"
 
 		 #============ -l option: LOCATE region ! ======================
 		 if [ 1 -eq 1 ] ; then
-         if [ "${segname}" = "${LOCATED_REGION_ENTRY}" ]; then
+		 # TODO: BUG: if LOC_STARTADDR is same as a segment addr, it's printed twice
+         if [ ${LOC_LEN} -ne 0 -a "${segname}" = "${LOCATED_REGION_ENTRY}" ]; then
 		    tput bold; fg_red
 			if [ ${IS_64_BIT} -eq 1 ] ; then
                printf "|                          %s ${FMTSPC_VA}                          |\n" \
