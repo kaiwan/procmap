@@ -620,7 +620,7 @@ do
     fi
 	#decho "@@@ i=$i/${rows} , seg_sz = ${seg_sz}"
 
-decho "end_va = ${end_va}   ,   start_va = ${start_va}"
+decho "nm = ${segname} ,  end_va = ${end_va}   ,   start_va = ${start_va}"
 
 
     #--- Drawing :-p  !
@@ -644,7 +644,7 @@ decho "end_va = ${end_va}   ,   start_va = ${start_va}"
 
 		 #============ -l option: LOCATE region ! ======================
 		 if [ 1 -eq 1 ] ; then
-         if [ "${segname}" = "${LOCATED_REGION_ENTRY}" ]; then
+         if [ ${LOC_LEN} -ne 0 -a "${segname}" = "${LOCATED_REGION_ENTRY}" ]; then
 		    tput bold; fg_red
 			if [ ${IS_64_BIT} -eq 1 ] ; then
                printf "|                          %s ${FMTSPC_VA}                          |\n" \
@@ -664,9 +664,11 @@ decho "end_va = ${end_va}   ,   start_va = ${start_va}"
             printf "%s ${FMTSPC_VA}" "${LIN}" "${end_va}"
 		 fi
 
+		 # Kernel-only:
 		 # Check, if the currently printed 'end_va' matches an entry in our ARCHFILE;
 		 # If so, print the entry 'label' (name); f.e. 0x.... <-- PAGE_OFFSET
 		 # TODO: x86_64: buggy when -k option passed, ok when both VAS's are displayed
+		 if [ "$1" = "-k" ] ; then
 		 if [ "${end_va:0:2}" = "0x" ]; then
 		    archfile_entry=$(grep "${end_va:2}" ${ARCHFILE})  # ${end_va:2} => leave out the '0x' part
 		 else
@@ -681,6 +683,7 @@ decho "end_va = ${end_va}   ,   start_va = ${start_va}"
 		 } || {
 		   printf "\n"
 		 }
+		 fi
     else   # very first line
          tput bold
          if [ "${1}" = "-k" ] ; then
