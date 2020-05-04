@@ -523,6 +523,43 @@ append_userspace_mapping()
   [ ${LOC_LEN} -ne 0 ] && locate_region -u $3 $4
 }
 
+show_located_region_in_map()
+{
+		 # TODO: BUG: if LOC_STARTADDR is same as a segment addr, it's printed twice
+		    tput bold; fg_red
+			if [ ${IS_64_BIT} -eq 1 ] ; then
+               printf "|                          %s ${FMTSPC_VA}                          |\n" \
+			        "${MARK_LOCATION}" ${LOC_STARTADDR}
+			else
+               printf "|                              %s ${FMTSPC_VA}                              |\n" \
+			        "${MARK_LOCATION}" ${LOC_STARTADDR}
+			fi
+			color_reset
+		    oversized=0
+#			continue
+}
+
+# Kernel-only:
+# Check, if the currently printed 'end_va' matches an entry in our ARCHFILE;
+# If so, print the entry 'label' (name); f.e. 0x.... <-- PAGE_OFFSET
+# TODO: x86_64: buggy when -k option passed, ok when both VAS's are displayed
+insert_arch_label()
+{
+local end_va=$1 archfile_entry archfile_entry_label
+
+	 if [ "${end_va:0:2}" = "0x" ]; then
+		    archfile_entry=$(grep "${end_va:2}" ${ARCHFILE})  # ${end_va:2} => leave out the '0x' part
+		 else
+		    archfile_entry=$(grep "${end_va}" ${ARCHFILE})
+		 fi
+		 [ ! -z "${archfile_entry}" ] && {
+		   archfile_entry_label=$(echo "${archfile_entry}" |cut -d"=" -f1)
+           tput bold
+		   printf "%s  <-- %s\n" $(${FG_KVAR}) "${archfile_entry_label}"
+		   #printf "  <-- %s\n" "${archfile_entry_label}"
+	       color_reset
+		 }
+}
 #---------------------- g r a p h i t ---------------------------------
 # Iterates over the global n-dim arrays 'drawing' the vgraph.
 #  when invoked with -k, it iterates over the gkArray[] ds
@@ -643,47 +680,20 @@ decho "nm = ${segname} ,  end_va = ${end_va}   ,   start_va = ${start_va}"
     elif [ ${i} -ne 0 ] ; then   # ** normal case **
 
 		 #============ -l option: LOCATE region ! ======================
-		 if [ 1 -eq 1 ] ; then
-		 # TODO: BUG: if LOC_STARTADDR is same as a segment addr, it's printed twice
          if [ ${LOC_LEN} -ne 0 -a "${segname}" = "${LOCATED_REGION_ENTRY}" ]; then
-		    tput bold; fg_red
-			if [ ${IS_64_BIT} -eq 1 ] ; then
-               printf "|                          %s ${FMTSPC_VA}                          |\n" \
-			        "${MARK_LOCATION}" ${LOC_STARTADDR}
-			else
-               printf "|                              %s ${FMTSPC_VA}                              |\n" \
-			        "${MARK_LOCATION}" ${LOC_STARTADDR}
-			fi
-			color_reset
-		    oversized=0
+		    show_located_region_in_map
 			continue
 		 fi
-		 fi
-
+		
 		 #=== ** normal case ** ===
          if [ "${segname}" != "${LOCATED_REGION_ENTRY}" ]; then
             printf "%s ${FMTSPC_VA}" "${LIN}" "${end_va}"
 		 fi
 
-		 # Kernel-only:
-		 # Check, if the currently printed 'end_va' matches an entry in our ARCHFILE;
-		 # If so, print the entry 'label' (name); f.e. 0x.... <-- PAGE_OFFSET
-		 # TODO: x86_64: buggy when -k option passed, ok when both VAS's are displayed
 		 if [ "$1" = "-k" ] ; then
-		 if [ "${end_va:0:2}" = "0x" ]; then
-		    archfile_entry=$(grep "${end_va:2}" ${ARCHFILE})  # ${end_va:2} => leave out the '0x' part
+		    insert_arch_label ${end_va}
 		 else
-		    archfile_entry=$(grep "${end_va}" ${ARCHFILE})
-		 fi
-		 [ ! -z "${archfile_entry}" ] && {
-		   archfile_entry_label=$(echo "${archfile_entry}" |cut -d"=" -f1)
-           tput bold
-		   printf "%s  <-- %s\n" $(${FG_KVAR}) "${archfile_entry_label}"
-		   #printf "  <-- %s\n" "${archfile_entry_label}"
-	       color_reset
-		 } || {
-		   printf "\n"
-		 }
+		    printf "\n"
 		 fi
     else   # very first line
          tput bold
