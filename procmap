@@ -158,6 +158,11 @@ while getopts "p:h?ukvdl::" opt; do
 		   echo "${name}: -l: the start virtual address Must be specified as a hexadecimal qty (0x....)"
 		   exit 1
 		}
+		LOC_LEN=$(echo "${LOCATE_SPEC}" |cut -d, -f2)
+		[ ${LOC_LEN} -le 0 ] && {
+		   echo "${name}: -l: the length of the virtual address region to locate must be positive (KB)"
+		   exit 1
+		}
 	    echo "[i] -l: locate region from (${LOCATE_SPEC}) (start-vaddr,len-in-Kb)"
             ;;
         d)
