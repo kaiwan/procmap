@@ -1,6 +1,6 @@
 #!/bin/bash
 # procmap
-# https://github.com/kaiwan/vasu_grapher.git
+# https://github.com/kaiwan/procmap
 #
 # Part of the 'procmap' project.
 # This bash script forms the userspace component of the 'procmap' project.
@@ -84,7 +84,6 @@ Options:
           length : length of the region to locate in KB
  -d : debug mode
 
-
 *Verbose* mode (-v):
  Most verbose messages are preceded by '[v]' to help you identify them
 In addition to the 'usual', the output now includes:
@@ -92,8 +91,8 @@ In addition to the 'usual', the output now includes:
    developers/BSP
  - progress messages
  - a header/footer legend for the mappings
- - at the end, upon the process / executable in question, we perform:
-     - an ls -l, file, ldd commands.
+ - at the end, upon the process executable in question, we perform
+   an ls -l, file, ldd commands.
 
 -----------------------------
 Caveats / Limitations:
@@ -158,8 +157,9 @@ while getopts "p:h?ukvdl::" opt; do
 		   echo "${name}: -l: the start virtual address Must be specified as a hexadecimal qty (0x....)"
 		   exit 1
 		}
+		# TODO: validate that a length has actually been passed
 		LOC_LEN=$(echo "${LOCATE_SPEC}" |cut -d, -f2)
-		[ ${LOC_LEN} -le 0 ] && {
+		[ -z "${LOC_LEN}" -o ${LOC_LEN} -le 0 ] && {
 		   echo "${name}: -l: the length of the virtual address region to locate must be positive (KB)"
 		   exit 1
 		}
