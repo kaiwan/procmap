@@ -4,6 +4,7 @@
 #
 # Configuration file for the procmap project. 
 set -a  # export all
+export LC_ALL=C   # locale
 gDELIM=","
 VERBOSE=0
 DEBUG=0

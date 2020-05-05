@@ -471,7 +471,7 @@ elif [ ${IS_X86_32} -eq 1 ] ; then
 fi
 
 [ ${IS_64_BIT} -eq 1 ] && {
-  printf ", 64-bit OS\n"
+  printf ", 64-bit system & OS\n"
 } || {
   printf ", 32-bit OS\n"
 }
@@ -757,7 +757,6 @@ decho "nm = ${segname} ,  end_va = ${end_va}   ,   start_va = ${start_va}"
 	       color_reset
 	   else
            printf "%s ${FMTSPC_VA}" "${LIN}" ${end_va}
-           #printf "%s ${FMTSPC_VA}\n" "${LIN}" 0x${START_KVA}
 	   fi
 	   insert_arch_label ${end_va}
 	   #printf "\n"

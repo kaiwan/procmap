@@ -11,7 +11,7 @@ source ${ARCHFILE} || {
 }
 
 KSPARSE_ENTRY="<... K sparse region ...>"
-VAS_128TB_HOLE="<... Non-canonical hole ...>"
+VAS_NONCANONICAL_HOLE="<... 64-bit: non-canonical hole ...>"
 name=$(basename $0)
 
 #-----------------------s h o w A r r a y -----------------------------
@@ -262,12 +262,10 @@ fi
 setup_noncanonical_sparse_region()
 {
 # this is ARCH SPECIFIC and ONLY for 64-bit
-
 # the noncanonical 'hole' spans from 'start kva' down to 'end uva'
-  if [ "${ARCH}" = "x86_64" ]; then
-   append_kernel_mapping "${VAS_128TB_HOLE}" "${NONCANONICAL_REG_SIZE}" \
+  if [ ${IS_64_BIT} -eq 1 ]; then
+   append_kernel_mapping "${VAS_NONCANONICAL_HOLE}" "${NONCANONICAL_REG_SIZE}" \
 	    0x${END_UVA} 0x${START_KVA} "---"
-  #elif [ "${ARCH}" = "Aarch64" ]; then
   fi
 }
 
