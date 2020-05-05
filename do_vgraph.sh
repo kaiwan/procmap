@@ -134,7 +134,7 @@ do
     printf "%s," "${gArray[${k}]}"     # mode+flag
 	let k=i+5
     printf "%x]\n" "0x${gArray[${k}]}" # file offset
-done
+done #2>/dev/null
 } # end showArray()
 
 gNumSparse=0
@@ -179,6 +179,10 @@ local mode=$(echo "${1}" |cut -d"${gDELIM}" -f3)
 local offset=$(echo "${1}" |cut -d"${gDELIM}" -f4)
 local segment=$(echo "${1}" |cut -d"${gDELIM}" -f5)
 [ -z "${segment}" ] && segment=" [-unnamed-] "
+
+# Remove any leading zeroes from the offset
+offset=$(echo ${offset}  |sed 's/^0*//')
+[ -z "${offset}" ] && offset=0
 
 # Convert hex to dec
 local start_dec=$(printf "%llu" 0x${start_uva})
@@ -319,7 +323,7 @@ disp_fmt()
 {
  if [ ${VERBOSE} -eq 1 ] ; then
     tput bold ; fg_red #; bg_gray
-    printf "VAS mappings:  name    [ size,perms,u:maptype,u:file-offset]\n"
+    printf "VAS mappings:  name    [ size,perms,u:maptype,u:0xfile-offset]\n"
     color_reset
  fi
 }
