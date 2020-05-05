@@ -115,12 +115,12 @@ largenum_display()
 	 fi
 } # end largenum_display()
 
-# parse_ksegfile_getvars()
+# parse_ksegfile_write_archfile()
 # Here, we parse information obtained via procmap's kernel component - the
 # procmap LKM (loadable kernel module); it's already been written into the
 # file ${KSEGFILE} (via it's debugfs file from the
 # init_kernel_lkm_get_details() function)
-parse_ksegfile_getvars()
+parse_ksegfile_write_archfile()
 {
  vecho " Parsing in various kernel variables as required"
  VECTORS_BASE=$(grep -w "vector" ${KSEGFILE} |cut -d"${gDELIM}" -f1)
@@ -157,6 +157,7 @@ parse_ksegfile_getvars()
 # So we place them into an 'arch' file (we try and keep a 'descending order
 # by kva' ordering) and source this file in the scripts that require it.
 # It's arch-dependent, some vars may be NULL; that's okay.
+ rm -f ${ARCHFILE} 2>/dev/null
  cat > ${ARCHFILE} << @EOF@
 VECTORS_BASE=${VECTORS_BASE}
 FIXADDR_START=${FIXADDR_START}
@@ -171,13 +172,13 @@ high_memory=${high_memory}
 PKMAP_BASE=${PKMAP_BASE}
 TASK_SIZE=${TASK_SIZE}
 @EOF@
-} # end parse_ksegfile_getvars()
+} # end parse_ksegfile_write_archfile()
 
 # build_lkm()
 # (Re)build the LKM - Loadable Kernel Module for this project
 build_lkm()
 {
- echo "[i] kseg: building the LKM ..."
+ echo "[i] kernel: building the procmap LKM now..."
  make clean >/dev/null 2>&1
  make >/dev/null 2>&1 || {
     FatalError "${name}: kernel module \"${KMOD}\" build failed, aborting..."
@@ -232,13 +233,17 @@ init_kernel_lkm_get_details()
 
   # Finally! generate the kernel seg details
   rm -f ${KSEGFILE} 2>/dev/null
-  sudo cat ${DBGFS_LOC}/${KMOD}/${DBGFS_FILENAME} > ${KSEGFILE}
+  sudo cat ${DBGFS_LOC}/${KMOD}/${DBGFS_FILENAME} > ${KSEGFILE}.$$
   # CSV fmt:
   #  start_kva,end_kva,mode,name-of-region
+
+  # Must numerically sort the kernel mappings by descending kva (2nd field)
+  sort -t"," -k2n -r ${KSEGFILE}.$$ > ${KSEGFILE}
+  rm -f ${KSEGFILE}.$$
   decho "kseg dtl:
 $(cat ${KSEGFILE})"
 
-  parse_ksegfile_getvars
+  parse_ksegfile_write_archfile
 } # end init_kernel_lkm_get_details()
 
 #######################################################################
@@ -377,15 +382,19 @@ FMTSPC_VA=${FMTSPC_VA}
 #----------------------------------------------------------------------
 set_config_aarch64()
 {
+source ${ARCHFILE}
+
   vecho "set config for Aarch64:"
 ARCH=Aarch64
-PAGE_SIZE=4096
-# get via TASK_SIZE
+PAGE_SIZE=4096  # TODO - get via kernel LKM
+# get the user VAS size via TASK_SIZE macro
 TASK_SIZE_DEC=$(printf "%llu" 0x${TASK_SIZE})
 USER_VAS_SIZE=${TASK_SIZE_DEC}
-USER_VAS_SIZE_TB=$(bc <<< "(${TASK_SIZE_DEC}/(1024*1024*1024*1024))")
-# TODO : check this ASSUMPTION!
+USER_VAS_SIZE_TB=$(bc <<< "(${TASK_SIZE_DEC}/${TB_1})")
+# TODO : check this ASSUMPTION! [seems ok]
+# we assume the kernel VAS size = user VAS size
 KERNEL_VAS_SIZE_TB=${USER_VAS_SIZE_TB}
+KERNEL_VAS_SIZE=$(bc <<< "(${KERNEL_VAS_SIZE_TB}*${TB_1})")
 
 # sparse non-canonical region size = 2^64 - (user VAS + kernel VAS)
 NONCANONICAL_REG_SIZE=$(bc <<< "2^64-(${USER_VAS_SIZE_TB}*${TB_1}+${KERNEL_VAS_SIZE_TB}*${TB_1})")
@@ -400,11 +409,6 @@ HIGHEST_KVA=ffffffffffffffff
 HIGHEST_KVA_DEC=$(printf "%llu" 0x${HIGHEST_KVA})
 START_UVA=0
 START_UVA_DEC=0
-
-# Calculate size of K and U VAS's
-KERNEL_VAS_SIZE=$(bc <<< "(${HIGHEST_KVA_DEC}-${START_KVA_DEC}+1)")
-# user VAS size is the kernel macro TASK_SIZE (?)
-#USER_VAS_SIZE=$(bc <<< "(${END_UVA_DEC}-${START_UVA_DEC}+1)")
 
 # We *require* these 'globals' in the other scripts
 # So we place all of them into a file and source this file in the
@@ -428,6 +432,7 @@ END_UVA_DEC=${END_UVA_DEC}
 START_UVA=0x0
 FMTSPC_VA=${FMTSPC_VA}
 @EOF@
+
 } # end set_config_aarch64()
 
 # human_readdbl_kernel_arch()
@@ -476,8 +481,8 @@ human_readdbl_kernel_arch
 }
 
 #----------------------------------------------------------------------
-# get_machine_type()
-get_machine_type()
+# get_machine_set_arch_config()
+get_machine_set_arch_config()
 {
 # 32 or 64 bit OS?
 IS_64_BIT=1
@@ -504,7 +509,7 @@ if [ "${mach}" = "x86_64" ]; then
 elif [ "${cpu}" = "arm" ]; then
       IS_Aarch32=1
       set_config_aarch32
-elif [ "${cpu}" = "aarch64" ]; then
+elif [ "${mach}" = "aarch64" ]; then
       IS_Aarch64=1
       set_config_aarch64
 elif [ "${cpu}" = "x86" ]; then
@@ -519,7 +524,7 @@ else
 fi
 
 show_machine_kernel_dtl
-} # end get_machine_type()
+} # end get_machine_set_arch_config()
 
 # do_append_kernel_mapping()
 # Append a new n-dim entry in the gkArray[] data structure,
