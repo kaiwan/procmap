@@ -3,17 +3,20 @@
  ***************************************************************
  * Brief Description:
  * This kernel module forms the kernel component of the 'procmap' project.
-
- The procmap project's intention is, given a process's PID, it will display
- (in a CLI/console output format only for now) a complete 'memory map' of the
- process VAS (virtual address space). 
-
- Note:- BSD has a utility by the same name: procmap(1), this project isn't
- the same, though (quite obviously) some aspects are similar.
-
+ * 
+ * The procmap project's intention is, given a process's PID, it will display
+ * (in a CLI/console output format only for now) a complete 'memory map' of the
+ * process VAS (virtual address space). 
+ * 
+ * Note:- BSD has a utility by the same name: procmap(1), this project isn't
+ * the same, though (quite obviously) some aspects are similar.
+ * 
  * Works on both 32 and 64-bit systems of differing architectures (note: only
  * lightly tested on ARM and x86 32 and 64-bit systems).
- *
+ ***************************************************************
+ * (c) Kaiwan N Billimoria, 2020
+ * (c) kaiwanTECH
+ * License: MIT
  */
 #include <linux/init.h>
 #include <linux/kernel.h>
@@ -62,7 +65,8 @@ DEFINE_MUTEX(mtx);
  *
  * CAREFUL: An ABI:
  * We depend on the <name-of-region> field (in the usermode scripts);
- * do NOT simply change it.
+ * do NOT arbitrarily change it; if you Must, you'll need to update the
+ * usermode scripts that depend on it.
  *
  * We try to order it by descending address (here, kva's) but this doesn't
  * always work out as ordering of regions differs by arch.
@@ -171,13 +175,13 @@ static void query_kernelseg_details(char *buf)
 	strncat(buf, tmpbuf, TMPMAX-1);
 #endif
 
-#if 0
+#if 1
+#include <asm/processor.h>
 	/* Enhancement: also pass along other key kernel vars */
 	memset(tmpbuf, 0, TMPMAX);
 	snprintf(tmpbuf, TMPMAX,
-		"PAGE_OFFSET," FMTSPC "\n"
-		"high_memory," FMTSPC "\n",
-		(TYPECST)PAGE_OFFSET, (TYPECST)high_memory);
+		"TASK_SIZE," FMTSPC "\n",
+		(TYPECST)TASK_SIZE);
 	strncat(buf, tmpbuf, TMPMAX-1);
 #endif
 }

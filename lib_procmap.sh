@@ -3,6 +3,9 @@
 #
 # Support script for the procmap project.
 # Has several 'library' routines.
+# (c) 2020 Kaiwan N Billimoria
+# kaiwanTECH
+# License: MIT
 name=$(basename $0)
 PFX=$(dirname $(which $0))    # dir in which 'procmap' and tools reside
 source ${PFX}/common.sh || {
@@ -131,6 +134,11 @@ parse_ksegfile_getvars()
  PAGE_OFFSET=$(grep -w "lowmem" ${KSEGFILE} |cut -d"${gDELIM}" -f1)
  high_memory=$(grep -w "lowmem" ${KSEGFILE} |cut -d"${gDELIM}" -f2)
  PKMAP_BASE=$(grep -w "HIGHMEM" ${KSEGFILE} |cut -d"${gDELIM}" -f1)
+ TASK_SIZE=$(grep -w "TASK_SIZE" ${KSEGFILE} |cut -d"${gDELIM}" -f2)
+
+ # Delete the TASK_SIZE line from the KSEGFILE file
+ # as we don't want it in the kernel map processing loop that follows
+ sed --in-place '/^TASK_SIZE/d' ${KSEGFILE}
 
  # TODO: DEAD code, (test some more &) remove
 [ 0 -eq 1 ] && {
@@ -146,8 +154,8 @@ parse_ksegfile_getvars()
 }
 
 # We *require* these 'globals' again later in the script;
-# So we place them into an 'arch' file (in descending order by kva) and source
-# this file in the scripts that require it.
+# So we place them into an 'arch' file (we try and keep a 'descending order
+# by kva' ordering) and source this file in the scripts that require it.
 # It's arch-dependent, some vars may be NULL; that's okay.
  cat > ${ARCHFILE} << @EOF@
 VECTORS_BASE=${VECTORS_BASE}
@@ -161,6 +169,7 @@ VMALLOC_END=${VMALLOC_END}
 PAGE_OFFSET=${PAGE_OFFSET}
 high_memory=${high_memory}
 PKMAP_BASE=${PKMAP_BASE}
+TASK_SIZE=${TASK_SIZE}
 @EOF@
 } # end parse_ksegfile_getvars()
 
@@ -171,8 +180,8 @@ build_lkm()
  echo "[i] kseg: building the LKM ..."
  make clean >/dev/null 2>&1
  make >/dev/null 2>&1 || {
-    echo "${name}: kernel module \"${KMOD}\" build failed, aborting..."
-    return
+    FatalError "${name}: kernel module \"${KMOD}\" build failed, aborting..."
+    #return
  }
  if [ ! -s ${KMOD}.ko ] ; then
     echo "${name}: kernel module \"${KMOD}\" not generated? aborting..."
@@ -222,6 +231,7 @@ init_kernel_lkm_get_details()
   vecho " debugfs file present"
 
   # Finally! generate the kernel seg details
+  rm -f ${KSEGFILE} 2>/dev/null
   sudo cat ${DBGFS_LOC}/${KMOD}/${DBGFS_FILENAME} > ${KSEGFILE}
   # CSV fmt:
   #  start_kva,end_kva,mode,name-of-region
@@ -289,16 +299,16 @@ IS_64_BIT=1
 PAGE_SIZE=4096
 USER_VAS_SIZE_TB=128
 KERNEL_VAS_SIZE_TB=128
-START_KVA_DEC=${START_KVA_DEC}
-START_KVA=${START_KVA}
-HIGHEST_KVA=0xffffffffffffffff
-NONCANONICAL_REG_SIZE=${NONCANONICAL_REG_SIZE}
-NONCANONICAL_REG_SIZE_HEX=${NONCANONICAL_REG_SIZE_HEX}
-START_UVA=0x0
-END_UVA_DEC=${END_UVA_DEC}
-END_UVA=${END_UVA}
 KERNEL_VAS_SIZE=${KERNEL_VAS_SIZE}
 USER_VAS_SIZE=${USER_VAS_SIZE}
+HIGHEST_KVA=0xffffffffffffffff
+START_KVA=${START_KVA}
+START_KVA_DEC=${START_KVA_DEC}
+NONCANONICAL_REG_SIZE_HEX=${NONCANONICAL_REG_SIZE_HEX}
+NONCANONICAL_REG_SIZE=${NONCANONICAL_REG_SIZE}
+END_UVA=${END_UVA}
+END_UVA_DEC=${END_UVA_DEC}
+START_UVA=0x0
 FMTSPC_VA=${FMTSPC_VA}
 @EOF@
 } # end set_config_x86_64()
@@ -350,17 +360,75 @@ cat >> ${ARCHFILE} << @EOF@
 ARCH=Aarch32
 IS_64_BIT=0
 PAGE_SIZE=4096
-START_KVA_DEC=${START_KVA_DEC}
-START_KVA=${START_KVA}
-HIGHEST_KVA=0xffffffff
-START_UVA=0x0
-END_UVA_DEC=${END_UVA_DEC}
-END_UVA=${END_UVA}
 KERNEL_VAS_SIZE=${KERNEL_VAS_SIZE}
 USER_VAS_SIZE=${USER_VAS_SIZE}
+HIGHEST_KVA=0xffffffff
+START_KVA=${START_KVA}
+START_KVA_DEC=${START_KVA_DEC}
+END_UVA=${END_UVA}
+END_UVA_DEC=${END_UVA_DEC}
+START_UVA=0x0
 FMTSPC_VA=${FMTSPC_VA}
 @EOF@
 } # end set_config_aarch32()
+
+#----------------------------------------------------------------------
+# For Aarch64 4-level paging, 4k page : the typical default
+#----------------------------------------------------------------------
+set_config_aarch64()
+{
+  vecho "set config for Aarch64:"
+ARCH=Aarch64
+PAGE_SIZE=4096
+# get via TASK_SIZE
+TASK_SIZE_DEC=$(printf "%llu" 0x${TASK_SIZE})
+USER_VAS_SIZE=${TASK_SIZE_DEC}
+USER_VAS_SIZE_TB=$(bc <<< "(${TASK_SIZE_DEC}/(1024*1024*1024*1024))")
+# TODO : check this ASSUMPTION!
+KERNEL_VAS_SIZE_TB=${USER_VAS_SIZE_TB}
+
+# sparse non-canonical region size = 2^64 - (user VAS + kernel VAS)
+NONCANONICAL_REG_SIZE=$(bc <<< "2^64-(${USER_VAS_SIZE_TB}*${TB_1}+${KERNEL_VAS_SIZE_TB}*${TB_1})")
+NONCANONICAL_REG_SIZE_HEX=$(printf "0x%llx" ${NONCANONICAL_REG_SIZE})
+
+END_UVA_DEC=$(bc <<< "(${USER_VAS_SIZE_TB}*${TB_1}-1)")
+END_UVA=$(printf "%llx" ${END_UVA_DEC})
+
+START_KVA_DEC=$(bc <<< "(${END_UVA_DEC}+${NONCANONICAL_REG_SIZE}+1)")
+START_KVA=$(printf "%llx" ${START_KVA_DEC})
+HIGHEST_KVA=ffffffffffffffff
+HIGHEST_KVA_DEC=$(printf "%llu" 0x${HIGHEST_KVA})
+START_UVA=0
+START_UVA_DEC=0
+
+# Calculate size of K and U VAS's
+KERNEL_VAS_SIZE=$(bc <<< "(${HIGHEST_KVA_DEC}-${START_KVA_DEC}+1)")
+# user VAS size is the kernel macro TASK_SIZE (?)
+#USER_VAS_SIZE=$(bc <<< "(${END_UVA_DEC}-${START_UVA_DEC}+1)")
+
+# We *require* these 'globals' in the other scripts
+# So we place all of them into a file and source this file in the
+# scripts that require it
+cat >> ${ARCHFILE} << @EOF@
+
+ARCH=Aarch64
+IS_64_BIT=1
+PAGE_SIZE=4096
+KERNEL_VAS_SIZE_TB=${KERNEL_VAS_SIZE_TB}
+USER_VAS_SIZE_TB=${USER_VAS_SIZE_TB}
+KERNEL_VAS_SIZE=${KERNEL_VAS_SIZE}
+USER_VAS_SIZE=${USER_VAS_SIZE}
+HIGHEST_KVA=0xffffffffffffffff
+START_KVA=${START_KVA}
+START_KVA_DEC=${START_KVA_DEC}
+NONCANONICAL_REG_SIZE_HEX=${NONCANONICAL_REG_SIZE_HEX}
+NONCANONICAL_REG_SIZE=${NONCANONICAL_REG_SIZE}
+END_UVA=${END_UVA}
+END_UVA_DEC=${END_UVA_DEC}
+START_UVA=0x0
+FMTSPC_VA=${FMTSPC_VA}
+@EOF@
+} # end set_config_aarch64()
 
 # human_readdbl_kernel_arch()
 human_readdbl_kernel_arch()
@@ -434,13 +502,11 @@ if [ "${mach}" = "x86_64" ]; then
    IS_X86_64=1
    set_config_x86_64
 elif [ "${cpu}" = "arm" ]; then
-   if [ ${IS_64_BIT} -eq 0 ] ; then
       IS_Aarch32=1
       set_config_aarch32
-   else
+elif [ "${cpu}" = "aarch64" ]; then
       IS_Aarch64=1
-      #set_config_aarch64
-   fi
+      set_config_aarch64
 elif [ "${cpu}" = "x86" ]; then
    if [ ${IS_64_BIT} -eq 0 ] ; then
       IS_X86_32=1
