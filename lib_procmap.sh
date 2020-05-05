@@ -134,24 +134,14 @@ parse_ksegfile_write_archfile()
  PAGE_OFFSET=$(grep -w "lowmem" ${KSEGFILE} |cut -d"${gDELIM}" -f1)
  high_memory=$(grep -w "lowmem" ${KSEGFILE} |cut -d"${gDELIM}" -f2)
  PKMAP_BASE=$(grep -w "HIGHMEM" ${KSEGFILE} |cut -d"${gDELIM}" -f1)
+
+ PAGE_SIZE=$(grep -w "PAGE_SIZE" ${KSEGFILE} |cut -d"${gDELIM}" -f2)
  TASK_SIZE=$(grep -w "TASK_SIZE" ${KSEGFILE} |cut -d"${gDELIM}" -f2)
 
- # Delete the TASK_SIZE line from the KSEGFILE file
+ # Delete the PAGE_SIZE and TASK_SIZE lines from the KSEGFILE file
  # as we don't want it in the kernel map processing loop that follows
+ sed --in-place '/^PAGE_SIZE/d' ${KSEGFILE}
  sed --in-place '/^TASK_SIZE/d' ${KSEGFILE}
-
- # TODO: DEAD code, (test some more &) remove
-[ 0 -eq 1 ] && {
- # Retrieve the PAGE_OFFSET and HIGHMEM lines from the KSEGFILE file
- PAGE_OFFSET=$(grep "^PAGE_OFFSET" ${KSEGFILE} |cut -d"${gDELIM}" -f2)
- HIGHMEM=$(grep "^high_memory" ${KSEGFILE} |cut -d"${gDELIM}" -f2)
- decho "PAGE_OFFSET = ${PAGE_OFFSET} , high_memory = ${HIGHMEM}"
-
- # Delete the PAGE_OFFSET and HIGHMEM lines from the KSEGFILE file
- # as we don't want them in the kernel map processing loop that follows
- sed --in-place '/^PAGE_OFFSET/d' ${KSEGFILE}
- sed --in-place '/^high_memory/d' ${KSEGFILE}
-}
 
 # We *require* these 'globals' again later in the script;
 # So we place them into an 'arch' file (we try and keep a 'descending order
@@ -170,6 +160,7 @@ VMALLOC_END=${VMALLOC_END}
 PAGE_OFFSET=${PAGE_OFFSET}
 high_memory=${high_memory}
 PKMAP_BASE=${PKMAP_BASE}
+PAGE_SIZE=${PAGE_SIZE}
 TASK_SIZE=${TASK_SIZE}
 @EOF@
 } # end parse_ksegfile_write_archfile()
@@ -260,7 +251,7 @@ set_config_x86_64()
 {
   vecho "set config for x86_64:"
 ARCH=x86_64
-PAGE_SIZE=4096
+PAGE_SIZE=$(printf "%llu" 0x${PAGE_SIZE})
 USER_VAS_SIZE_TB=128
 KERNEL_VAS_SIZE_TB=128
 
@@ -297,11 +288,15 @@ USER_VAS_SIZE=$(bc <<< "(${END_UVA_DEC}-${START_UVA_DEC}+1)")
 # We *require* these 'globals' in the other scripts
 # So we place all of them into a file and source this file in the
 # scripts that require it
+
+# Delete earier values that we'll replace with the proper ones now...
+sed --in-place '/^PAGE_SIZE/d' ${ARCHFILE}
+
 cat >> ${ARCHFILE} << @EOF@
 
 ARCH=x86_64
 IS_64_BIT=1
-PAGE_SIZE=4096
+PAGE_SIZE=${PAGE_SIZE}
 USER_VAS_SIZE_TB=128
 KERNEL_VAS_SIZE_TB=128
 KERNEL_VAS_SIZE=${KERNEL_VAS_SIZE}
@@ -316,6 +311,8 @@ END_UVA_DEC=${END_UVA_DEC}
 START_UVA=0x0
 FMTSPC_VA=${FMTSPC_VA}
 @EOF@
+
+prompt
 } # end set_config_x86_64()
 
 #----------------------------------------------------------------------
@@ -325,7 +322,7 @@ set_config_aarch32()
 {
   vecho "set config for Aarch32:"
 ARCH=Aarch32
-PAGE_SIZE=4096
+PAGE_SIZE=$(printf "%lu" 0x${PAGE_SIZE})
 
 # 32-bit, so no sparse non-canonical region.
 # Retrieve the PAGE_OFFSET and HIGHMEM lines from the ARCHFILE file
@@ -361,10 +358,14 @@ KERNEL_VAS_SIZE=$(bc <<< "(${HIGHEST_KVA_DEC}-${START_KVA_DEC}+1)")
 # We *require* these 'globals' in the other scripts
 # So we place all of them into a file and source this file in the
 # scripts that require it
+
+# Delete earier values that we'll replace with the proper ones now...
+sed --in-place '/^PAGE_SIZE/d' ${ARCHFILE}
+
 cat >> ${ARCHFILE} << @EOF@
 ARCH=Aarch32
 IS_64_BIT=0
-PAGE_SIZE=4096
+PAGE_SIZE=${PAGE_SIZE}
 KERNEL_VAS_SIZE=${KERNEL_VAS_SIZE}
 USER_VAS_SIZE=${USER_VAS_SIZE}
 HIGHEST_KVA=0xffffffff
@@ -382,11 +383,14 @@ FMTSPC_VA=${FMTSPC_VA}
 #----------------------------------------------------------------------
 set_config_aarch64()
 {
-source ${ARCHFILE}
+#source ${ARCHFILE} || {
+# FatalError "${name}: could not source ${ARCHFILE} , aborting..."
+#}
 
   vecho "set config for Aarch64:"
 ARCH=Aarch64
-PAGE_SIZE=4096  # TODO - get via kernel LKM
+PAGE_SIZE=$(printf "%llu" 0x${PAGE_SIZE})
+
 # get the user VAS size via TASK_SIZE macro
 TASK_SIZE_DEC=$(printf "%llu" 0x${TASK_SIZE})
 USER_VAS_SIZE=${TASK_SIZE_DEC}
@@ -413,11 +417,15 @@ START_UVA_DEC=0
 # We *require* these 'globals' in the other scripts
 # So we place all of them into a file and source this file in the
 # scripts that require it
+
+# Delete earier values that we'll replace with the proper ones now...
+sed --in-place '/^PAGE_SIZE/d' ${ARCHFILE}
+
 cat >> ${ARCHFILE} << @EOF@
 
 ARCH=Aarch64
 IS_64_BIT=1
-PAGE_SIZE=4096
+PAGE_SIZE=${PAGE_SIZE}
 KERNEL_VAS_SIZE_TB=${KERNEL_VAS_SIZE_TB}
 USER_VAS_SIZE_TB=${USER_VAS_SIZE_TB}
 KERNEL_VAS_SIZE=${KERNEL_VAS_SIZE}
@@ -499,6 +507,11 @@ if [ ${IS_64_BIT} -eq 1 ] ; then
 else    # 32-bit
    FMTSPC_VA="%08lx"
 fi
+
+# By now the the kernel 'archfile' has been generated; source it in...
+source ${ARCHFILE} || {
+ FatalError "${name}: could not source ${ARCHFILE} , aborting..."
+}
 
 local mach=$(uname -m)
 local cpu=${mach:0:3}

@@ -175,15 +175,14 @@ static void query_kernelseg_details(char *buf)
 	strncat(buf, tmpbuf, TMPMAX-1);
 #endif
 
-#if 1
 #include <asm/processor.h>
 	/* Enhancement: also pass along other key kernel vars */
 	memset(tmpbuf, 0, TMPMAX);
 	snprintf(tmpbuf, TMPMAX,
+		"PAGE_SIZE," FMTSPC "\n"
 		"TASK_SIZE," FMTSPC "\n",
-		(TYPECST)TASK_SIZE);
+		(TYPECST)PAGE_SIZE, (TYPECST)TASK_SIZE);
 	strncat(buf, tmpbuf, TMPMAX-1);
-#endif
 }
 
 /* Our debugfs file 1's read callback function */
