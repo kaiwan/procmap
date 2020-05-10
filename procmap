@@ -72,21 +72,25 @@ sed -i "s/47m//g" ${1}
 usage()
 {
  cat << @EOF@
-Usage: ${name} [options] -p PID-to-show-memory-map-of
+Usage: ${name} [options] --pid=PID-of-process-to-show-memory-map-of
 
 Options:
- -u : show ONLY the usermode mappings or segments (not kernel VAS)
- -k : show ONLY the kernel-space mappings or segments (not user VAS)
+ --only-user     : show ONLY the usermode mappings or segments (not kernel VAS)
+ --only-kernel   : show ONLY the kernel-space mappings or segments (not user VAS)
   [default is to show BOTH]
- -v : verbose mode (try it! see below for details)
- -l <start-vaddr>,<length_KB> : locate a given region within the process VAS
+ --locate=<start-vaddr>,<length_KB> : locate a given region within the process VAS
      start-vaddr : a virtual address in hexadecimal
           length : length of the region to locate in KB
- -d : debug mode
+ --export-kernel=filename
+     write kernel information gleaned to the file you specify; note that this
+	 will overwrite the file
+ --verbose       : verbose mode (try it! see below for details)
+ --debug         : run in debug mode
+ --version|--ver : display version info.
 
-*Verbose* mode (-v):
- Most verbose messages are preceded by '[v]' to help you identify them
-In addition to the 'usual', the output now includes:
+*Verbose* mode (--verbose):
+ Most verbose messages are prepended with '[v]' to help you identify them
+In addition to the 'usual' stuff, the output now includes:
  - kernel segment details (prior to showing the kernel VAS); useful for system
    developers/BSP
  - progress messages
@@ -117,94 +121,135 @@ Caveats / Limitations:
  1>&2
 }
 
+VER_MAJOR=0
+VER_MINOR=2
+SCRIPT_URL="https://github.com/kaiwan/procmap"
+version()
+{
+  printf "${name} ${VER_MAJOR}.${VER_MINOR}, (c) Kaiwan N Billimoria\n"
+  printf "${SCRIPT_URL}\n"
+}
+
+# Parameters:
+#  $1    : if == 1, show the usage message
+#  $2... : error message
+err()
+{
+  [ $# -lt 2 ] && return
+  local show_usage=$1
+  shift
+  tput bold; fg_red
+  printf "%s\n" "$@" >&2
+  color_reset
+  [ ${show_usage} -eq 1 ] && {
+     echo; usage
+  }
+  exit 1
+}
+
+show_selected_opt()
+{
+  [ $# -eq 0 ] && return
+  fg_yellow
+  printf "%s\n" "$@"
+  color_reset
+}
+
 
 #--- 'main' here
 
-[ $# -lt 2 ] && {
+[ $# -lt 1 ] && {
  usage
  exit 1
 }
 
 PID=0
 
-[ 1 -eq 1 ] && {
-#while getopts "p:h?ukvld" opt; do
-#while getopts "p:h?ukvl::d --long debug --long verbose -- locate:: -- help" opt; do
-
 # ref: https://wiki.bash-hackers.org/howto/getopts_tutorial
-# TODO: long args?
-while getopts "p:h?ukvdl::" opt; do
+optspec=":h?-:"
+while getopts "${optspec}" opt
+do
     case "${opt}" in
-	    h|\?) usage ; exit 0
-		;;
-        p)
-	    PID=${OPTARG}
-	    #echo "-p passed; PID=${PID}"
-            ;;
-        u)
-	    echo "[i] -u: will display ONLY user VAS"
-		SHOW_KERNELSEG=0
-            ;;
-        k)
-	    echo "[i] -k: will display ONLY kernel VAS"
-		SHOW_USERSPACE=0
-            ;;
-        l)
-		LOCATE_SPEC=${OPTARG}
-		LOC_STARTADDR=$(echo "${LOCATE_SPEC}" |cut -d, -f1)
-		# Validity check; expect the vaddr to be in hex (0x....)
-		[ "${LOC_STARTADDR:0:2}" != "0x" ] && {
-		   echo "${name}: -l: the start virtual address Must be specified as a hexadecimal qty (0x....)"
-		   exit 1
-		}
-		# TODO: validate that a length has actually been passed
-		LOC_LEN=$(echo "${LOCATE_SPEC}" |cut -d, -f2)
-		[ -z "${LOC_LEN}" -o ${LOC_LEN} -le 0 ] && {
-		   echo "${name}: -l: the length of the virtual address region to locate must be positive (KB)"
-		   exit 1
-		}
-	    echo "[i] -l: locate region from (${LOCATE_SPEC}) (start-vaddr,len-in-Kb)"
-            ;;
-        d)
-	    export DEBUG=1
-	    echo "[i] -d: running in DEBUG mode"
-            ;;
-        v)
-	    export VERBOSE=1
-	    echo "[i] -v: running in VERBOSE mode"
-            ;;
-        *)
-        usage; exit 1
-            ;;
-    esac
+		-)                       # 'long' opts '--xxx' style, ala checksec!
+ #echo "optarg = ${OPTARG}"
+ #prompt
+		    case "${OPTARG}" in
+			  version|ver)
+			    version
+				exit 0
+				;;
+			  help)
+			    usage
+				exit 0
+				;;
+			  pid=*)
+	 	        PID=$(echo "${OPTARG}" |cut -d"=" -f2)
+				show_selected_opt "[i] will display memory map for process PID=${PID}"
+		        #echo "-p passed; PID=${PID}"
+			    ;;
+			  only-user)
+				show_selected_opt "[i] will display ONLY user VAS"
+				SHOW_KERNELSEG=0
+			    ;;
+			  only-kernel)
+			    show_selected_opt "[i] will display ONLY kernel VAS"
+				SHOW_USERSPACE=0
+			    ;;
+			  export-kernel=*)
+	 	        XKERN_FILE=$(echo "${OPTARG}" |cut -d"=" -f2)
+			    show_selected_opt "[i] will write kernel info to ${XKERN_FILE}"
+			    ;;
+			  locate=*)
+				LOCATE_SPEC=${OPTARG:7}  # cut out the 'locate=' beginning
+				LOC_STARTADDR=$(echo "${LOCATE_SPEC}" |cut -d, -f1)
+				# Validity check; expect the vaddr to be in hex (0x....)
+				[ "${LOC_STARTADDR:0:2}" != "0x" ] && {
+					err 0 "${name}: the start virtual address Must be specified as a hexadecimal qty (0x....)"
+				}
+				# validate that a length has actually been passed
+				LOC_LEN=$(echo "${LOCATE_SPEC}" |cut -d, -f2)
+				[ -z "${LOC_LEN}" -o ${LOC_LEN} -le 0 ] && {
+					err 0 "${name}: the length of the virtual address region to locate must be positive (KB)"
+				}
+				show_selected_opt "[i] locate region from (${LOCATE_SPEC}) (start-vaddr,len-in-Kb)"
+				;;
+			  verbose)
+				export VERBOSE=1
+				show_selected_opt "[i] running in VERBOSE mode"
+				;;
+			  debug)
+				export DEBUG=1
+				show_selected_opt "[i] running in DEBUG mode"
+				;;
+			  *) err 1 "Unknown option '${OPTARG}'"
+				;;
+  	        esac
+  	esac
 done
 shift $((OPTIND-1))
-}
 
+rgx='^[0-9]+$'
+if ! [[ ${PID} =~ ${rgx} ]] ; then
+   err 0 "Error: PID must be an integer value"
+fi
 [ ${PID} -eq 0 ] && {
- echo "Specifying the PID with -p is mandatory"
- usage
- exit 1
+ err 0 "Specifying the PID with -p is mandatory"
 }
 
 PFX=$(dirname $(which $0))    # dir in which 'vasu_grapher' and tools reside
 [ ! -f ${PFX}/do_vgraph.sh ] && {
- echo "${name}: ${PFX}/do_vgraph.sh missing? Aborting..."
- exit 1
+ err 0 "${name}: ${PFX}/do_vgraph.sh missing? Aborting..."
 }
 [ ! -f ${PFX}/prep_mapsfile.sh ] && {
- echo "${name}: ${PFX}/prep_mapsfile.sh missing? Aborting..."
- exit 1
+ err 0 "${name}: ${PFX}/prep_mapsfile.sh missing? Aborting..."
 }
 # Check for process existence
 sudo kill -0 ${PID} >/dev/null 2>&1 || {
- echo "${name}: process with PID \"${PID}\" invalid (or dead now?) Aborting..."
- exit 1
+ err 0 "${name}: process with PID \"${PID}\" invalid (or dead now?) Aborting..."
 }
 # Verify it's not a kernel thread
 sudo readlink /proc/${PID}/exe >/dev/null || {
- echo "${name}: process with PID \"${PID}\" invalid; I believe it's a kernel thread. Aborting..."
- exit 1
+ err 0 "${name}: process with PID \"${PID}\" invalid; I believe it's a kernel thread. Aborting..."
 }
 
 LOG=log_procmap.txt
