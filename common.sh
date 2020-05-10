@@ -31,7 +31,7 @@ source ${PFX}/color.sh || {
 
 prompt()
 {
- printf "[Enter] to continue... "
+ [ $# -gt 0 ] && echo "$@" || printf "[Enter] to continue... "
  read
 }
 

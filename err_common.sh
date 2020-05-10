@@ -30,8 +30,6 @@ ICON_EXIT=stock_mark   #system-log-out
 # QP
 # QuickPrint ;-)
 # Print timestamp, script name, line#. Useful for debugging.
-# [RELOOK / FIXME : not really useful as it doen't work as a true macro;
-#  just prints _this_ script name, line#.]
 QP()
 {
 	_ERR_HDR_FMT="%.23s %s[%s]: "
@@ -118,6 +116,17 @@ Many thanks.
  cli_handle_error "$@"
  exit 1
 } # end FatalError()
+
+#  $1 = warning msg
+warn()
+{
+  [ $# -eq 0 ] && return
+  fg_yellow
+  ShowTitle "!WARNING! $@"
+  #QP
+  color_reset
+}
+
 
 # Prompt
 # Interactive: prompt the user to continue by pressing ENTER or

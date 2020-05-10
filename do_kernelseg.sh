@@ -83,6 +83,7 @@ local kva=$(bc <<< "${pa_dec}+${pgoff_dec}")
 printf "${FMTSPC_VA}" ${kva}
 } # end pa2va
 
+# UNUSED!
 # setup_kernelimg_mappings
 # Setup mappings for the kernel image itself; this usually consists of (could
 # be fewer entries on some arch's):
