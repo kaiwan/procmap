@@ -16,9 +16,9 @@ source ${PFX}/config || {
  echo "${name}: fatal: could not source ${PFX}/config , aborting..."
  exit 1
 }
-source ${PFX}/.scratchfile || {
- echo "${name}: warning: could not source ${PFX}/.scratchfile , aborting..."
-}
+source ${PFX}/.scratchfile #|| {
+# echo "${name}: warning: could not source ${PFX}/.scratchfile , aborting..."
+#}
 
 LOCATED_REGION_ENTRY="<--LOCATED-->"
 
@@ -201,7 +201,7 @@ init_kernel_lkm_get_details()
   cd ${KERNELDIR} || return
   #pwd
 
-  if [ ! -s ${KMOD}.ko ] ; then
+  if [ ! -s ${KMOD}.ko -o ${KMOD}.c -nt ${KMOD}.ko ] ; then
      build_lkm
   fi
 
@@ -542,11 +542,11 @@ if [ "${mach}" = "x86_64" ]; then
    IS_X86_64=1
    MACH_DESC="x86_64"
    set_config_x86_64
-elif [ "${cpu}" =~ "arm" ]; then
+elif [[ "${cpu}" =~ "arm" ]]; then
       IS_Aarch32=1
       MACH_DESC="ARM-32"
       set_config_aarch32
-elif [ "${mach}" =~ "aarch64" ]; then
+elif [[ "${mach}" =~ "aarch64" ]]; then
       IS_Aarch64=1
       MACH_DESC="ARM-64"
       set_config_aarch64
