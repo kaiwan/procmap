@@ -54,6 +54,8 @@ source ${PFX}/lib_procmap.sh || {
  exit 1
 }
 
+SCRATCHFILE=.scratchfile
+
 logfile_post_process()
 {
 sed -i.bkp "/###\:\:\:/d" ${1}  # take a backup & get rid of the signature line
@@ -164,6 +166,8 @@ show_selected_opt()
 }
 
 PID=0
+rm -f ${SCRATCHFILE}
+touch ${SCRATCHFILE}
 
 # ref: https://wiki.bash-hackers.org/howto/getopts_tutorial
 optspec=":h?-:"
@@ -198,6 +202,10 @@ do
 			  export-kernel=*)
 	 	        XKERN_FILE=$(echo "${OPTARG}" |cut -d"=" -f2)
 			    show_selected_opt "[i] will write kernel info to ${XKERN_FILE}"
+				# Write 'scratch' data that we require in other support scripts here..
+				cat >> ${SCRATCHFILE} << @EOF@
+XKERN_FILE=${XKERN_FILE}
+@EOF@
 			    ;;
 			  locate=*)
 				LOCATE_SPEC=${OPTARG:7}  # cut out the 'locate=' beginning
@@ -283,4 +291,5 @@ ${PFX}/do_vgraph.sh ${dovg_cmdline} | tee -a ${LOG}
 logfile_post_process ${LOG}
 echo "$(date): output logged (appended) here :"
 ls -lh ${LOG}
+[ ${DEBUG} -eq 0 ] && rm -f ${SCRATCHFILE}
 exit 0
