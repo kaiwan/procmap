@@ -43,8 +43,13 @@
 # kaiwanTECH
 #
 # License: MIT.
-name=$(basename $0)
-PFX=$(dirname $(which $0))    # dir in which this script and tools reside
+export name=procmap    #$(basename $0)
+export PFX=$(dirname $(which $0))    # dir in which this script and tools reside
+
+SCRATCHFILE=.scratchfile
+rm -f ${SCRATCHFILE}
+touch ${SCRATCHFILE}
+
 source ${PFX}/config || {
  echo "${name}: fatal: could not source configuration in file '${PFX}/config', aborting..."
  exit 1
@@ -54,7 +59,6 @@ source ${PFX}/lib_procmap.sh || {
  exit 1
 }
 
-SCRATCHFILE=.scratchfile
 
 logfile_post_process()
 {
@@ -166,8 +170,6 @@ show_selected_opt()
 }
 
 PID=0
-rm -f ${SCRATCHFILE}
-touch ${SCRATCHFILE}
 
 # ref: https://wiki.bash-hackers.org/howto/getopts_tutorial
 optspec=":h?-:"
