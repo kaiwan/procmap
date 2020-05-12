@@ -46,7 +46,7 @@
 export name=procmap    #$(basename $0)
 export PFX=$(dirname $(which $0))    # dir in which this script and tools reside
 
-SCRATCHFILE=.scratchfile
+SCRATCHFILE=${PFX}/.scratchfile
 rm -f ${SCRATCHFILE}
 touch ${SCRATCHFILE}
 
@@ -243,7 +243,7 @@ if ! [[ ${PID} =~ ${rgx} ]] ; then
    err 0 "Error: PID must be an integer value"
 fi
 [ ${PID} -eq 0 ] && {
- err 0 "Specifying the PID with -p is mandatory"
+ err 0 "Specifying the PID with --pid=<PID> is mandatory"
 }
 
 PFX=$(dirname $(which $0))    # dir in which 'vasu_grapher' and tools reside
