@@ -680,10 +680,10 @@ local i k
 local segname seg_sz start_va end_va mode offset
 local szKB=0 szMB=0 szGB=0 szTB=0 szPB=0
 
-local LIN_FIRST_K="+------------------  K E R N E L   V A S    end kva  ------------------+"
-local  LIN_LAST_K="+------------------  K E R N E L   V A S  start kva  ------------------+"
-local LIN_FIRST_U="+------------------      U S E R   V A S    end uva  ------------------+"
-local  LIN_LAST_U="+------------------      U S E R   V A S  start uva  ------------------+"
+local LIN_HIGHEST_K="+------------------  K E R N E L   V A S    end kva  ------------------+"
+local  LIN_LOWEST_K="+------------------  K E R N E L   V A S  start kva  ------------------+"
+local LIN_HIGHEST_U="+------------------      U S E R   V A S    end uva  ------------------+"
+local  LIN_LOWEST_U="+------------------      U S E R   V A S  start uva  ------------------+"
 local         LIN="+----------------------------------------------------------------------+"
 local ELLIPSE_LIN="~ .       .       .       .       .       .        .       .        .  ~"
 local   BOX_SIDES="|                                                                      |"
@@ -777,7 +777,7 @@ decho "nm = ${segname} ,  end_va = ${end_va}   ,   start_va = ${start_va}"
     if [ "$1" = "-k" -a ${i} -eq $((${rows}-${DIM})) ] ; then   # last loop iteration
        if [ ${IS_64_BIT} -eq 1 ] ; then
            tput bold
-           printf "%s ${FMTSPC_VA}" "${LIN_LAST_K}" 0x${START_KVA}
+           printf "%s ${FMTSPC_VA}" "${LIN_LOWEST_K}" 0x${START_KVA}
 	       color_reset
 	   else
            printf "%s ${FMTSPC_VA}" "${LIN}" ${end_va}
@@ -999,10 +999,10 @@ done
 if [ "${1}" = "-k" ] ; then
 	tput bold
 	[ ${IS_64_BIT} -eq 0 ] && {
-	   printf "%s ${FMTSPC_VA}" "${LIN_LAST_K}" 0x${START_KVA}
+	   printf "%s ${FMTSPC_VA}" "${LIN_LOWEST_K}" 0x${START_KVA}
 	   insert_arch_label ${START_KVA}
 	}
-	printf "%s ${FMTSPC_VA}\n" "${LIN_FIRST_U}" 0x${END_UVA}
+	printf "%s ${FMTSPC_VA}\n" "${LIN_HIGHEST_U}" 0x${END_UVA}
 	color_reset
 fi
 
@@ -1010,7 +1010,7 @@ fi
 #+----------------------------------------------------------------------+ 0000000000000000
 if [ "$1" = "-u" ] ; then
    tput bold
-   printf "%s ${FMTSPC_VA}\n" "${LIN_LAST_U}" ${start_va}
+   printf "%s ${FMTSPC_VA}\n" "${LIN_LOWEST_U}" ${start_va}
    color_reset
 fi
 } # end graphit()
