@@ -805,7 +805,9 @@ decho "nm = ${segname} ,  end_va = ${end_va}   ,   start_va = ${start_va}"
     else   # very first line
          tput bold
          if [ "${1}" = "-k" ] ; then
-            printf "%s ${FMTSPC_VA}\n" "${LIN_FIRST_K}" "${end_va}"
+            printf "%s ${FMTSPC_VA}\n" "${LIN_HIGHEST_K}" "${end_va}"
+         elif [ "${1}" = "-u" ] ; then
+  	        printf "%s ${FMTSPC_VA}\n" "${LIN_HIGHEST_U}" 0x${END_UVA}
          fi
 	color_reset
     fi
