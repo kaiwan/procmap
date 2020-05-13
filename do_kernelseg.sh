@@ -296,16 +296,12 @@ populate_kernel_segment_mappings()
  setup_ksparse_lowest ${prevseg_start_kva_hex}
 
  # Non-canonical sparse region for 64-bit
- if [ ${IS_64_BIT} -eq 1 -a ${SHOW_USERSPACE} -eq 1 ] ; then
+ if [ ${IS_64_BIT} -eq 1 ]; then  #-a ${SHOW_USERSPACE} -eq 1 ] ; then
      setup_noncanonical_sparse_region
  fi
 
  [ ${DEBUG} -eq 0 ] && rm -f ${KSEGFILE}
- #sudo rmmod ${KMOD}
-
  [ ${DEBUG} -eq 1 ] && show_gkArray
-
  cd ${TOP}
-
 } # end populate_kernel_segment_mappings()
 
