@@ -16,6 +16,7 @@ source ${PFX}/config || {
  echo "${name}: fatal: could not source ${PFX}/config , aborting..."
  exit 1
 }
+#source ${SCRATCHFILE}
 source ${PFX}/.scratchfile
 
 LOCATED_REGION_ENTRY="<--LOCATED-->"
@@ -620,17 +621,17 @@ append_userspace_mapping()
 
 show_located_region_in_map()
 {
-		 # TODO: BUG: if LOC_STARTADDR is same as a segment addr, it's printed twice
-		    tput bold; fg_red
-			if [ ${IS_64_BIT} -eq 1 ] ; then
-               printf "|                          %s ${FMTSPC_VA}                          |\n" \
-			        "${MARK_LOCATION}" ${LOC_STARTADDR}
-			else
-               printf "|                              %s ${FMTSPC_VA}                              |\n" \
-			        "${MARK_LOCATION}" ${LOC_STARTADDR}
-			fi
-			color_reset
-		    oversized=0
+ # TODO: BUG: if LOC_STARTADDR is same as a segment addr, it's printed twice
+    tput bold; fg_red
+	if [ ${IS_64_BIT} -eq 1 ] ; then
+       printf "|                          %s ${FMTSPC_VA}                          |\n" \
+	        "${MARK_LOCATION}" ${LOC_STARTADDR}
+	else
+       printf "|                              %s ${FMTSPC_VA}                              |\n" \
+	        "${MARK_LOCATION}" ${LOC_STARTADDR}
+    fi
+	color_reset
+    oversized=0
 }
 
 # Kernel-only:
@@ -666,6 +667,7 @@ local end_va=$1 archfile_entry archfile_entry_label
  printf "%s  <-- %s\n" $(${FG_KVAR}) "${archfile_entry_label}"
  color_reset
 }
+
 #---------------------- g r a p h i t ---------------------------------
 # Iterates over the global n-dim arrays 'drawing' the vgraph.
 #  when invoked with -k, it iterates over the gkArray[] ds
@@ -774,17 +776,21 @@ decho "nm = ${segname} ,  end_va = ${end_va}   ,   start_va = ${start_va}"
 	# +----------------------------------------------------------------------+ 000055681263b000
 	# Changed to end_va @EOL as we now always print in descending order
 
-    if [ "$1" = "-k" -a ${i} -eq $((${rows}-${DIM})) ] ; then   # last loop iteration
-       if [ ${IS_64_BIT} -eq 1 ] ; then
+    #if [ "$1" = "-k" -a ${i} -eq $((${rows}-${DIM})) ] ; then   # last loop iteration
+    #   if [ ${IS_64_BIT} -eq 1 ] ; then
+    if [ ${i} -eq $((${rows}-${DIM})) ] ; then                   # last loop iteration
+	   decho "%%%%%%%%%%%%%%%%%% LAST LOOP"
+       if [ "$1" = "-k" -a ${IS_64_BIT} -eq 1 ] ; then
            tput bold
            printf "%s ${FMTSPC_VA}" "${LIN_LOWEST_K}" 0x${START_KVA}
+	       insert_arch_label ${START_KVA}
 	       color_reset
 	   else
            printf "%s ${FMTSPC_VA}" "${LIN}" ${end_va}
+	       insert_arch_label ${end_va}
 	   fi
-	   insert_arch_label ${end_va}
-	   #printf "\n"
     elif [ ${i} -ne 0 ] ; then   # ** normal case **
+	   decho "%%%%%%%%%%%%%%%%%% NORMAL LOOP"
 
 		 #============ -l option: LOCATE region ! ======================
          if [ ${LOC_LEN} -ne 0 -a "${segname}" = "${LOCATED_REGION_ENTRY}" ]; then
@@ -802,7 +808,8 @@ decho "nm = ${segname} ,  end_va = ${end_va}   ,   start_va = ${start_va}"
 		 else
 		    printf "\n"
 		 fi
-    else   # very first line
+    else                              # very first line
+	   decho "%%%%%%%%%%%%%%%%%% FIRST LOOP"
          tput bold
          if [ "${1}" = "-k" ] ; then
             printf "%s ${FMTSPC_VA}\n" "${LIN_HIGHEST_K}" "${end_va}"
@@ -996,15 +1003,14 @@ done
 # address space: the K-U boundary! on 32-bit, display both the start kva and
 # the 'end uva' virt addresses; on 64-bit, the noncanonical sparse region code
 # takes care of printing it correctly...
+tput bold
 if [ "${1}" = "-k" ] ; then
-	tput bold
 	[ ${IS_64_BIT} -eq 0 ] && {
 	   printf "%s ${FMTSPC_VA}" "${LIN_LOWEST_K}" 0x${START_KVA}
-	   insert_arch_label ${START_KVA}
 	}
-	printf "%s ${FMTSPC_VA}\n" "${LIN_HIGHEST_U}" 0x${END_UVA}
-	color_reset
+	[ ${SHOW_USERSPACE} -eq 0 ] && printf "%s ${FMTSPC_VA}\n" "${LIN_HIGHEST_U}" 0x${END_UVA}
 fi
+color_reset
 
 # userspace: last line, the zero-th virt address; always:
 #+----------------------------------------------------------------------+ 0000000000000000
