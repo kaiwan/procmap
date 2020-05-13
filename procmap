@@ -276,6 +276,11 @@ if [ "${ARCH}" = "Aarch32" ]; then
    sed --in-place '1d' ${TMPCSV}  # rm 1st line [vectors] mapping
 fi
 
+cat >> ${SCRATCHFILE} << @EOF@
+SHOW_KERNELSEG=${SHOW_KERNELSEG}
+SHOW_USERSPACE=${SHOW_USERSPACE}
+@EOF@
+
 # Invoke the worker script to 'draw' the memory map
 #  Usage: do_vgraph [-d] -p PID-of-process -f input-CSV-filename(5 column format)
 #  -v : run in verbose mode
