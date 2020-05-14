@@ -89,7 +89,7 @@ Options:
           length : length of the region to locate in KB
  --export-kernel=filename
      write kernel information gleaned to the file you specify; note that this
-	 will overwrite the file
+     will overwrite the file
  --verbose       : verbose mode (try it! see below for details)
  --debug         : run in debug mode
  --version|--ver : display version info.
@@ -109,17 +109,17 @@ Caveats / Limitations:
 -----------------------------
 - This utility is in the early stages of development and is continually
   evolving. As of now, in terms of the precise arch-specific kernel
-  memory layout specifics, it's almost certaily incomplete. For example, as of
+  memory layout specifics, it's almost certainly incomplete. For example, as of
   now we don't (can't?) show every kernel mapping as documented in the kernel
   (for the x86_64, here: Documentation/x86/x86_64/mm.rst); f.e., the kernel
   vmemmap region, guard hole, etc are not shown explcitly - they are simply
-  within one of the sparse regions on the map
+  within one of the sparse regions on the map.
 
-- procmap currently supports the following CPu arch's:
-    x86_64, Aarch32
-  I intend to support x86-32, Aarch64 shortly; other archs - could use help
+- procmap currently supports the following CPU arch's:
+  x86_64, Aarch32, Aarch64
+  I intend to support x86-32 shortly; other archs - could use help
 
-- Kernel mappings: the precise 'mode' (perms) of each mapping being unclear (to
+- kernel mappings: the precise 'mode' (perms) of each mapping being unclear (to
   me), I simply put in what seems logical (but am unsure of it's accuracy).
   Knowledgeable persons, pl help!
 
