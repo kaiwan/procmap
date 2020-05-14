@@ -1007,8 +1007,14 @@ tput bold
 if [ "${1}" = "-k" ] ; then
 	[ ${IS_64_BIT} -eq 0 ] && {
 	   printf "%s ${FMTSPC_VA}" "${LIN_LOWEST_K}" 0x${START_KVA}
+	   echo
 	}
-	[ ${SHOW_USERSPACE} -eq 0 ] && printf "%s ${FMTSPC_VA}\n" "${LIN_HIGHEST_U}" 0x${END_UVA}
+	[ ${SHOW_USERSPACE} -eq 0 ] && {
+	  if [ ${IS_64_BIT} -eq 0 ]; then
+	     color_reset; return
+	  fi
+	  printf "%s ${FMTSPC_VA}\n" "${LIN_HIGHEST_U}" 0x${END_UVA}
+	}
 fi
 color_reset
 
