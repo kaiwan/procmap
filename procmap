@@ -45,6 +45,7 @@
 # License: MIT.
 export name=procmap    #$(basename $0)
 export PFX=$(dirname $(which $0))    # dir in which this script and tools reside
+export PAGE_SIZE=$(getconf PAGE_SIZE) # for the --only-user case
 
 SCRATCHFILE=${PFX}/.scratchfile
 rm -f ${SCRATCHFILE}
@@ -119,6 +120,8 @@ Caveats / Limitations:
   x86_64, Aarch32, Aarch64
   I intend to support x86-32 shortly; other archs - could use help
 
+- requires root (sudo) access
+
 - kernel mappings: the precise 'mode' (perms) of each mapping being unclear (to
   me), I simply put in what seems logical (but am unsure of it's accuracy).
   Knowledgeable persons, pl help!
@@ -130,9 +133,10 @@ Caveats / Limitations:
 VER_MAJOR=0
 VER_MINOR=2
 SCRIPT_URL="https://github.com/kaiwan/procmap"
+AUTHORS="Kaiwan N Billimoria"
 version()
 {
-  printf "${name} ${VER_MAJOR}.${VER_MINOR}, (c) Kaiwan N Billimoria\n"
+  printf "${name} ${VER_MAJOR}.${VER_MINOR}, (c) ${AUTHORS}\n"
   printf "${SCRIPT_URL}\n"
 }
 
@@ -159,6 +163,13 @@ show_selected_opt()
   fg_yellow
   printf "%s\n" "$@"
   color_reset
+}
+
+verify_utils_present()
+{
+check_deps_fatal "getconf bc make gcc kmod grep awk sed kill readlink head tail cut cat"
+check_deps_warn "tput ps smem"
+[ ! -d /proc ] && FatalError "proc fs not available or not mounted? Aborting..."
 }
 
 
@@ -265,6 +276,8 @@ sudo readlink /proc/${PID}/exe >/dev/null || {
 LOG=log_procmap.txt
 TMPCSV=/tmp/vgrph.csv
 
+verify_utils_present
+
 init_kernel_lkm_get_details |tee -a ${LOG}
 get_machine_set_arch_config |tee -a ${LOG}
 
@@ -295,8 +308,10 @@ dovg_cmdline="-p ${PID} -f ${TMPCSV}"
 ${PFX}/do_vgraph.sh ${dovg_cmdline} | tee -a ${LOG} 
 
 [ ${DEBUG} -eq 0 ] && rm -f ${TMPCSV}
-logfile_post_process ${LOG}
-echo "$(date): output logged (appended) here :"
-ls -lh ${LOG}
+if [ ${WRITELOG} -eq 1 ]; then
+   logfile_post_process ${LOG}
+   echo "$(date): output logged (appended) here :"
+   ls -lh ${LOG}
+fi
 [ ${DEBUG} -eq 0 ] && rm -f ${SCRATCHFILE}
 exit 0

@@ -58,7 +58,6 @@ source ${ARCHFILE} || {
  exit 1
 }
 
-
 # Titles, etc...
 NULLTRAP_STR="< NULL trap >"
 SPARSE_ENTRY="<... Sparse Region ...>"
@@ -273,7 +272,7 @@ query_highest_valid_uva()
 local TMPF=/tmp/qhva
 awk -F"${gDELIM}" '{print $2}' ${gINFILE} > ${TMPF}
 [ ! -s ${TMPF} ] && {
-  echo "Warning! couldn't fetch highest valid uva, aborting..."
+  warn "couldn't fetch highest valid uva, aborting..."
   return
 }
 

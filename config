@@ -8,6 +8,7 @@ export LC_ALL=C   # locale
 gDELIM=","
 VERBOSE=0
 DEBUG=0
+WRITELOG=0
 LOCATE_SPEC=""
 
 LIMIT_SCALE_SZ=20
