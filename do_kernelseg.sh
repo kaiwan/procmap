@@ -15,17 +15,22 @@ VAS_NONCANONICAL_HOLE="<... 64-bit: non-canonical hole ...>"
 name=$(basename $0)
 
 #-----------------------s h o w A r r a y -----------------------------
+# Parameters:
+#   $1 : debug print; if 1, it's just a debug print, if 0 we're writing it's
+#        data to a file in order to proess further (sort/etc)
 show_gkArray()
 {
 local i k DIM=5
-echo
-decho "gkRow = ${gkRow}"
-echo "show_gkArray():
+[ $1 -eq 1 ] && {
+  echo
+  decho "gkRow = ${gkRow}"
+  echo "show_gkArray():
 [segname,size,start_kva,end_kva,mode]"
+}
 
 for ((i=0; i<${gkRow}; i+=${DIM}))
 do
-    printf "[%s," "${gkArray[${i}]}"    # segname
+    printf "%s," "${gkArray[${i}]}"    # segname
 	let k=i+1
     printf "%llu," "${gkArray[${k}]}"   # seg size
 	let k=i+2
@@ -34,7 +39,7 @@ do
     printf "%llx," "${gkArray[${k}]}"   # end kva
 	let k=i+4
     printf "%s" "${gkArray[${k}]}"      # mode
-	printf "]\n"
+	printf "\n"
 done
 } # end show_gkArray()
 
@@ -83,7 +88,6 @@ local kva=$(bc <<< "${pa_dec}+${pgoff_dec}")
 printf "${FMTSPC_VA}" ${kva}
 } # end pa2va
 
-# UNUSED!
 # setup_kernelimg_mappings
 # Setup mappings for the kernel image itself; this usually consists of (could
 # be fewer entries on some arch's):
@@ -124,7 +128,14 @@ sudo grep -w "Kernel" /proc/iomem > ${TMPF}
    # Write to 'kernel seg' file
    # ksegfile record fmt:
    #  start-kva,end-kva,perms,name
-   echo "${start_kva},${end_kva},r-x,${mapname}" >> ${KSEGFILE}
+
+   local ekva_dec=$(printf "%llu" 0x${end_kva})
+   local skva_dec=$(printf "%llu" 0x${start_kva})
+   local gap=$(bc <<< "(${ekva_dec}-${skva_dec})")
+   #decho "k img: ${mapname},${gap},${start_kva},${end_kva}"
+   append_kernel_mapping "${mapname}" ${gap} 0x${start_kva} \
+     0x${end_kva} "..."
+
    let i=i+1
  done 1>&2
  #----------
@@ -274,7 +285,7 @@ setup_noncanonical_sparse_region()
 populate_kernel_segment_mappings()
 {
  setup_ksparse_top
- #setup_kernelimg_mappings
+ setup_kernelimg_mappings
 
  #---------- Loop over the kernel segment data records
  export IFS=$'\n'
@@ -301,7 +312,17 @@ populate_kernel_segment_mappings()
  fi
 
  [ ${DEBUG} -eq 0 ] && rm -f ${KSEGFILE}
- [ ${DEBUG} -eq 1 ] && show_gkArray
+ #[ ${DEBUG} -eq 1 ] && show_gkArray 1
+
+ ##################
+ # Get all the kernel mapping data into a file:
+ # Reverse sort by 4th field, the hexadecimal end va; simple ASCII sort works
+ # because numbers 0-9a-f are anyway in alphabetical order
+ show_gkArray 0 > /tmp/procmap/pmk
+ sort -t"," -k4 -r /tmp/procmap/pmk > /tmp/procmap/pmkfinal
+ ##################
+ [ ${DEBUG} -eq 1 ] && cat /tmp/procmap/pmkfinal
+
  cd ${TOP}
 } # end populate_kernel_segment_mappings()
 

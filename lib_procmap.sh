@@ -696,12 +696,21 @@ color_reset
 if [ "$1" = "-u" ] ; then
    local DIM=6
    local rows=${gRow}
+   local FILE_TO_PARSE=/tmp/procmap/pmufinal
 elif [ "$1" = "-k" ] ; then
    local DIM=5
    local rows=${gkRow}
+   local FILE_TO_PARSE=/tmp/procmap/pmkfinal
 fi
 
-for ((i=0; i<${rows}; i+=${DIM}))
+###
+# Converting from using the in-memory n-dim array to using a CSV file
+###
+IFS=$'\n'
+
+#for ((i=0; i<${rows}; i+=${DIM}))
+local REC rownum=1 totalrows=$(wc -l ${FILE_TO_PARSE} |awk '{print $1}')
+for REC in $(cat ${FILE_TO_PARSE})
 do
 	local tlen=0 len_perms len_maptype len_offset
 	local tmp1="" tmp2="" tmp3="" tmp4="" tmp5=""
@@ -712,30 +721,40 @@ do
 	local tmp7 tmp7_nocolor
 	local archfile_entry archfile_entry_label
 
-    #--- Retrieve values from the array
+    #--- Retrieve values from the file
+	segname=$(echo "${REC}" | cut -d"," -f1)
+	seg_sz=$(echo "${REC}" | cut -d"," -f2)
+	start_va=$(echo "${REC}" | cut -d"," -f3)
+	end_va=$(echo "${REC}" | cut -d"," -f4)
+	mode=$(echo "${REC}" | cut -d"," -f5)
+
 	if [ "$1" = "-u" ] ; then
-		segname=${gArray[${i}]}    # col 1 [str: the label/segment name]
-		let k=i+1
-		seg_sz=${gArray[${k}]}     # col 2 [int: the segment size]
-		let k=i+2
-		start_va=0x${gArray[${k}]}  # col 3 [int: the first number, start_va]
-		let k=i+3
-		end_va=0x${gArray[${k}]}    # col 4 [int: the second number, end_va]
-		let k=i+4
-		mode=${gArray[${k}]}       # col 5 [str: the mode+flag]
-		let k=i+5
-		offset=${gArray[${k}]}     # col 6 [int: the file offset]
-	elif [ "$1" = "-k" ] ; then
-		segname=${gkArray[${i}]}    # col 1 [str: the label/segment name]
-		let k=i+1
-		seg_sz=${gkArray[${k}]}     # col 2 [int: the segment size]
-		let k=i+2
-		start_va=${gkArray[${k}]}  # col 3 [int: the first number, start_va]
-		let k=i+3
-		end_va=${gkArray[${k}]}    # col 4 [int: the second number, end_va]
-		let k=i+4
-		mode=${gkArray[${k}]}       # col 5 [str: the mode+flag]
+	   offset=$(echo "${REC}" | cut -d"," -f6)
 	fi
+
+		#segname=${gArray[${i}]}    # col 1 [str: the label/segment name]
+		#let k=i+1
+		#seg_sz=${gArray[${k}]}     # col 2 [int: the segment size]
+		#let k=i+2
+		#start_va=0x${gArray[${k}]}  # col 3 [int: the first number, start_va]
+		#let k=i+3
+		#end_va=0x${gArray[${k}]}    # col 4 [int: the second number, end_va]
+		#let k=i+4
+		#mode=${gArray[${k}]}       # col 5 [str: the mode+flag]
+		#let k=i+5
+		#offset=${gArray[${k}]}     # col 6 [int: the file offset]
+
+	#elif [ "$1" = "-k" ] ; then
+		#segname=${gkArray[${i}]}    # col 1 [str: the label/segment name]
+		#let k=i+1
+		#seg_sz=${gkArray[${k}]}     # col 2 [int: the segment size]
+		#let k=i+2
+		#start_va=${gkArray[${k}]}  # col 3 [int: the first number, start_va]
+		#let k=i+3
+		#end_va=${gkArray[${k}]}    # col 4 [int: the second number, end_va]
+		#let k=i+4
+		#mode=${gkArray[${k}]}       # col 5 [str: the mode+flag]
+
 
 	# Calculate segment size in diff units as required
 	if [ -z "${seg_sz}" ] ; then
@@ -774,7 +793,22 @@ decho "nm = ${segname} ,  end_va = ${end_va}   ,   start_va = ${start_va}"
 
     #if [ "$1" = "-k" -a ${i} -eq $((${rows}-${DIM})) ] ; then   # last loop iteration
     #   if [ ${IS_64_BIT} -eq 1 ] ; then
-    if [ ${i} -eq $((${rows}-${DIM})) ] ; then                   # last loop iteration
+    #if [ ${i} -eq $((${rows}-${DIM})) ] ; then                   # last loop iteration
+
+        #elif [ ${i} -ne 0 ] ; then   # ** normal case **
+       #else                              # very first line
+
+
+	if [ ${rownum} -eq 1 ] ; then                            # first row
+	   decho "%%%%%%%%%%%%%%%%%% FIRST LOOP"
+       tput bold
+       if [ "${1}" = "-k" ] ; then
+          printf "%s ${FMTSPC_VA}\n" "${LIN_HIGHEST_K}" 0x"${end_va}"
+       elif [ "${1}" = "-u" ] ; then
+  	      printf "%s ${FMTSPC_VA}\n" "${LIN_HIGHEST_U}" 0x${END_UVA}
+       fi
+	   color_reset
+	elif [ ${rownum} -eq ${totalrows} ] ; then               # last loop iteration
 	   decho "%%%%%%%%%%%%%%%%%% LAST LOOP"
        if [ "$1" = "-k" -a ${IS_64_BIT} -eq 1 ] ; then
            tput bold
@@ -782,10 +816,11 @@ decho "nm = ${segname} ,  end_va = ${end_va}   ,   start_va = ${start_va}"
 	       insert_arch_label ${START_KVA}
 	       color_reset
 	   else
-           printf "%s ${FMTSPC_VA}" "${LIN}" ${end_va}
+           printf "%s ${FMTSPC_VA}" "${LIN}" 0x${end_va}
 	       insert_arch_label ${end_va}
 	   fi
-    elif [ ${i} -ne 0 ] ; then   # ** normal case **
+	 #elif [ ${rownum} -gt 0 ] ; then   # ** normal case **
+	else                                                    #  ** normal case **
 	   decho "%%%%%%%%%%%%%%%%%% NORMAL LOOP"
 
 		 #============ -l option: LOCATE region ! ======================
@@ -796,7 +831,7 @@ decho "nm = ${segname} ,  end_va = ${end_va}   ,   start_va = ${start_va}"
 		
 		 #=== ** normal case ** ===
          if [ "${segname}" != "${LOCATED_REGION_ENTRY}" ]; then
-            printf "%s ${FMTSPC_VA}" "${LIN}" "${end_va}"
+            printf "%s ${FMTSPC_VA}" "${LIN}" 0x"${end_va}"
 		 fi
 
 		 if [ "$1" = "-k" ] ; then
@@ -804,15 +839,6 @@ decho "nm = ${segname} ,  end_va = ${end_va}   ,   start_va = ${start_va}"
 		 else
 		    printf "\n"
 		 fi
-    else                              # very first line
-	   decho "%%%%%%%%%%%%%%%%%% FIRST LOOP"
-         tput bold
-         if [ "${1}" = "-k" ] ; then
-            printf "%s ${FMTSPC_VA}\n" "${LIN_HIGHEST_K}" "${end_va}"
-         elif [ "${1}" = "-u" ] ; then
-  	        printf "%s ${FMTSPC_VA}\n" "${LIN_HIGHEST_U}" 0x${END_UVA}
-         fi
-	color_reset
     fi
 
 	#--- Collate and print the details of the current mapping (segment)
@@ -993,7 +1019,9 @@ decho "nm = ${segname} ,  end_va = ${end_va}   ,   start_va = ${start_va}"
         [ ${x} -eq $(((LIMIT_SCALE_SZ-4)/2)) ] && printf "%s\n" "${ELLIPSE_LIN}"
    	  fi
     done
+
     oversized=0
+	let rownum=rownum+1
 done
 
 # address space: the K-U boundary! on 32-bit, display both the start kva and

@@ -112,17 +112,24 @@ declare -a gkArray
 gkRow=0
 
 #-----------------------s h o w A r r a y -----------------------------
+# Parameters:
+#   $1 : debug print; if 1, it's just a debug print, if 0 we're writing it's
+#        data to a file in order to proess further (sort/etc)
 showArray()
 {
 local i k DIM=6
-echo
-decho "gRow = ${gRow}"
-# gArray ::  [segname],[size],[start_uva],[end_uva],[mode],[offset]
-echo "showArray():
+
+if [ $1 -eq 1 ] ; then
+  echo
+  decho "gRow = ${gRow}"
+  # gArray ::  [segname],[size],[start_uva],[end_uva],[mode],[offset]
+  echo "showArray():
 [segname,size,start_uva,end_uva,mode,offset]"
+fi
+
 for ((i=0; i<${gRow}; i+=${DIM}))
 do
-    printf "[%s," "${gArray[${i}]}"   # segname
+    printf "%s," "${gArray[${i}]}"   # segname
 	let k=i+1
     printf "%d," "${gArray[${k}]}"     # seg size
 	let k=i+2
@@ -132,8 +139,8 @@ do
 	let k=i+4
     printf "%s," "${gArray[${k}]}"     # mode+flag
 	let k=i+5
-    printf "%x]\n" "0x${gArray[${k}]}" # file offset
-done #2>/dev/null
+    printf "%x\n" "0x${gArray[${k}]}" # file offset
+done
 } # end showArray()
 
 gNumSparse=0
@@ -329,8 +336,8 @@ disp_fmt()
 
 total_size_userspc()
 {
-local TMPF=/tmp/pmutmp
-showArray > ${TMPF}
+local TMPF=/tmp/procmap/pmutmp
+showArray 1 > ${TMPF}
 # rm first header line and lines with 'Sparse' in them..
 sed --in-place '1,3d' ${TMPF}
 sed --in-place '/Sparse/d' ${TMPF}
@@ -435,8 +442,16 @@ fi
 # Setup the NULL trap page: the very last entry
 setup_nulltrap_page
 
-[ ${DEBUG} -eq 1 ] && showArray
+[ ${DEBUG} -eq 1 ] && showArray 1
 total_size_userspc
+
+##################
+# Get all the user mapping data into a file:
+# Reverse sort by 4th field, the hexadecimal end va; simple ASCII sort works
+# because numbers 0-9a-f are anyway in alphabetical order
+showArray 0 > /tmp/procmap/pmu
+sort -t"," -k4 -r /tmp/procmap/pmu > /tmp/procmap/pmufinal
+##################
 
 # draw it!
 [ ${SHOW_USERSPACE} -eq 1 ] && graphit -u
