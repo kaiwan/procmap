@@ -321,7 +321,5 @@ populate_kernel_segment_mappings()
  sort -t"," -k4 -r /tmp/${name}/pmk > /tmp/${name}/pmkfinal
  ##################
  [ ${DEBUG} -eq 1 ] && cat /tmp/${name}/pmkfinal
-
- cd ${TOP}
 } # end populate_kernel_segment_mappings()
 

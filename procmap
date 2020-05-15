@@ -89,12 +89,17 @@ Options:
  --locate=<start-vaddr>,<length_KB> : locate a given region within the process VAS
      start-vaddr : a virtual address in hexadecimal
           length : length of the region to locate in KB
+ --export-maps=filename
+     write all map information gleaned to the file you specify in CSV (note that it
+     overwrites the file)
  --export-kernel=filename
-     write kernel information gleaned to the file you specify; note that this
-     will overwrite the file
+     write kernel information gleaned to the file you specify in CSV (note that it
+     overwrites the file)
  --verbose       : verbose mode (try it! see below for details)
  --debug         : run in debug mode
  --version|--ver : display version info.
+
+See the config file as well.
 
 *Verbose* mode (--verbose):
  Most verbose messages are prepended with '[v]' to help you identify them
@@ -132,7 +137,7 @@ Caveats / Limitations:
 }
 
 VER_MAJOR=0
-VER_MINOR=2
+VER_MINOR=3
 SCRIPT_URL="https://github.com/kaiwan/procmap"
 AUTHORS="Kaiwan N Billimoria"
 version()
@@ -214,9 +219,17 @@ do
 			    show_selected_opt "[i] will display ONLY kernel VAS"
 				SHOW_USERSPACE=0
 			    ;;
+			  export-maps=*)
+	 	        XMAP_FILE=$(echo "${OPTARG}" |cut -d"=" -f2)
+			    show_selected_opt "[i] will write all map info to ${XMAP_FILE} (CSV)"
+				# Write 'scratch' data that we require in other support scripts here..
+				cat >> ${SCRATCHFILE} << @EOF@
+XMAP_FILE=${XMAP_FILE}
+@EOF@
+			    ;;
 			  export-kernel=*)
 	 	        XKERN_FILE=$(echo "${OPTARG}" |cut -d"=" -f2)
-			    show_selected_opt "[i] will write kernel info to ${XKERN_FILE}"
+			    show_selected_opt "[i] will write kernel info to ${XKERN_FILE} (CSV)"
 				# Write 'scratch' data that we require in other support scripts here..
 				cat >> ${SCRATCHFILE} << @EOF@
 XKERN_FILE=${XKERN_FILE}
