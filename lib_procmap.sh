@@ -6,7 +6,6 @@
 # (c) 2020 Kaiwan N Billimoria
 # kaiwanTECH
 # License: MIT
-name=$(basename $0)
 PFX=$(dirname $(which $0))    # dir in which 'procmap' and tools reside
 source ${PFX}/common.sh || {
  echo "${name}: fatal: could not source ${PFX}/common.sh , aborting..."
@@ -447,7 +446,7 @@ if [ ${VERBOSE} -eq 0 -a ${DEBUG} -eq 0 ] ; then
    return
 fi
 
-local TMPF1=/tmp/karch1 TMPF2=/tmp/karch2
+local TMPF1=/tmp/${name}/karch1 TMPF2=/tmp/${name}/karch2
 awk -F= 'NF > 1 {print $1, "=", $2}' ${ARCHFILE} > ${TMPF1}
 awk 'NF == 3 {print $0}' ${TMPF1} > ${TMPF2}
 sed --in-place '/FMTSPC_VA/ d' ${TMPF2}
@@ -696,11 +695,11 @@ color_reset
 if [ "$1" = "-u" ] ; then
    local DIM=6
    local rows=${gRow}
-   local FILE_TO_PARSE=/tmp/procmap/pmufinal
+   local FILE_TO_PARSE=/tmp/${name}/pmufinal
 elif [ "$1" = "-k" ] ; then
    local DIM=5
    local rows=${gkRow}
-   local FILE_TO_PARSE=/tmp/procmap/pmkfinal
+   local FILE_TO_PARSE=/tmp/${name}/pmkfinal
 fi
 
 ###
@@ -821,11 +820,12 @@ decho "nm = ${segname} ,  end_va = ${end_va}   ,   start_va = ${start_va}"
 	   fi
 	 #elif [ ${rownum} -gt 0 ] ; then   # ** normal case **
 	else                                                    #  ** normal case **
-	   decho "%%%%%%%%%%%%%%%%%% NORMAL LOOP"
+	   #decho "%%%%%%%%%%%%%%%%%% NORMAL LOOP"
 
 		 #============ -l option: LOCATE region ! ======================
          if [ ${LOC_LEN} -ne 0 -a "${segname}" = "${LOCATED_REGION_ENTRY}" ]; then
 		    show_located_region_in_map
+			let rownum=rownum+1
 			continue
 		 fi
 		

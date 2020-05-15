@@ -10,14 +10,17 @@
 # kaiwan -at- kaiwantech -dot- com
 # kaiwanTECH
 # License: MIT
-name=$(basename $0)
 PFX=$(dirname $(which $0))    # dir in which 'vasu_grapher' and tools reside
 source ${PFX}/common.sh || {
  echo "${name}: fatal: could not source ${PFX}/common.sh , aborting..."
  exit 1
 }
+source ${PFX}/config || {
+ echo "${name}: fatal: could not source ${PFX}/config , aborting..."
+ exit 1
+}
 
-TMPF=/tmp/prep.$$
+TMPF=/tmp/${name}/prep.$$
 TMPF_R=${TMPF}.reversed
 gencsv()
 {

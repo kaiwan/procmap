@@ -12,7 +12,6 @@ source ${ARCHFILE} || {
 
 KSPARSE_ENTRY="<... K sparse region ...>"
 VAS_NONCANONICAL_HOLE="<... 64-bit: non-canonical hole ...>"
-name=$(basename $0)
 
 #-----------------------s h o w A r r a y -----------------------------
 # Parameters:
@@ -100,7 +99,7 @@ printf "${FMTSPC_VA}" ${kva}
 # descending kva) into our gkArray[] data structure.
 setup_kernelimg_mappings()
 {
-local TMPF=/tmp/kimgpa
+local TMPF=/tmp/${name}/kimgpa
 local start_pa end_pa mapname
 local start_kva end_kva
 
@@ -318,10 +317,10 @@ populate_kernel_segment_mappings()
  # Get all the kernel mapping data into a file:
  # Reverse sort by 4th field, the hexadecimal end va; simple ASCII sort works
  # because numbers 0-9a-f are anyway in alphabetical order
- show_gkArray 0 > /tmp/procmap/pmk
- sort -t"," -k4 -r /tmp/procmap/pmk > /tmp/procmap/pmkfinal
+ show_gkArray 0 > /tmp/${name}/pmk
+ sort -t"," -k4 -r /tmp/${name}/pmk > /tmp/${name}/pmkfinal
  ##################
- [ ${DEBUG} -eq 1 ] && cat /tmp/procmap/pmkfinal
+ [ ${DEBUG} -eq 1 ] && cat /tmp/${name}/pmkfinal
 
  cd ${TOP}
 } # end populate_kernel_segment_mappings()

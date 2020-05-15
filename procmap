@@ -43,14 +43,14 @@
 # kaiwanTECH
 #
 # License: MIT.
-export name=procmap    #$(basename $0)
+export name=procmap
 export PFX=$(dirname $(which $0))    # dir in which this script and tools reside
 export PAGE_SIZE=$(getconf PAGE_SIZE) # for the --only-user case
 
 SCRATCHFILE=${PFX}/.scratchfile
 rm -f ${SCRATCHFILE}
 touch ${SCRATCHFILE}
-mkdir -p /tmp/procmap
+mkdir -p /tmp/${name} 2>/dev/null
 
 source ${PFX}/config || {
  echo "${name}: fatal: could not source configuration in file '${PFX}/config', aborting..."
@@ -168,8 +168,9 @@ show_selected_opt()
 
 verify_utils_present()
 {
-check_deps_fatal "getconf bc make gcc kmod grep awk sed kill readlink head tail cut cat tac sort wc"
-check_deps_warn "tput ps smem"
+check_deps_fatal "getconf bc make gcc kmod grep awk sed kill readlink head tail \
+cut cat tac sort wc ldd file"
+check_deps_warn "sudo tput ps smem"
 [ ! -d /proc ] && FatalError "proc fs not available or not mounted? Aborting..."
 }
 
@@ -275,7 +276,7 @@ sudo readlink /proc/${PID}/exe >/dev/null || {
 }
 
 LOG=log_procmap.txt
-TMPCSV=/tmp/vgrph.csv
+TMPCSV=/tmp/${name}/vgrph.csv
 
 verify_utils_present
 
@@ -314,5 +315,10 @@ if [ ${WRITELOG} -eq 1 ]; then
    echo "$(date): output logged (appended) here :"
    ls -lh ${LOG}
 fi
-[ ${DEBUG} -eq 0 ] && rm -f ${SCRATCHFILE}
+
+[ ${DEBUG} -eq 0 ] && {
+  rm -f ${SCRATCHFILE}
+  rm -rf /tmp/${name}
+}
+
 exit 0

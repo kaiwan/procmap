@@ -35,7 +35,6 @@
 # kaiwan -dot- billimoria -at- gmail -dot- com
 # kaiwanTECH
 # License: MIT.
-name=$(basename $0)
 PFX=$(dirname $(which $0))    # dir in which 'vasu_grapher' and tools reside
 source ${PFX}/common.sh || {
  echo "${name}: fatal: could not source ${PFX}/common.sh , aborting..."
@@ -276,7 +275,7 @@ prevseg_name=${segment}
 # TODO : ARCH SPECIFIC !!
 query_highest_valid_uva()
 {
-local TMPF=/tmp/qhva
+local TMPF=/tmp/${name}/qhva
 awk -F"${gDELIM}" '{print $2}' ${gINFILE} > ${TMPF}
 [ ! -s ${TMPF} ] && {
   warn "couldn't fetch highest valid uva, aborting..."
@@ -336,7 +335,7 @@ disp_fmt()
 
 total_size_userspc()
 {
-local TMPF=/tmp/procmap/pmutmp
+local TMPF=/tmp/${name}/pmutmp
 showArray 1 > ${TMPF}
 # rm first header line and lines with 'Sparse' in them..
 sed --in-place '1,3d' ${TMPF}
@@ -348,6 +347,33 @@ sed --in-place '$d' ${TMPF}
 gTotalSegSize=$(awk -F, 'total+=$2 ; END {print total}' ${TMPF} |tail -n1)
 #echo "gTotalSegSize = ${gTotalSegSize} bytes"
 [ ${DEBUG} -eq 0 ] && rm -f ${TMPF}
+}
+
+footer_stats()
+{
+disp_fmt
+
+ #--- Footer
+ tput bold
+ printf "\n[=====---  End memory map for %d:%s  ---=====]\n" ${PID} ${PRCS_NAME}
+ printf "[Pathname: %s ]\n" ${PRCS_PATHNAME}
+ color_reset
+
+ if [ ${VERBOSE} -eq 1 ]; then
+    printf "\n[v] "
+    runcmd sudo ls -l ${PRCS_PATHNAME}
+    printf "\n[v] "
+    runcmd sudo file ${PRCS_PATHNAME}
+
+    which ldd >/dev/null 2>&1 && {
+	  # arch-specific?
+      printf "\n[v] "
+      runcmd sudo ldd ${PRCS_PATHNAME}
+      printf "\n"
+    }
+ fi
+
+ stats ${PID} ${PRCS_NAME}
 }
 
 #--------------------------- m a i n _ w r a p p e r -------------------
@@ -402,6 +428,7 @@ main_wrapper()
  # Show userspace? Yes by default!
  [ ${SHOW_USERSPACE} -eq 0 ] && {
    decho "Skipping userspace display..."
+   footer_stats
    return
  }
 
@@ -449,42 +476,21 @@ total_size_userspc
 # Get all the user mapping data into a file:
 # Reverse sort by 4th field, the hexadecimal end va; simple ASCII sort works
 # because numbers 0-9a-f are anyway in alphabetical order
-showArray 0 > /tmp/procmap/pmu
-sort -t"," -k4 -r /tmp/procmap/pmu > /tmp/procmap/pmufinal
+showArray 0 > /tmp/${name}/pmu
+sort -t"," -k4 -r /tmp/${name}/pmu > /tmp/${name}/pmufinal
 ##################
 
 # draw it!
 [ ${SHOW_USERSPACE} -eq 1 ] && graphit -u
 
-disp_fmt
-
- #--- Footer
- tput bold
- printf "\n[=====---  End memory map for %d:%s  ---=====]\n" ${PID} ${PRCS_NAME}
- printf "[Pathname: %s ]\n" ${PRCS_PATHNAME}
- color_reset
-
- if [ ${VERBOSE} -eq 1 ]; then
-    printf "\n[v] "
-    runcmd sudo ls -l ${PRCS_PATHNAME}
-    printf "\n[v] "
-    runcmd sudo file ${PRCS_PATHNAME}
-
-    which ldd >/dev/null 2>&1 && {
-	  # arch-specific?
-      printf "\n[v] "
-      runcmd sudo ldd ${PRCS_PATHNAME}
-      printf "\n"
-    }
- fi
-
- stats ${PID} ${PRCS_NAME}
+footer_stats
 } # end main_wrapper()
 
 # stats()
 stats()
 {
 if [ ${STATS_SHOW} -eq 0 ]; then
+   echo "[!] stats display being skipped (see the config file)"
    return
 fi
 
