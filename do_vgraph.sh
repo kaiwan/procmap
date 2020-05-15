@@ -379,9 +379,12 @@ disp_fmt
  stats ${PID} ${PRCS_NAME}
 
  if [ ! -z "${XMAP_FILE}" ]; then
-    cat > /tmp/${name}/.kusep << @EOF@
+    touch /tmp/${name}/.kusep
+    if [ -s /tmp/${name}/pmkfinal -a -s /tmp/${name}/pmufinal ] ; then
+       cat > /tmp/${name}/.kusep << @EOF@
 +++-------------- Kernel-User boundary --------------+++
 @EOF@
+    fi
 	cat /tmp/${name}/pmkfinal /tmp/${name}/.kusep /tmp/${name}/pmufinal > ${XMAP_FILE} #2>/dev/null
     if [ -s /tmp/${name}/pmkfinal -o -s /tmp/${name}/pmufinal ] ; then
       # Perform multiple ops w/ sed on the file; 1i inserts a line at the top
