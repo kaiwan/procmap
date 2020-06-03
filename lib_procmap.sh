@@ -171,10 +171,16 @@ TASK_SIZE=${TASK_SIZE}
 build_lkm()
 {
  echo "[i] kernel: building the procmap LKM now..."
+
+ # kernel headers?
+ [ ! -e /lib/modules/$(uname -r)/build ] && {
+    FatalError "${name}: suitable build env for kernel modules is missing! \
+Pl install the Linux kernel headers (via the appropriate package)"
+ }
+
  make clean >/dev/null 2>&1
  make >/dev/null 2>&1 || {
     FatalError "${name}: kernel module \"${KMOD}\" build failed, aborting..."
-    #return
  }
  if [ ! -s ${KMOD}.ko ] ; then
     echo "${name}: kernel module \"${KMOD}\" not generated? aborting..."
