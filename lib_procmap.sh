@@ -555,6 +555,7 @@ show_machine_kernel_dtl
 #   $3 : start va of mapping/segment
 #   $4 : end va of mapping/segment
 #   $5 : mode (perms) of mapping/segment
+#   $6 : flags (special attributes if any)
 do_append_kernel_mapping()
 {
   # row'n' [segname],[size],[start_uva],[end_uva],[mode],[offset]
@@ -568,13 +569,25 @@ do_append_kernel_mapping()
   let gkRow=gkRow+1
   gkArray[${gkRow}]="${5}"
   let gkRow=gkRow+1
+  gkArray[${gkRow}]="${6}"
+  let gkRow=gkRow+1
 } # end do_append_kernel_mapping()
 
+# append_kernel_mapping()
+# Append a new n-dim entry in the gkArray[] data structure,
+# creating, in effect, a new mapping. This is merely a wrapper over the
+# actual func - do_append_kernel_mapping().
+#
+# Parameters:
+#   $1 : name of mapping/segment
+#   $2 : size (in bytes, decimal) of mapping/segment
+#   $3 : start va of mapping/segment
+#   $4 : end va of mapping/segment
+#   $5 : mode (perms) of mapping/segment
+#   $6 : flags (special attributes if any)
 append_kernel_mapping()
 {
-  # $3 = start va
-  # $4 = end va
-  do_append_kernel_mapping "$1" $2 $3 $4 $5
+  do_append_kernel_mapping "$1" $2 $3 $4 $5 $6
   [ ${LOC_LEN} -ne 0 ] && locate_region -k $3 $4
 }
 
@@ -674,7 +687,7 @@ local end_va=$1 archfile_entry archfile_entry_label
 graphit()
 {
 local i k
-local segname seg_sz start_va end_va mode offset
+local segname seg_sz start_va end_va mode offset flags
 local szKB=0 szMB=0 szGB=0 szTB=0 szPB=0
 
 local LIN_HIGHEST_K="+------------------  K E R N E L   V A S    end kva  ------------------+"
@@ -682,6 +695,7 @@ local  LIN_LOWEST_K="+------------------  K E R N E L   V A S  start kva  ------
 local LIN_HIGHEST_U="+------------------      U S E R   V A S    end uva  ------------------+"
 local  LIN_LOWEST_U="+------------------      U S E R   V A S  start uva  ------------------+"
 local         LIN="+----------------------------------------------------------------------+"
+local LIN_WITHIN_REGION="|    [------------------------------------------------------------]    |"
 local ELLIPSE_LIN="~ .       .       .       .       .       .        .       .        .  ~"
 local   BOX_SIDES="|                                                                      |"
 local LIN_LOCATED_REGION="       +------------------------------------------------------+"
@@ -726,6 +740,7 @@ do
 	start_va=$(echo "${REC}" | cut -d"," -f3)
 	end_va=$(echo "${REC}" | cut -d"," -f4)
 	mode=$(echo "${REC}" | cut -d"," -f5)
+	flags=$(echo "${REC}" | cut -d"," -f6)
 
 	if [ "$1" = "-u" ] ; then
 	   offset=$(echo "${REC}" | cut -d"," -f6)
@@ -831,7 +846,11 @@ decho "nm = ${segname} ,  end_va = ${end_va}   ,   start_va = ${start_va}"
 		
 		 #=== ** normal case ** ===
          if [ "${segname}" != "${LOCATED_REGION_ENTRY}" ]; then
-            printf "%s ${FMTSPC_VA}" "${LIN}" 0x"${end_va}"
+            if [ ${flags} -eq 0 ]; then  # nothing special
+               printf "%s ${FMTSPC_VA}" "${LIN}" 0x"${end_va}"
+			elif [ ${flags} -eq ${MAPFLAG_WITHIN_REGION} ]; then
+               printf "%s ${FMTSPC_VA}" "${LIN_WITHIN_REGION}" 0x"${end_va}"
+			fi
 		 fi
 
 		 if [ "$1" = "-k" ] ; then

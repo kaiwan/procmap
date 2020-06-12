@@ -1,5 +1,9 @@
 #!/bin/bash
 # do_kernelseg.sh
+# Part of the procmap project:
+# https://github.com/kaiwan/procmap
+#
+# (c) Kaiwan NB
 source ${PFX}/config || {
  echo "${name}: fatal: could not source ${PFX}/config , aborting..."
  exit 1
@@ -12,6 +16,8 @@ source ${ARCHFILE} || {
 
 KSPARSE_ENTRY="<... K sparse region ...>"
 VAS_NONCANONICAL_HOLE="<... 64-bit: non-canonical hole ...>"
+export MAPFLAG_WITHIN_REGION=10
+
 
 #-----------------------s h o w A r r a y -----------------------------
 # Parameters:
@@ -19,12 +25,12 @@ VAS_NONCANONICAL_HOLE="<... 64-bit: non-canonical hole ...>"
 #        data to a file in order to proess further (sort/etc)
 show_gkArray()
 {
-local i k DIM=5
+local i k DIM=6
 [ $1 -eq 1 ] && {
   echo
   decho "gkRow = ${gkRow}"
   echo "show_gkArray():
-[segname,size,start_kva,end_kva,mode]"
+[segname,size,start_kva,end_kva,mode,flags]"
 }
 
 for ((i=0; i<${gkRow}; i+=${DIM}))
@@ -37,7 +43,9 @@ do
 	let k=i+3
     printf "%llx," "${gkArray[${k}]}"   # end kva
 	let k=i+4
-    printf "%s" "${gkArray[${k}]}"      # mode
+    printf "%s," "${gkArray[${k}]}"      # mode
+	let k=i+5
+    printf "%s" "${gkArray[${k}]}"      # flags
 	printf "\n"
 done
 } # end show_gkArray()
@@ -60,7 +68,7 @@ setup_ksparse_top()
  local gap_dec=$((HIGHEST_KVA-top_kva))
  if [ ${gap_dec} -gt ${PAGE_SIZE} ]; then
   append_kernel_mapping "${KSPARSE_ENTRY}" "${gap_dec}" ${top_kva} \
-     "${HIGHEST_KVA}" "---"
+     "${HIGHEST_KVA}" "---" 0
  fi
 } # end setup_ksparse_top()
 
@@ -109,6 +117,8 @@ sudo grep -w "Kernel" /proc/iomem > ${TMPF}
  IFS=$'\n'
  local i=1
  local REC
+ local prev_startkva=0
+
  for REC in $(cat ${TMPF})
  do
    #decho "REC: $REC"
@@ -133,9 +143,20 @@ sudo grep -w "Kernel" /proc/iomem > ${TMPF}
    local gap=$(bc <<< "(${ekva_dec}-${skva_dec})")
    #decho "k img: ${mapname},${gap},${start_kva},${end_kva}"
    append_kernel_mapping "${mapname}" ${gap} 0x${start_kva} \
-     0x${end_kva} "..."
+     0x${end_kva} "..." ${MAPFLAG_WITHIN_REGION}
+
+   # sparse region?
+     gap=$(bc <<< "(${prev_startkva}-${ekva_dec})")
+     decho "gap = ${gap}"
+     [ ${gap} -gt ${PAGE_SIZE} ] && {
+		local start_kva_sparse=$(printf "0x%llx" ${skva_dec})
+		local prev_startkva_hex=$(printf "0x%llx" ${prev_startkva})
+	    append_kernel_mapping "${KSPARSE_ENTRY}" "${gap}" ${start_kva_sparse} \
+	  	  ${prev_startkva_hex} "---" 0
+     }
 
    let i=i+1
+   prev_startkva=${skva_dec}
  done 1>&2
  #----------
 
@@ -202,7 +223,7 @@ decho "$2: seg=${name} prevseg_name=${prevseg_name} ,  gkRow=${gkRow} "
 
 	 decho "@@ gap = prevseg_start_kva_hex: ${prevseg_start_kva_hex} -  end_hex: ${end_hex}"
      gap=$(bc <<< "(${prevseg_start_kva}-${end_dec})")
-     local gap_hex=$(printf "0x%llx" ${gap})
+     #local gap_hex=$(printf "0x%llx" ${gap})
      decho "gap = ${gap}"
      [ ${gap} -gt ${PAGE_SIZE} ] && DetectedSparse=1
   fi
@@ -212,8 +233,9 @@ decho "$2: seg=${name} prevseg_name=${prevseg_name} ,  gkRow=${gkRow} "
     local start_kva_sparse=$(printf "0x%llx" ${start_kva_dec})
 
 	append_kernel_mapping "${KSPARSE_ENTRY}" "${gap}" ${start_kva_sparse} \
-		${prevseg_start_kva_hex} "---"
+		${prevseg_start_kva_hex} "---" 0
 
+    # TODO : count k sparse and u sparse regions seperately!
     # Stats
     [ ${KSTATS_SHOW} -eq 1 ] && {
       let gNumSparse=gNumSparse+1
@@ -226,7 +248,7 @@ fi
 #--------------
 
 #--- Populate the global array
-append_kernel_mapping "${name}" ${seg_sz} ${start_kva} ${end_kva} ${mode}
+append_kernel_mapping "${name}" ${seg_sz} ${start_kva} ${end_kva} ${mode} 0
 
 [ ${KSTATS_SHOW} -eq 1 ] && {
   let gTotalSegSize=${gTotalSegSize}+${seg_sz}
@@ -266,7 +288,7 @@ local gap_dec=$(bc <<< "(${kva_dec}-${START_KVA_DEC})")
 
 if [ ${gap_dec} -gt ${PAGE_SIZE} ]; then
    append_kernel_mapping "${KSPARSE_ENTRY}" "${gap_dec}" 0x${START_KVA} \
-		${1} "---"
+		${1} "---" 0
 fi
 } # end setup_ksparse_lowest()
 
@@ -276,7 +298,7 @@ setup_noncanonical_sparse_region()
 # the noncanonical 'hole' spans from 'start kva' down to 'end uva'
   if [ ${IS_64_BIT} -eq 1 ]; then
    append_kernel_mapping "${VAS_NONCANONICAL_HOLE}" "${NONCANONICAL_REG_SIZE}" \
-	    0x${END_UVA} 0x${START_KVA} "---"
+	    0x${END_UVA} 0x${START_KVA} "---" 0
   fi
 }
 
@@ -322,4 +344,3 @@ populate_kernel_segment_mappings()
  ##################
  [ ${DEBUG} -eq 1 ] && cat /tmp/${name}/pmkfinal
 } # end populate_kernel_segment_mappings()
-
