@@ -44,7 +44,10 @@
 #
 # License: MIT.
 export name=procmap
-export PFX=$(dirname $(which $0))    # dir in which this script and tools reside
+PDIR=$(which $0)
+[ -z "${PDIR}" ] && PDIR=.  # true if procmap isn't in PATH
+export PFX=$(dirname ${PDIR})    # dir in which this script and tools reside
+#export PFX=$(dirname $(which $0))    # dir in which this script and tools reside
 export PAGE_SIZE=$(getconf PAGE_SIZE) # for the --only-user case
 
 SCRATCHFILE=${PFX}/.scratchfile
@@ -184,7 +187,7 @@ check_deps_warn "sudo tput ps smem"
 
 [ $# -lt 1 ] && {
  usage
- exit 1
+ exit 0
 }
 
 PID=0
@@ -272,7 +275,7 @@ fi
  err 0 "Specifying the PID with --pid=<PID> is mandatory"
 }
 
-PFX=$(dirname $(which $0))    # dir in which 'vasu_grapher' and tools reside
+#PFX=$(dirname $(which $0))    # dir in which 'procmap' and tools reside
 [ ! -f ${PFX}/do_vgraph.sh ] && {
  err 0 "${name}: ${PFX}/do_vgraph.sh missing? Aborting..."
 }
