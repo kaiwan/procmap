@@ -54,12 +54,14 @@ rm -f ${SCRATCHFILE}
 touch ${SCRATCHFILE}
 mkdir -p /tmp/${name} 2>/dev/null
 
-source ${PFX}/config || {
- echo "${name}: fatal: could not source configuration in file '${PFX}/config', aborting..."
- exit 1
-}
 source ${PFX}/common.sh || {
  echo "${name}: fatal: could not source file '${PFX}/common.sh', aborting..."
+ exit 1
+}
+verify_utils_present
+
+source ${PFX}/config || {
+ echo "${name}: fatal: could not source configuration in file '${PFX}/config', aborting..."
  exit 1
 }
 source ${PFX}/lib_procmap.sh || {
@@ -288,7 +290,6 @@ sudo readlink /proc/${PID}/exe >/dev/null || {
 LOG=log_procmap.txt
 TMPCSV=/tmp/${name}/vgrph.csv
 
-verify_utils_present
 
 init_kernel_lkm_get_details |tee -a ${LOG}
 get_machine_set_arch_config |tee -a ${LOG}
