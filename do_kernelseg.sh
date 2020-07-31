@@ -117,7 +117,7 @@ sudo grep -w "Kernel" /proc/iomem > ${TMPF}
  IFS=$'\n'
  local i=1
  local REC
- local prev_startkva=0
+ local prev_startkva=0  #${TB_256}  #0
 
  for REC in $(cat ${TMPF})
  do
@@ -146,14 +146,16 @@ sudo grep -w "Kernel" /proc/iomem > ${TMPF}
      0x${end_kva} "..." ${MAPFLAG_WITHIN_REGION}
 
    # sparse region?
-     gap=$(bc <<< "(${prev_startkva}-${ekva_dec})")
+     #gap=$(bc <<< "(${prev_startkva}-${ekva_dec})")
+     gap=$(bc <<< "(${ekva_dec}-${prev_startkva})")     # ?
+     #decho "prev_startkva = ${prev_startkva} ; ekva_dec = ${ekva_dec}"
      decho "gap = ${gap}"
-     [ ${gap} -gt ${PAGE_SIZE} ] && {
+     if [ ${gap} -gt ${PAGE_SIZE} 2>/dev/null ] ; then
 		local start_kva_sparse=$(printf "0x%llx" ${skva_dec})
 		local prev_startkva_hex=$(printf "0x%llx" ${prev_startkva})
 	    append_kernel_mapping "${KSPARSE_ENTRY}" "${gap}" ${start_kva_sparse} \
 	  	  ${prev_startkva_hex} "---" 0
-     }
+     fi
 
    let i=i+1
    prev_startkva=${skva_dec}
