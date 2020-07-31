@@ -750,6 +750,7 @@ do
 
 	if [ "$1" = "-u" ] ; then
 	   offset=$(echo "${REC}" | cut -d"," -f6)
+	   flags=0
 	fi
 
 		#segname=${gArray[${i}]}    # col 1 [str: the label/segment name]
@@ -852,10 +853,10 @@ decho "nm = ${segname} ,  end_va = ${end_va}   ,   start_va = ${start_va}"
 		
 		 #=== ** normal case ** ===
          if [ "${segname}" != "${LOCATED_REGION_ENTRY}" ]; then
-            if [ ${flags} -eq 0 ]; then  # nothing special
-               printf "%s ${FMTSPC_VA}" "${LIN}" 0x"${end_va}"
-			elif [ ${flags} -eq ${MAPFLAG_WITHIN_REGION} ]; then
-               printf "%s ${FMTSPC_VA}" "${LIN_WITHIN_REGION}" 0x"${end_va}"
+            if [ ${flags} -eq 0 ] ; then
+			      printf "%s ${FMTSPC_VA}" "${LIN}" 0x"${end_va}"
+			elif  [ ${flags} -eq ${MAPFLAG_WITHIN_REGION} ] ; then
+			      printf "%s ${FMTSPC_VA}" "${LIN_WITHIN_REGION}" 0x"${end_va}"
 			fi
 		 fi
 
