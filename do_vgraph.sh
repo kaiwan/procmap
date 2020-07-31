@@ -366,7 +366,7 @@ disp_fmt
 	  # arch-specific?
       printf "\n[v] "
       runcmd sudo ldd ${PRCS_PATHNAME}
-      printf "\n"
+      #printf "\n"
     }
  fi
 
@@ -562,7 +562,6 @@ PSS=%lu KB   RSS=%lu KB\n", $4,$5,$6,$7)}'
  else
   echo
  fi       # if ${SHOW_USERSPACE} -eq 1
- printf "===\n"
 } # end stats()
 
 usage()
