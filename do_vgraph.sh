@@ -353,10 +353,10 @@ disp_fmt
  #--- Footer
  tput bold
  printf "\n[=====---  End memory map for %d:%s  ---=====]\n" ${PID} ${PRCS_NAME}
- printf "[Pathname: %s ]\n" ${PRCS_PATHNAME}
  color_reset
 
- if [ ${VERBOSE} -eq 1 ]; then
+ if [ ${VERBOSE} -eq 1 -a ${SHOW_USERSPACE} -eq 1 ]; then
+    printf "[Pathname: %s ]\n" ${PRCS_PATHNAME}
     printf "\n[v] "
     runcmd sudo ls -l ${PRCS_PATHNAME}
     printf "\n[v] "
@@ -536,12 +536,11 @@ fi
    printf "\nTotal User VAS that's valid (mapped) memory:\n"
    largenum_display ${gTotalSegSize} ${USER_VAS_SIZE}
    printf "\n===\n"
- }
 
    #--- Memory occupied by this process
    local totalram_kb=$(grep "^MemTotal" /proc/meminfo |cut -d: -f2|awk '{print $1}')
    local totalram=$(bc <<< "${totalram_kb}*1024")
-   printf "Total reported memory (RAM) on this system:\n"
+   printf "\nTotal reported memory (RAM) on this system:\n"
    largenum_display ${totalram}
 
    printf "\n\nMemory Usage stats for process PID %d:%s\n" ${PID} ${name}
@@ -560,7 +559,8 @@ PSS=%lu KB   RSS=%lu KB\n", $4,$5,$6,$7)}'
   } || {
     vecho "smem(8) not installed? skipping..."
   }
-  printf "===\n"
+ }   # [ ${SHOW_USERSPACE} -eq 1 ]
+ printf "===\n"
 } # end stats()
 
 usage()
