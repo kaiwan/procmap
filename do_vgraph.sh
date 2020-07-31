@@ -527,6 +527,7 @@ fi
    # The [vsyscall] VMA shows up but the NULL trap doesn't
    [ ${SHOW_VSYSCALL_PAGE} -eq 1 ] && let numvmas=numvmas+1  # for the NULL trap page
 
+ [ ${SHOW_USERSPACE} -eq 1 ] && {
    printf "\n\n=== Statistics for Userspace: ===\n"
    printf "For PID %d:%s\n" ${PID} ${name}
    printf " %d VMAs (segments or mappings)" ${numvmas}
@@ -541,6 +542,7 @@ fi
    printf "\nTotal User VAS that's valid (mapped) memory:\n"
    largenum_display ${gTotalSegSize} ${USER_VAS_SIZE}
    printf "\n===\n"
+ }
 
    #--- Memory occupied by this process
    local totalram_kb=$(grep "^MemTotal" /proc/meminfo |cut -d: -f2|awk '{print $1}')
