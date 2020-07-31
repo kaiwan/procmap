@@ -39,7 +39,24 @@ Options:
 $ 
 
 
-***How does it work?***
+***IMPORTANT: Running procmap on systems other than x86_64***
+
+On systems other than x86_64 (like Aarch32/Aarch64/etc), we don't know for sure
+if the *kernel module component* can be compiled and built while executing on
+the target system - it may be possible to, it may not (technically, it requires
+the target system to have the 'kernel headers' package installed _for the kernel
+version it's currently running upon_. This can be a big ask... f.e., am running a custom 5.4 kernel on my Raspberry Pi; everything works fine, but as the kernel source tree for 5.4 (nor is there any kernel headers package) isn't present, building kernel modules on it fails (while it works with the stock Raspbian kernel). So: you will have to cross-compile the kernel module; to do so:
+1. on your x86_64 *host* system:
+2. ensure you have an appropriate x86_64-to-ARM (or whatever) cross compiler installed
+3. git clone the procmap project
+4. cd procmap/procmap_kernel
+5. make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- 
+6. verify that the procmap.ko kernel module is built
+7. if all okay, transfer it (scp or otherwise) to your target; place it (within the procmap source tree on the target device) in the procmap/procmap_kernel directory
+8. run procmap - it should now work.
+
+
+***How does procmap work?***
 
 **In a nutshell, kernel-space:**
 
