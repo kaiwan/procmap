@@ -146,10 +146,13 @@ sudo grep -w "Kernel" /proc/iomem > ${TMPF}
      0x${end_kva} "..." ${MAPFLAG_WITHIN_REGION}
 
    # sparse region?
-     #gap=$(bc <<< "(${prev_startkva}-${ekva_dec})")
-     gap=$(bc <<< "(${ekva_dec}-${prev_startkva})")     # ?
+     gap=$(bc <<< "(${prev_startkva}-${ekva_dec})")
+     #gap=$(bc <<< "(${ekva_dec}-${prev_startkva})")     # ?
      #decho "prev_startkva = ${prev_startkva} ; ekva_dec = ${ekva_dec}"
      decho "gap = ${gap}"
+	 # RELOOK !
+	 # the redirection to null dev gets rid of this:
+	 # "./do_kernelseg.sh: line 153: [: -18446635713769246384: integer expression expected"
      if [ ${gap} -gt ${PAGE_SIZE} 2>/dev/null ] ; then
 		local start_kva_sparse=$(printf "0x%llx" ${skva_dec})
 		local prev_startkva_hex=$(printf "0x%llx" ${prev_startkva})
