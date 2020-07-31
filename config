@@ -21,7 +21,7 @@ EMB=0  # set to 1 for 'embedded' systems; simpler [no float point, etc]
 
 SPARSE_SHOW=1
 SHOW_VSYSCALL_PAGE=0
-STATS_SHOW=0
+SHOW_STATS=1
 
 # kernel seg display configs
 SHOW_KERNELSEG=1
@@ -34,7 +34,7 @@ KMOD=procmap
 DBGFS_LOC=$(mount |grep debugfs |awk '{print $3}')
 DBGFS_FILENAME=disp_kernelseg_details
 KSPARSE_SHOW=1
-KSTATS_SHOW=0
+SHOW_KSTATS=1
 
 # Common sizes
 GB_2=$(bc <<< "scale=6; 2.0*1024.0*1024.0*1024.0")

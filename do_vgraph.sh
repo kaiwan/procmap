@@ -258,12 +258,6 @@ fi
 append_userspace_mapping "${segment}" ${seg_sz} ${start_uva} \
      ${end_uva} "${mode}" ${offset}
 
-#[ ${STATS_SHOW} -eq 1 ] && {
-#  let gTotalSegSize=${gTotalSegSize}+${seg_sz}
-  #decho " ^^^ inc; seg=${segment}, seg_sz=${seg_sz}; total= ${gTotalSegSize}"
-#}
-#fi
-
 prevseg_name=${segment}
 #decho "prevseg_name = ${prevseg_name}
 #"
@@ -509,7 +503,7 @@ footer_stats_etc
 # stats()
 stats()
 {
-if [ ${STATS_SHOW} -eq 0 ]; then
+if [ ${SHOW_STATS} -eq 0 ]; then
    echo "[!] stats display being skipped (see the config file)"
    return
 fi

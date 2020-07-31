@@ -242,7 +242,7 @@ decho "$2: seg=${name} prevseg_name=${prevseg_name} ,  gkRow=${gkRow} "
 
     # TODO : count k sparse and u sparse regions seperately!
     # Stats
-    [ ${KSTATS_SHOW} -eq 1 ] && {
+    [ ${SHOW_KSTATS} -eq 1 ] && {
       let gNumSparse=gNumSparse+1
       let gTotalSparseSize=gTotalSparseSize+gap
     }
@@ -255,7 +255,7 @@ fi
 #--- Populate the global array
 append_kernel_mapping "${name}" ${seg_sz} ${start_kva} ${end_kva} ${mode} 0
 
-[ ${KSTATS_SHOW} -eq 1 ] && {
+[ ${SHOW_KSTATS} -eq 1 ] && {
   let gTotalSegSize=${gTotalSegSize}+${seg_sz}
 }
 
