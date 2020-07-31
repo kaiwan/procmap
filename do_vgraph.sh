@@ -521,7 +521,7 @@ fi
    # The [vsyscall] VMA shows up but the NULL trap doesn't
    [ ${SHOW_VSYSCALL_PAGE} -eq 1 ] && let numvmas=numvmas+1  # for the NULL trap page
 
- [ ${SHOW_USERSPACE} -eq 1 ] && {
+ if [ ${SHOW_USERSPACE} -eq 1 ] ; then
    printf "\n\n=== Statistics for Userspace: ===\n"
    printf "For PID %d:%s\n" ${PID} ${name}
    printf " %d VMAs (segments or mappings)" ${numvmas}
@@ -559,7 +559,9 @@ PSS=%lu KB   RSS=%lu KB\n", $4,$5,$6,$7)}'
   } || {
     vecho "smem(8) not installed? skipping..."
   }
- }   # [ ${SHOW_USERSPACE} -eq 1 ]
+ else
+  echo
+ fi       # if ${SHOW_USERSPACE} -eq 1
  printf "===\n"
 } # end stats()
 
