@@ -274,7 +274,6 @@ fi
  err 0 "Specifying the PID with --pid=<PID> is mandatory"
 }
 
-#PFX=$(dirname $(which $0))    # dir in which 'vasu_grapher' and tools reside
 [ ! -f ${PFX}/do_vgraph.sh ] && {
  err 0 "${name}: ${PFX}/do_vgraph.sh missing? Aborting..."
 }
