@@ -116,8 +116,8 @@ In addition to the 'usual' stuff, the output now includes:
    developers/BSP
  - progress messages
  - a header/footer legend for the mappings
- - at the end, upon the process executable in question, we perform
-   an ls -l, file, ldd commands.
+ - at the end, if userspace view included, upon the process executable in
+   question, we perform an ls -l, file, ldd commands.
 
 -----------------------------
 Caveats / Limitations:
@@ -131,8 +131,12 @@ Caveats / Limitations:
   within one of the sparse regions on the map.
 
 - procmap currently supports the following CPU arch's:
-  x86_64, Aarch32, Aarch64
-  I intend to support x86-32 shortly; other archs - could use help
+  x86_64, Aarch32, Aarch64; other archs - could use help
+
+- running procmap on arch's other than x86_64:
+  TL;DR: you might need to cross-compile the procmap kernel module (under
+  procmap/procmap_kernel dir) yourself and copy it over to the target device
+  under the same directory (details: see the Readme.md pl)
 
 - requires root (sudo) access
 
@@ -146,16 +150,16 @@ Caveats / Limitations:
 
 VER_MAJOR=0
 VER_MINOR=3
-SCRIPT_URL="https://github.com/kaiwan/procmap"
+PRJ_URL="https://github.com/kaiwan/procmap"
 AUTHORS="Kaiwan N Billimoria"
 version()
 {
   printf "${name} ${VER_MAJOR}.${VER_MINOR}, (c) ${AUTHORS}\n"
-  printf "${SCRIPT_URL}\n"
+  printf "${PRJ_URL}\n"
 }
 
 # Parameters:
-#  $1    : if == 1, show the usage message
+#  $1    : if 1 show the 'usage' text
 #  $2... : error message
 err()
 {
@@ -221,6 +225,15 @@ do
 			    ;;
 			  export-maps=*)
 	 	        XMAP_FILE=$(echo "${OPTARG}" |cut -d"=" -f2)
+				[ -z "${XMAP_FILE}" ] && {
+					err 0 "${name}: pl specify the filename for the --export-maps=<filename> option"
+				}
+				[ -f ${XMAP_FILE} ] && {
+					err 0 "${name}: specified filename for --export-maps=<filename> option already exists, aborting..."
+				}
+				touch ${XMAP_FILE} || {
+					err 0 "${name}: cannot create/write to specified file \"${XMAP_FILE}\", pl re-specify it or adjust permissions"
+				}
 			    show_selected_opt "[i] will write all map info to ${XMAP_FILE} (CSV)"
 				# Write 'scratch' data that we require in other support scripts here..
 				cat >> ${SCRATCHFILE} << @EOF@
@@ -229,6 +242,15 @@ XMAP_FILE=${XMAP_FILE}
 			    ;;
 			  export-kernel=*)
 	 	        XKERN_FILE=$(echo "${OPTARG}" |cut -d"=" -f2)
+				[ -z "${XKERN_FILE}" ] && {
+					err 0 "${name}: pl specify the filename for the --export-kernel=<filename> option"
+				}
+				[ -f ${XKERN_FILE} ] && {
+					err 0 "${name}: specified filename for --export-kernel=<filename> option already exists, aborting..."
+				}
+				touch ${XKERN_FILE} || {
+					err 0 "${name}: cannot create/write to specified file \"${XKERN_FILE}\", pl re-specify it or adjust permissions"
+				}
 			    show_selected_opt "[i] will write kernel info to ${XKERN_FILE} (CSV)"
 				# Write 'scratch' data that we require in other support scripts here..
 				cat >> ${SCRATCHFILE} << @EOF@
@@ -244,6 +266,7 @@ XKERN_FILE=${XKERN_FILE}
 				}
 				# validate that a length has actually been passed
 				LOC_LEN=$(echo "${LOCATE_SPEC}" |cut -d, -f2)
+				decho "LOC_LEN = ${LOC_LEN}"
 				[ -z "${LOC_LEN}" -o ${LOC_LEN} -le 0 ] && {
 					err 0 "${name}: the length of the virtual address region to locate must be positive (KB)"
 				}
