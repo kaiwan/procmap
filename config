@@ -21,13 +21,13 @@ EMB=0  # set to 1 for 'embedded' systems; simpler [no float point, etc]
 
 SPARSE_SHOW=1
 SHOW_VSYSCALL_PAGE=0
-SHOW_STATS=1
+SHOW_STATS=0
 
 # kernel seg display configs
 SHOW_KERNELSEG=1
 KSEGFILE=/tmp/${name}/kseg_dtl
 ARCHFILE=/tmp/${name}/arch_dtl
-PDIR=$(which procmap)
+PDIR=$(which procmap 2>/dev/null)
 [ -z "${PDIR}" ] && PDIR=.  # true if procmap isn't in PATH
 KERNELDIR=$(dirname ${PDIR})/procmap_kernel
 KMOD=procmap

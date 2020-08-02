@@ -10,7 +10,7 @@
 # kaiwan -at- kaiwantech -dot- com
 # kaiwanTECH
 # License: MIT
-PFX=$(dirname $(which $0))    # dir in which 'vasu_grapher' and tools reside
+PFX=$(dirname $(which $0 2>/dev/null))    # dir in which 'procmap' and tools reside
 source ${PFX}/common.sh || {
  echo "${name}: fatal: could not source ${PFX}/common.sh , aborting..."
  exit 1

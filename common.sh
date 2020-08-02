@@ -6,20 +6,13 @@
 # 
 # (c) Kaiwan N Billimoria
 # kaiwan -at- kaiwantech -dot- com
-# MIT / GPL v2
+# Licese: MIT
 #------------------------------------------------------------------
-# The SEALS Opensource Project
-# SEALS : Simple Embedded Arm Linux System
-# Maintainer : Kaiwan N Billimoria
-# kaiwan -at- kaiwantech -dot- com
-# Project URL:
-# https://github.com/kaiwan/seals
-
 export TOPDIR=$(pwd)
 ON=1
 OFF=0
 
-PFX=$(dirname $(which $0))    # dir in which 'vasu_grapher' and tools reside
+PFX=$(dirname $(which $0 2>/dev/null))    # dir in which 'procmap' and tools reside
 source ${PFX}/err_common.sh || {
  echo "$name: could not source ${PFX}/err_common.sh, aborting..."
  exit 1

@@ -107,19 +107,19 @@ Also of course, you require *root* access (to install the kernel module (or the 
 
 As an example, below, we run our script on process PID 1 on an x86_64 Ubuntu 18.04 Linux box. The resulting putput is pretty large; thus, we show a few (four) partial screenshots below; this should be enough to help you visualize the typical output. Of course, nothing beats cloning this project and trying it out yourself!
 
-![screenshot 1 of 4 of vasu_grapher run](Screenshot1_x86_64.png)
+![screenshot 1 of 4 of procmap run](Screenshot1_x86_64.png)
 
 [...]
 
-![screenshot 2 of 4 of vasu_grapher run](Screenshot2_x86_64.png)
+![screenshot 2 of 4 of procmap run](Screenshot2_x86_64.png)
 
 [...]
 
-![screenshot 3 of 4 of vasu_grapher run](Screenshot3_x86_64.png)
+![screenshot 3 of 4 of procmap run](Screenshot3_x86_64.png)
 
 [...]
 
-![screenshot 4 of 4 of vasu_grapher run](Screenshot4_x86_64.png)
+![screenshot 4 of 4 of procmap run](Screenshot4_x86_64.png)
 
 [...]
 

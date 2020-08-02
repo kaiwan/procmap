@@ -23,19 +23,17 @@
 # field2: integer value (often an address of some sort)
 # field3: string: descriptive
 #
-# Our prep_mapsfile.sh script is invoked via the vasu_grapher wrapper to do
+# Our prep_mapsfile.sh script is invoked via the procmap wrapper to do
 # precisely this.
 #
-# Last Updated : 20Apr2020
 # Created      : 17Apr2020
-# 
 # Author:
 # Kaiwan N Billimoria
 # kaiwan -at- kaiwantech -dot- com
 # kaiwan -dot- billimoria -at- gmail -dot- com
 # kaiwanTECH
 # License: MIT.
-PFX=$(dirname $(which $0))    # dir in which 'vasu_grapher' and tools reside
+PFX=$(dirname $(which $0 2>/dev/null))    # dir in which 'procmap' and tools reside
 source ${PFX}/common.sh || {
  echo "${name}: fatal: could not source ${PFX}/common.sh , aborting..."
  exit 1
@@ -583,7 +581,7 @@ usage()
 #test_256
 #exit 0
 
-which bc >/dev/null || {
+which bc >/dev/null 2>&1 || {
   echo "${name}: bc(1) package missing, pl install. Aborting..."
   exit 1
 }
