@@ -49,6 +49,7 @@ So: **you will have to cross-compile the kernel module**; to do so:
 3. git clone the procmap project
 4. cd procmap/procmap_kernel
 5. make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- 
+   (assuming the cross-compiler prefix is arm-linux-gnueabihf- (as is the case for the Raspberry Pi)
 6. verify that the procmap.ko kernel module is built
 7. if all okay, transfer it (scp or otherwise) to your target; place it (within the procmap source tree on the target device) in the procmap/procmap_kernel directory
 8. run procmap - it should now work.
