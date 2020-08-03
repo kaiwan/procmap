@@ -94,15 +94,10 @@ Options:
  --only-user     : show ONLY the usermode mappings or segments (not kernel VAS)
  --only-kernel   : show ONLY the kernel-space mappings or segments (not user VAS)
   [default is to show BOTH]
- --locate=<start-vaddr>,<length_KB> : locate a given region within the process VAS
-     start-vaddr : a virtual address in hexadecimal
-          length : length of the region to locate in KB
  --export-maps=filename
-     write all map information gleaned to the file you specify in CSV (note that it
-     overwrites the file)
+     write all map information gleaned to the file you specify in CSV
  --export-kernel=filename
-     write kernel information gleaned to the file you specify in CSV (note that it
-     overwrites the file)
+     write kernel information gleaned to the file you specify in CSV
  --verbose       : verbose mode (try it! see below for details)
  --debug         : run in debug mode
  --version|--ver : display version info.
@@ -148,8 +143,13 @@ Caveats / Limitations:
  1>&2
 }
 
+### To FIX:
+# --locate=<start-vaddr>,<length_KB> : locate a given region within the process VAS
+#     start-vaddr : a virtual address in hexadecimal
+#          length : length of the region to locate in KB
+
 VER_MAJOR=0
-VER_MINOR=3
+VER_MINOR=4
 PRJ_URL="https://github.com/kaiwan/procmap"
 AUTHORS="Kaiwan N Billimoria"
 version()
