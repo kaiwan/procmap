@@ -131,7 +131,7 @@ Caveats / Limitations:
 - running procmap on arch's other than x86_64:
   TL;DR: you might need to cross-compile the procmap kernel module (under
   procmap/procmap_kernel dir) yourself and copy it over to the target device
-  under the same directory (details: see the Readme.md pl)
+  under the same directory (details: see the README.md pl)
 
 - requires root (sudo) access
 

@@ -175,7 +175,12 @@ build_lkm()
  # kernel headers?
  [ ! -e /lib/modules/$(uname -r)/build ] && {
     FatalError "${name}: suitable build env for kernel modules is missing! \
-Pl install the Linux kernel headers (via the appropriate package)"
+Pl install the Linux kernel headers (via the appropriate package). If you \
+cannot install a 'kernel headers' package (perhaps you're running a custom \
+built kernel), then you will need to cross-compile the procmap kernel module \
+on your host and copy it across to the target device. Pl see this project's \
+README.md file for details (section 'IMPORTANT: Running procmap on systems \
+other than x86_64')."
  }
 
  make clean >/dev/null 2>&1
