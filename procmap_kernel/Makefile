@@ -39,6 +39,9 @@ PWD            := $(shell pwd)
 obj-m          += procmap.o
 EXTRA_CFLAGS   += -DDEBUG
 
+CC := gcc
+#CC := clang-11
+
 all:
 	@echo
 	@echo '--- Building : KDIR=${KDIR} ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} EXTRA_CFLAGS=${EXTRA_CFLAGS} ---'
