@@ -43,6 +43,9 @@
 # kaiwanTECH
 #
 # License: MIT.
+# Very VERY useful to catch Bugs !
+set -euo pipefail # http://redsymbol.net/articles/unofficial-bash-strict-mode/
+
 export name=procmap
 PDIR=$(which $0)
 [ -z "${PDIR}" ] && PDIR=.  # true if procmap isn't in PATH
