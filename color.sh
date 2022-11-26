@@ -139,6 +139,7 @@ Echo()
          ;;
  esac
 
+ local dt="[$(date +%a_%d%b%Y_%T.%N)]"
  local dt_log="[$(date +%a_%d%b%Y_%T.%N)]"
  local dt_disp
  [ ${VERBOSE_MSG} -eq 1 ] && dt_disp=${dt}
@@ -148,7 +149,7 @@ Echo()
  [ ${VERBOSE_MSG} -eq 1 ] && msgpfx1_disp="${msgpfx1_log}"
 
  local msgpfx2_log="${SEP}${name}:${FUNCNAME[ 1 ]}()${SEP}"
- local msgpfx2_disp
+ local msgpfx2_disp=""
  [ ${VERBOSE_MSG} -eq 1 ] && msgpfx2_disp="${msgpfx2_log}"
 
  local msgtxt="$@"
@@ -201,6 +202,7 @@ Echo()
 decho()
 {
  [ ${DEBUG} -eq 1 ] && Echo DDEBUG "$1"
+ true
 }
 #--------------------- i e c h o ---------------------------------------
 # INFO-level / regular Color-echo.

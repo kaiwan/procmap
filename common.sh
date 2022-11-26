@@ -6,7 +6,7 @@
 # 
 # (c) Kaiwan N Billimoria
 # kaiwan -at- kaiwantech -dot- com
-# Licese: MIT
+# License: MIT
 #------------------------------------------------------------------
 export TOPDIR=$(pwd)
 ON=1
@@ -325,14 +325,14 @@ do
    continue
  }
 done
-[ ${needinstall} -eq 1 ] && {
+if [ ${needinstall} -eq 1 ] ; then
    [ ${severity} -eq 1 ] && {
       FatalError "Kindly first install the required package(s) shown above \
 (check console and log output too) and then retry, thanks. Aborting now..."
    } || {
       wecho "WARNING! The package(s) shown above are not present"
    }
-}
+fi
 } # end check_deps()
 
 # Simple wrappers over check_deps();
@@ -355,6 +355,6 @@ verify_utils_present()
 check_deps_fatal "getconf bc make gcc kmod grep awk sed kill readlink head tail \
 cut cat tac sort wc ldd file"
 check_deps_warn "sudo tput ps smem"
-[ ! -d /proc ] && FatalError "proc fs not available or not mounted? Aborting..."
+[ ! -d /proc ] && FatalError "proc fs not available or not mounted? Aborting..." || true
 }
 
