@@ -18,7 +18,7 @@
 # component of this project, the LKM (Loadable Kernel Module) named procmap. It's
 # output will then be parsed in and 'drawn' first.
 #
-# The usermode mappings (or 'segments') will be realized and displayed by the
+# The user mode mappings (or 'segments') will be realized and displayed by the
 # majority of the code of this bash script.
 #
 # Thus, we obtain a full 'picture', a COMPLETE MEMORY MAP of the given process's
@@ -43,6 +43,8 @@
 # kaiwanTECH
 #
 # License: MIT.
+#set -x
+
 # Very VERY useful to catch Bugs !
 set -euo pipefail # http://redsymbol.net/articles/unofficial-bash-strict-mode/
 
@@ -97,7 +99,7 @@ usage()
 Usage: ${name} [options] --pid=PID-of-process-to-show-memory-map-of
 
 Options:
- --only-user     : show ONLY the usermode mappings or segments (not kernel VAS)
+ --only-user     : show ONLY the user mode mappings or segments (not kernel VAS)
  --only-kernel   : show ONLY the kernel-space mappings or segments (not user VAS)
   [default is to show BOTH]
  --export-maps=filename
@@ -155,12 +157,13 @@ Caveats / Limitations:
 #          length : length of the region to locate in KB
 
 VER_MAJOR=0
-VER_MINOR=4
+VER_MINOR=5
 PRJ_URL="https://github.com/kaiwan/procmap"
 AUTHORS="Kaiwan N Billimoria"
+ORG="kaiwanTECH (Designer Graphix)"
 version()
 {
-  printf "${name} ${VER_MAJOR}.${VER_MINOR}, (c) ${AUTHORS}\n"
+  printf "${name} ${VER_MAJOR}.${VER_MINOR}, (c) ${AUTHORS}, ${ORG}\n"
   printf "${PRJ_URL}\n"
 }
 
@@ -198,6 +201,7 @@ show_selected_opt()
 }
 
 PID=0
+XKERN_FILE=""
 
 # ref: https://wiki.bash-hackers.org/howto/getopts_tutorial
 optspec=":h?-:"
