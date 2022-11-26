@@ -6,6 +6,13 @@
 # (c) 2020 Kaiwan N Billimoria
 # kaiwanTECH
 # License: MIT
+
+#---
+# Putting 'true' at the last line of a function is often reqd when 'bash
+# (unofficial) sttrict mode' is enabled, as we do...
+#  set -euo pipefail 
+# Ref: http://redsymbol.net/articles/unofficial-bash-strict-mode/
+#---
 PFX=$(dirname $(which $0 2>/dev/null))    # dir in which 'procmap' and tools reside
 source ${PFX}/common.sh || {
  echo "${name}: fatal: could not source ${PFX}/common.sh , aborting..."
@@ -123,21 +130,21 @@ largenum_display()
 # init_kernel_lkm_get_details() function)
 parse_ksegfile_write_archfile()
 {
- vecho " Parsing in various kernel variables as required"
- VECTORS_BASE=$(grep -w "vector" ${KSEGFILE} |cut -d"${gDELIM}" -f1)
- FIXADDR_START=$(grep -w "fixmap" ${KSEGFILE} |cut -d"${gDELIM}" -f1)
- MODULES_VADDR=$(grep -w "module" ${KSEGFILE} |cut -d"${gDELIM}" -f1)
- MODULES_END=$(grep -w "module" ${KSEGFILE} |cut -d"${gDELIM}" -f2)
- KASAN_SHADOW_START=$(grep -w "KASAN" ${KSEGFILE} |cut -d"${gDELIM}" -f1)
- KASAN_SHADOW_END=$(grep -w "KASAN" ${KSEGFILE} |cut -d"${gDELIM}" -f2)
- VMALLOC_START=$(grep -w "vmalloc" ${KSEGFILE} |cut -d"${gDELIM}" -f1)
- VMALLOC_END=$(grep -w "vmalloc" ${KSEGFILE} |cut -d"${gDELIM}" -f2)
- PAGE_OFFSET=$(grep -w "lowmem" ${KSEGFILE} |cut -d"${gDELIM}" -f1)
- high_memory=$(grep -w "lowmem" ${KSEGFILE} |cut -d"${gDELIM}" -f2)
- PKMAP_BASE=$(grep -w "HIGHMEM" ${KSEGFILE} |cut -d"${gDELIM}" -f1)
+ vecho " KSEGFILE=${KSEGFILE}; Parsing in various kernel variables as required"
+ VECTORS_BASE=$(grep -w "vector" ${KSEGFILE} |cut -d"${gDELIM}" -f1) || VECTORS_BASE=""
+ FIXADDR_START=$(grep -w "fixmap" ${KSEGFILE} |cut -d"${gDELIM}" -f1) || FIXADDR_START=""
+ MODULES_VADDR=$(grep -w "module" ${KSEGFILE} |cut -d"${gDELIM}" -f1) || MODULES_VADDR=""
+ MODULES_END=$(grep -w "module" ${KSEGFILE} |cut -d"${gDELIM}" -f2) || MODULES_END=""
+ KASAN_SHADOW_START=$(grep -w "KASAN" ${KSEGFILE} |cut -d"${gDELIM}" -f1) || KASAN_SHADOW_START=""
+ KASAN_SHADOW_END=$(grep -w "KASAN" ${KSEGFILE} |cut -d"${gDELIM}" -f2) || KASAN_SHADOW_END=""
+ VMALLOC_START=$(grep -w "vmalloc" ${KSEGFILE} |cut -d"${gDELIM}" -f1) || VMALLOC_START=""
+ VMALLOC_END=$(grep -w "vmalloc" ${KSEGFILE} |cut -d"${gDELIM}" -f2) || VMALLOC_END=""
+ PAGE_OFFSET=$(grep -w "lowmem" ${KSEGFILE} |cut -d"${gDELIM}" -f1) || PAGE_OFFSET=""
+ high_memory=$(grep -w "lowmem" ${KSEGFILE} |cut -d"${gDELIM}" -f2) || high_memory=""
+ PKMAP_BASE=$(grep -w "HIGHMEM" ${KSEGFILE} |cut -d"${gDELIM}" -f1) || PKMAP_BASE=""
 
- PAGE_SIZE=$(grep -w "PAGE_SIZE" ${KSEGFILE} |cut -d"${gDELIM}" -f2)
- TASK_SIZE=$(grep -w "TASK_SIZE" ${KSEGFILE} |cut -d"${gDELIM}" -f2)
+ PAGE_SIZE=$(grep -w "PAGE_SIZE" ${KSEGFILE} |cut -d"${gDELIM}" -f2) || PAGE_SIZE=""
+ TASK_SIZE=$(grep -w "TASK_SIZE" ${KSEGFILE} |cut -d"${gDELIM}" -f2) || TASK_SIZE=""
 
  # Delete the PAGE_SIZE and TASK_SIZE lines from the KSEGFILE file
  # as we don't want it in the kernel map processing loop that follows
@@ -164,6 +171,7 @@ PKMAP_BASE=${PKMAP_BASE}
 PAGE_SIZE=${PAGE_SIZE}
 TASK_SIZE=${TASK_SIZE}
 @EOF@
+ true
 } # end parse_ksegfile_write_archfile()
 
 # build_lkm()
@@ -197,7 +205,7 @@ other than x86_64')."
 # init_kernel_lkm_get_details()
 init_kernel_lkm_get_details()
 {
-#set +x
+set +x
   vecho "kernel: init kernel LKM and get details:"
   if [ ! -d ${DBGFS_LOC} ] ; then
  	echo "${name}: kernel debugfs not supported or mounted? aborting..."
@@ -222,7 +230,11 @@ init_kernel_lkm_get_details()
         build_lkm
 	    sudo insmod ./${KMOD}.ko || return
   }
-  lsmod |grep -q ${KMOD} || {
+  # Whoa! with set -o pipefail enabled AND using grep -q, all kinds of crazy s*it
+  # Practical sol: do NOT use -q, redirect stdout & stderr to null dev!
+  # ref- https://stackoverflow.com/questions/19120263/why-exit-code-141-with-grep-q
+  lsmod | egrep -w "^${KMOD}" >/dev/null 2>&1
+  [ $? -ne 0 ] && {
 	    echo "${name}: insmod(8) on kernel module \"${KMOD}\" failed? aborting..."
 		return
   }
@@ -247,6 +259,7 @@ init_kernel_lkm_get_details()
 $(cat ${KSEGFILE})"
 
   parse_ksegfile_write_archfile
+  true
 } # end init_kernel_lkm_get_details()
 
 #######################################################################
@@ -504,6 +517,7 @@ color_reset
 human_readable_kernel_arch
 # --export-kernel= option?
 [ ! -z "${XKERN_FILE}" ] && export_kernel_info
+true
 } # end show_machine_kernel_dtl()
 
 #----------------------------------------------------------------------

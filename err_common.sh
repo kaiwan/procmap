@@ -41,6 +41,7 @@ QP()
     [ ${COLOR} -eq 1 ] && color_reset
 	unset _ERR_HDR_FMT
 	unset _ERR_MSG_FMT
+	true
 }
 
 STACK_MAXDEPTH=32  # arbit?
@@ -67,6 +68,7 @@ do
   let frame=frame+1
 done |tee -a ${LOGFILE_COMMON}
 [ ${COLOR} -eq 1 ] && color_reset
+true
 }
 
 # params: the error message
