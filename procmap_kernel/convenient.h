@@ -156,7 +156,7 @@
 	}                                                                         \
 	else                                                                      \
 		intr = '.';                                                           \
-										                                      \
+																			\
 	if (PRINTCTX_SHOWHDR == 1)                                                \
 		pr_debug("CPU)  task_name:PID  | irqs,need-resched,hard/softirq,preempt-depth  /* func_name() */\n"); \
 	pr_debug(                                                                    \
