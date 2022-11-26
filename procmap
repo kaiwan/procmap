@@ -67,6 +67,9 @@ source ${PFX}/config || {
  echo "${name}: fatal: could not source configuration in file '${PFX}/config', aborting..."
  exit 1
 }
+# leverage PS4 to show func, line#, etc when debugging!
+[ ${DEBUG} -eq 1 ] && export PS4='+(${BASH_SOURCE}:${LINENO}): ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
+
 source ${PFX}/lib_procmap.sh || {
  echo "${name}: fatal: could not source ${PFX}/lib_procmap.sh , aborting..."
  exit 1
