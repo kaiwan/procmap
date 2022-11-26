@@ -22,7 +22,7 @@ export MAPFLAG_WITHIN_REGION=10
 #-----------------------s h o w A r r a y -----------------------------
 # Parameters:
 #   $1 : debug print; if 1, it's just a debug print, if 0 we're writing it's
-#        data to a file in order to proess further (sort/etc)
+#        data to a file in order to process further (sort/etc)
 show_gkArray()
 {
 local i k DIM=6
@@ -57,6 +57,7 @@ done
 # 'source ${ARCHFILE}' done at the beginning!
 setup_ksparse_top()
 {
+#set -x
  gkRow=0
 
  # Require the topmost valid kernel va, query it from the o/p of our

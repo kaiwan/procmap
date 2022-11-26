@@ -171,6 +171,7 @@ PKMAP_BASE=${PKMAP_BASE}
 PAGE_SIZE=${PAGE_SIZE}
 TASK_SIZE=${TASK_SIZE}
 @EOF@
+ echo
  true
 } # end parse_ksegfile_write_archfile()
 
@@ -215,7 +216,7 @@ set +x
   fi
 
   TOP=$(pwd)
-  cd ${KERNELDIR} || return
+  cd ${KERNELDIR} || return && true
   #pwd
 
   if [ ! -s ${KMOD}.ko -o ${KMOD}.c -nt ${KMOD}.ko ] ; then
@@ -224,7 +225,7 @@ set +x
 
   # Ok, the kernel module is there, lets insert it!
   #ls -l ${KMOD}.ko
-  sudo rmmod ${KMOD} 2>/dev/null   # rm any stale instance
+  sudo rmmod ${KMOD} 2>/dev/null || true   # rm any stale instance
   sudo insmod ./${KMOD}.ko || {
 	    echo "${name}: insmod(8) on kernel module \"${KMOD}\" failed, build again and retry..."
         build_lkm
@@ -407,6 +408,29 @@ FMTSPC_VA=${FMTSPC_VA}
 #----------------------------------------------------------------------
 set_config_aarch64()
 {
+#set -x
+#------------
+# ISSUES ???
+# runtime values-
+#ARCH=Aarch64
+#IS_64_BIT=1
+#PAGE_SIZE=4096
+#KERNEL_VAS_SIZE_TB=0
+#USER_VAS_SIZE_TB=0
+#KERNEL_VAS_SIZE=0
+#USER_VAS_SIZE=549755813888
+#HIGHEST_KVA=0xffffffffffffffff
+#START_KVA=ffffffffffffffff
+#START_KVA_DEC=18446744073709551616
+#NONCANONICAL_REG_SIZE_HEX=0xffffffffffffffff
+#NONCANONICAL_REG_SIZE=18446744073709551616
+#END_UVA=ffffffffffffffff
+#
+#---------------- It IS indeed a BUG!
+# The issue- the K and U VAS size was < 1 TB (0.5TB)!
+# So, have now converted the Aarch64 config to use GB instead of TB
+# and it seems good...
+#------------
 vecho "set config for Aarch64:"
 ARCH=Aarch64
 PAGE_SIZE=$(printf "%llu" 0x${PAGE_SIZE})
@@ -414,17 +438,24 @@ PAGE_SIZE=$(printf "%llu" 0x${PAGE_SIZE})
 # get the user VAS size via TASK_SIZE macro
 TASK_SIZE_DEC=$(printf "%llu" 0x${TASK_SIZE})
 USER_VAS_SIZE=${TASK_SIZE_DEC}
-USER_VAS_SIZE_TB=$(bc <<< "(${TASK_SIZE_DEC}/${TB_1})")
+
+USER_VAS_SIZE_GB=$(bc <<< "scale=2; (${TASK_SIZE_DEC}/${GB_1})")
 # TODO : check this ASSUMPTION! [seems ok]
-# we assume the kernel VAS size = user VAS size
-KERNEL_VAS_SIZE_TB=${USER_VAS_SIZE_TB}
-KERNEL_VAS_SIZE=$(bc <<< "(${KERNEL_VAS_SIZE_TB}*${TB_1})")
+# We assume the kernel VAS size == user VAS size
+KERNEL_VAS_SIZE_GB=${USER_VAS_SIZE_GB}
+KERNEL_VAS_SIZE=$(bc <<< "(${KERNEL_VAS_SIZE_GB}*${GB_1})")
 
 # sparse non-canonical region size = 2^64 - (user VAS + kernel VAS)
-NONCANONICAL_REG_SIZE=$(bc <<< "2^64-(${USER_VAS_SIZE_TB}*${TB_1}+${KERNEL_VAS_SIZE_TB}*${TB_1})")
+NONCANONICAL_REG_SIZE=$(bc <<< "scale=0; 2^64-(${USER_VAS_SIZE_GB}*${GB_1}+${KERNEL_VAS_SIZE_GB}*${GB_1})")
+NONCANONICAL_REG_SIZE=${NONCANONICAL_REG_SIZE::-5} # hack- next printf fails if ends with .0000
 NONCANONICAL_REG_SIZE_HEX=$(printf "0x%llx" ${NONCANONICAL_REG_SIZE})
+# Tend to get these warnings on aarch64 ?
+# ./lib_procmap.sh: line 426: printf: warning: 18446744073709551616: Numerical result out of range
+# ./lib_procmap.sh: line 432: printf: warning: 18446744073709551616: Numerical result out of range
+# ...but it continues ok
 
-END_UVA_DEC=$(bc <<< "(${USER_VAS_SIZE_TB}*${TB_1}-1)")
+END_UVA_DEC=$(bc <<< "(${USER_VAS_SIZE_GB}*${GB_1}-1)")
+END_UVA_DEC=${END_UVA_DEC::-5} # hack- next printf fails if ends with .0000
 END_UVA=$(printf "%llx" ${END_UVA_DEC})
 
 START_KVA_DEC=$(bc <<< "(${END_UVA_DEC}+${NONCANONICAL_REG_SIZE}+1)")
@@ -446,8 +477,8 @@ cat >> ${ARCHFILE} << @EOF@
 ARCH=Aarch64
 IS_64_BIT=1
 PAGE_SIZE=${PAGE_SIZE}
-KERNEL_VAS_SIZE_TB=${KERNEL_VAS_SIZE_TB}
-USER_VAS_SIZE_TB=${USER_VAS_SIZE_TB}
+KERNEL_VAS_SIZE_GB=${KERNEL_VAS_SIZE_GB}
+USER_VAS_SIZE_GB=${USER_VAS_SIZE_GB}
 KERNEL_VAS_SIZE=${KERNEL_VAS_SIZE}
 USER_VAS_SIZE=${USER_VAS_SIZE}
 HIGHEST_KVA=0xffffffffffffffff
