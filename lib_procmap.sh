@@ -352,7 +352,7 @@ PAGE_SIZE=$(printf "%lu" 0x${PAGE_SIZE})
 # 32-bit, so no sparse non-canonical region.
 # Retrieve the PAGE_OFFSET and HIGHMEM lines from the ARCHFILE file
 PAGE_OFFSET=$(grep "^PAGE_OFFSET" ${ARCHFILE} |cut -d"=" -f2)
-HIGHMEM=$(grep "^HIGHMEM" ${ARCHFILE} |cut -d"=" -f2)
+HIGHMEM=$(grep "^HIGHMEM" ${ARCHFILE} |cut -d"=" -f2 || true)
 decho "PAGE_OFFSET = ${PAGE_OFFSET} , HIGHMEM = ${HIGHMEM}"
 [ -z "${PAGE_OFFSET}" ] && {
 	echo "ERROR: Aarch32: couldn't fetch the PAGE_OFFSET value, aborting..."
