@@ -76,7 +76,7 @@ cli_handle_error()
 {
   #QP
   if [ $# -lt 1 ] ; then
-	cecho "FatalError :: <no errmsg>"
+	cecho "FatalError :: <no error msg>"
   else
 	cecho "FatalError :: $@"
   fi
@@ -91,6 +91,8 @@ cli_handle_error()
 # $1 : error message [optional]
 FatalError()
 {
+#set -x
+ SEALS_REPORT_ERROR_URL=""
  local msgpre="<b><span foreground='Crimson'>Sorry, we've encountered a fatal error.</span></b>\n\n"
  local errmsg="<i>Details:</i>\n$(date):${name}:${FUNCNAME[ 1 ]}()"
  local msgpost="\n<span foreground='Crimson'>\
@@ -106,14 +108,14 @@ Many thanks.
  }
  #cecho "Fatal Error! Details: ${errmsg} ${1}"
 
- local LN=$(echo "${MSG}" |wc -l)
- local calht=$(($LN*10))
+ #local LN=$(echo "${MSG}" |wc -l)
+ #local calht=$(($LN*10))
 
  local title=" FATAL ERROR!"
  yad --title="${title}" --image=dialog-warning --text="${msg}" \
 	--button="Close!${ICON_NO}:0" \
 	--wrap --text-align=center --button-layout=center --center \
-	--selectable-labels --no-escape --dialog-sep --sticky --on-top --skip-taskbar 2>/dev/null
+	--selectable-labels --no-escape --dialog-sep --sticky --on-top --skip-taskbar 2>/dev/null || true
 
  cli_handle_error "$@"
  exit 1
