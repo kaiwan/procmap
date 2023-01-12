@@ -9,7 +9,7 @@
 # format. For eg.: the output of /proc/iomem, /proc/vmalloc, 
 # /proc/<pid>/maps, etc etc
 # 
-# We EXPECT as input a file (the job of the prep_mapsfile.sh script is to
+# We EXPECT as input a file (the job of the mapsfile_prep.sh script is to
 # generate this file); the file must be in CSV format with 3 columns;
 # col 1 and col 2 are ASSuMEd to be in hexadecimal.
 # (as of this very early ver at least). 
@@ -23,7 +23,7 @@
 # field2: integer value (often an address of some sort)
 # field3: string: descriptive
 #
-# Our prep_mapsfile.sh script is invoked via the procmap wrapper to do
+# Our mapsfile_prep.sh script is invoked via the procmap wrapper to do
 # precisely this.
 #
 # Created      : 17Apr2020

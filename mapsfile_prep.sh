@@ -1,5 +1,5 @@
 #!/bin/bash
-# prep_mapsfile.sh
+# mapsfile_prep.sh
 # 
 # Quick Description:
 # Support script for the procmap project.

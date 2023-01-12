@@ -308,8 +308,8 @@ fi
 [ ! -f ${PFX}/do_vgraph.sh ] && {
  err 0 "${name}: ${PFX}/do_vgraph.sh missing? Aborting..."
 }
-[ ! -f ${PFX}/prep_mapsfile.sh ] && {
- err 0 "${name}: ${PFX}/prep_mapsfile.sh missing? Aborting..."
+[ ! -f ${PFX}/mapsfile_prep.sh ] && {
+ err 0 "${name}: ${PFX}/mapsfile_prep.sh missing? Aborting..."
 }
 # Check for process existence
 sudo kill -0 ${PID} >/dev/null 2>&1 || {
@@ -328,7 +328,7 @@ init_kernel_lkm_get_details |tee -a ${LOG}
 get_machine_set_arch_config |tee -a ${LOG}
 
 # Invoke the prep_mapsfile script to prep the memory map file
-${PFX}/prep_mapsfile.sh ${PID} ${TMPCSV} || exit 1
+${PFX}/mapsfile_prep.sh ${PID} ${TMPCSV} || exit 1
 
 source ${ARCHFILE}
 if [ "${ARCH}" = "Aarch32" ]; then
