@@ -354,7 +354,7 @@ verify_utils_present()
 {
 check_deps_fatal "getconf bc make gcc kmod grep awk sed kill readlink head tail \
 cut cat tac sort wc ldd file"
-check_deps_warn "sudo tput ps smem"
+check_deps_warn "sudo tput ps smem yad"
 [ ! -d /proc ] && FatalError "proc fs not available or not mounted? Aborting..." || true
 }
 
