@@ -52,8 +52,6 @@ MODULE_VERSION("0.1");
 #define ELLPS "|                           [ . . . ]                         |\n"
 
 static struct dentry *gparent;
-
-/* We use a mutex lock; details in Ch 15 and Ch 16 */
 DEFINE_MUTEX(mtx);
 
 /*
@@ -109,7 +107,6 @@ static void query_kernelseg_details(char *buf)
 	snprintf(tmpbuf, TMPMAX,
 		 FMTSPC "," FMTSPC ",r--,fixmap region\n",
 		 (TYPECST) FIXADDR_START, (TYPECST) FIXADDR_START + FIXADDR_SIZE);
-	//strncat(buf, tmpbuf, TMPMAX - 1);
 	strlcat(buf, tmpbuf, MAXLEN);
 #endif
 
@@ -124,7 +121,6 @@ static void query_kernelseg_details(char *buf)
 	snprintf(tmpbuf, TMPMAX,
 		 FMTSPC "," FMTSPC ",rwx,module region\n",
 		 (TYPECST) MODULES_VADDR, (TYPECST) MODULES_END);
-	//strncat(buf, tmpbuf, TMPMAX - 1);
 	strlcat(buf, tmpbuf, MAXLEN);
 #endif
 
@@ -133,7 +129,6 @@ static void query_kernelseg_details(char *buf)
 	snprintf(tmpbuf, TMPMAX,
 		 FMTSPC "," FMTSPC ",rw-,KASAN shadow\n",
 		 (TYPECST) KASAN_SHADOW_START, (TYPECST) KASAN_SHADOW_END);
-	//strncat(buf, tmpbuf, TMPMAX - 1);
 	strlcat(buf, tmpbuf, MAXLEN);
 #endif
 
@@ -142,7 +137,6 @@ static void query_kernelseg_details(char *buf)
 	snprintf(tmpbuf, TMPMAX,
 		 FMTSPC "," FMTSPC ",rw-,vmalloc region\n",
 		 (TYPECST) VMALLOC_START, (TYPECST) VMALLOC_END);
-	//strncat(buf, tmpbuf, TMPMAX - 1);
 	strlcat(buf, tmpbuf, MAXLEN);
 
 	/* lowmem region: spans from PAGE_OFFSET to high_memory */
@@ -150,7 +144,6 @@ static void query_kernelseg_details(char *buf)
 	snprintf(tmpbuf, TMPMAX,
 		 FMTSPC "," FMTSPC ",rwx,lowmem region\n",
 		 (TYPECST) PAGE_OFFSET, (TYPECST) high_memory);
-	//strncat(buf, tmpbuf, TMPMAX - 1);
 	strlcat(buf, tmpbuf, MAXLEN);
 
 	/* (possible) highmem region;  may be present on some 32-bit systems */
@@ -159,7 +152,6 @@ static void query_kernelseg_details(char *buf)
 	snprintf(tmpbuf, TMPMAX,
 		 FMTSPC "," FMTSPC ",rwx,HIGHMEM region\n",
 		 (TYPECST) PKMAP_BASE, (TYPECST) (PKMAP_BASE) + (LAST_PKMAP * PAGE_SIZE));
-	//strncat(buf, tmpbuf, TMPMAX - 1);
 	strlcat(buf, tmpbuf, MAXLEN);
 #endif
 
@@ -188,7 +180,6 @@ static void query_kernelseg_details(char *buf)
 	snprintf(tmpbuf, TMPMAX,
 		 "PAGE_SIZE," FMTSPC "\n"
 		 "TASK_SIZE," FMTSPC "\n", (TYPECST) PAGE_SIZE, (TYPECST) TASK_SIZE);
-	//strncat(buf, tmpbuf, TMPMAX - 1);
 	strlcat(buf, tmpbuf, MAXLEN);
 }
 
