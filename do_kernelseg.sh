@@ -243,10 +243,10 @@ decho "$2: seg=${name} prevseg_name=${prevseg_name} ,  gkRow=${gkRow} "
 
     # TODO : count k sparse and u sparse regions seperately!
     # Stats
-    [ ${SHOW_KSTATS} -eq 1 ] && {
-      let gNumSparse=gNumSparse+1
-      let gTotalSparseSize=gTotalSparseSize+gap
-    }
+    #[ ${SHOW_KSTATS} -eq 1 ] && {
+    #  let gNumSparse=gNumSparse+1
+    #  let gTotalSparseSize=gTotalSparseSize+gap
+    #}
  fi
 
 prevseg_start_kva=${start_dec}
