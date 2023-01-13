@@ -509,9 +509,13 @@ fi
 
    printf "\n=== Statistics ===\n"
    printf "\nTotal Kernel VAS (Virtual Address Space):\n"
-   largenum_display ${KERNEL_VAS_SIZE}
+   # Here the KERNEL_VAS_SIZE is, f.e., the number 549755813888.0000
+   # Need to convert it to an integer first (else a runtime err occurs)
+   local kvsize=$(printf "%d\n" ${KERNEL_VAS_SIZE} 2>/dev/null)
+   largenum_display ${kvsize}
+   local uvsize=$(printf "%d\n" ${USER_VAS_SIZE} 2>/dev/null)
    printf "\nTotal User VAS (Virtual Address Space):\n"
-   largenum_display ${USER_VAS_SIZE}
+   largenum_display ${uvsize}
 
    local PID=$1
    local name="$2"
