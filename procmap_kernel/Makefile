@@ -1,10 +1,5 @@
 # Makefile
 # ***************************************************************
-# Our 'better' Makefile from the source code released for the book
-#  "Linux Kernel Debugging"
-#  (c) Author: Kaiwan N Billimoria
-#  Publisher:  Packt
-# ***************************************************************
 # Brief Description:
 # A 'better' Makefile template for Linux LKMs (Loadable Kernel Modules); besides
 # the 'usual' targets (the build, install and clean), we incorporate targets to
@@ -28,6 +23,12 @@
 # As well, the MYDEBUG variable (see it below) can be set to 'y' or 'n' (no being
 # the default)
 FNAME_C := procmap
+ifeq ($(FNAME_C),)
+  $(error You MUST pass the C file like this:\
+make FNAME_C=csrc-filename-without-.c target-name)
+else
+  $(info [FNAME_C = $(FNAME_C)])
+endif
 #------------------------------------------------------------------
 
 # To support cross-compiling for kernel modules:
@@ -37,7 +38,7 @@ FNAME_C := procmap
 # your box to the appropriate path to the kernel src tree for that arch.
 ifeq ($(ARCH),arm)
   # *UPDATE* 'KDIR' below to point to the ARM Linux kernel source tree on your box
-  KDIR ?= ~/rpi_work/kernel_rpi/linux
+  KDIR ?= /big/scratchpad/SEALS_staging/SEALS_staging_vexpress/linux-6.1.5
 else ifeq ($(ARCH),arm64)
   # *UPDATE* 'KDIR' below to point to the ARM64 (Aarch64) Linux kernel source
   # tree on your box
@@ -54,7 +55,6 @@ endif
 
 # Compiler
 CC     := $(CROSS_COMPILE)gcc
-#CC     := $(CROSS_COMPILE)gcc-10
 #CC := clang
 
 PWD            := $(shell pwd)
@@ -79,7 +79,7 @@ ifeq (${MYDEBUG}, y)
   # man gcc: "...-Og may result in a better debugging experience"
 else
   INSTALL_MOD_STRIP := 1
-  #ccflags-y   += --strip-debug
+  ccflags-y   += -UDEBUG
 endif
 # We always keep the dynamic debug facility enabled; this allows us to turn
 # dynamically turn on/off debug printk's later... To disable it simply comment
@@ -107,6 +107,7 @@ install:
 	@echo
 	@echo " [Now for the 'sudo make install' ]"
 	sudo make -C $(KDIR) M=$(PWD) modules_install
+	@echo " sudo depmod"
 	sudo depmod
 	@echo " [If !debug, stripping debug info from ${KMODDIR}/extra/${FNAME_C}.ko]"
 	$(shell if [ "${MYDEBUG}" != "y" ]; then sudo ${STRIP} --strip-debug ${KMODDIR}/extra/${FNAME_C}.ko; fi)
@@ -132,6 +133,9 @@ code-style:
 # coding style guidelines.
 # Note! original source file(s) is overwritten, so we back it up.
 indent:
+ifeq (,$(shell which indent))
+	$(error ERROR: install indent first)
+endif
 	@echo
 	@echo "--- applying kernel code style indentation with indent ---"
 	@echo
@@ -158,6 +162,10 @@ sa:
 
 # static analysis with sparse
 sa_sparse:
+ifeq (,$(shell which sparse))
+	$(error ERROR: install sparse first)
+endif
+
 	make clean
 	@echo
 	@echo "--- static analysis with sparse ---"
@@ -176,6 +184,9 @@ sa_gcc:
 
 # static analysis with flawfinder
 sa_flawfinder:
+ifeq (,$(shell which flawfinder))
+	$(error ERROR: install flawfinder first)
+endif
 	make clean
 	@echo
 	@echo "--- static analysis with flawfinder ---"
@@ -184,6 +195,9 @@ sa_flawfinder:
 
 # static analysis with cppcheck
 sa_cppcheck:
+ifeq (,$(shell which cppcheck))
+	$(error ERROR: install cppcheck first)
+endif
 	make clean
 	@echo
 	@echo "--- static analysis with cppcheck ---"
