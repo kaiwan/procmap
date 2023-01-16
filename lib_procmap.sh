@@ -130,7 +130,8 @@ largenum_display()
 # init_kernel_lkm_get_details() function)
 parse_ksegfile_write_archfile()
 {
- vecho " KSEGFILE=${KSEGFILE}; Parsing in various kernel variables as required"
+ vecho "Parsing in various kernel variables as required"
+ decho "KSEGFILE=${KSEGFILE}"
  VECTORS_BASE=$(grep -w "vector" ${KSEGFILE} |cut -d"${gDELIM}" -f1) || VECTORS_BASE=""
  FIXADDR_START=$(grep -w "fixmap" ${KSEGFILE} |cut -d"${gDELIM}" -f1) || FIXADDR_START=""
  MODULES_VADDR=$(grep -w "module" ${KSEGFILE} |cut -d"${gDELIM}" -f1) || MODULES_VADDR=""
