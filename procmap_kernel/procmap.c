@@ -27,6 +27,7 @@
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/debugfs.h>
+#include <linux/version.h>
 #include <asm/pgtable.h>
 #include "convenient.h"
 
@@ -35,7 +36,7 @@
 MODULE_AUTHOR("Kaiwan N Billimoria");
 MODULE_DESCRIPTION("procmap: an LKM, the kernel component of the procmap project");
 MODULE_LICENSE("Dual MIT/GPL");
-MODULE_VERSION("0.1");
+MODULE_VERSION("0.2");
 
 // For portability between 32 and 64-bit platforms
 #if (BITS_PER_LONG == 32)
@@ -79,13 +80,29 @@ static void query_kernelseg_details(char *buf)
 {
 #define TMPMAX	256
 	char tmpbuf[TMPMAX];
+	unsigned long ram_size;
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0)
+	ram_size = totalram_pages() * PAGE_SIZE;
+#else // totalram_pages() undefined on the BeagleBone running an older 4.19 kernel..
+	ram_size = totalram_pages * PAGE_SIZE;
+#endif
+
+#if defined(CONFIG_ARM64)
+	pr_info("%s:VA_BITS (CONFIG_ARM64_VA_BITS) = %d\n", KBUILD_MODNAME, VA_BITS);
+	if (VA_BITS > 48 && PAGE_SIZE == (64*1024)) // typically 52 bits and 64K pages
+		pr_warn("%s:*** >= ARMv8.2 with LPA? (YMMV, not supported here) ***\n", KBUILD_MODNAME);
+#endif
 
 #ifdef ARM
+	/* On ARM, the definition of VECTORS_BASE turns up only in kernels >= 4.11 */
+#if LINUX_VERSION_CODE > KERNEL_VERSION(4, 11, 0)
 	memset(tmpbuf, 0, TMPMAX);
 	snprintf(tmpbuf, TMPMAX,
 		 FMTSPC "," FMTSPC ",r--,vector table\n",
 		 (TYPECST) VECTORS_BASE, (TYPECST) VECTORS_BASE + PAGE_SIZE);
 	strlcat(buf, tmpbuf, MAXLEN);
+#endif
 #endif
 
 	/* kernel fixmap region */
@@ -97,8 +114,8 @@ static void query_kernelseg_details(char *buf)
 	 * copying in the required macros from the
 	 * arch/arm/include/asm/fixmap.h header manually here ###
 	 */
-#define FIXADDR_START   0xffc00000UL
-#define FIXADDR_END     0xfff00000UL
+//#define FIXADDR_START   0xffc00000UL
+//#define FIXADDR_END     0xfff00000UL
 	//SHOW_DELTA_M((TYPECST)FIXADDR_START, (TYPECST)FIXADDR_END));
 #else
 #include <asm/fixmap.h>
