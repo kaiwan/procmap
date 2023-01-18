@@ -29,6 +29,7 @@
 #include <linux/debugfs.h>
 #include <linux/version.h>
 #include <asm/pgtable.h>
+#include <asm/fixmap.h>
 #include "convenient.h"
 
 #define OURMODNAME   "procmap"
@@ -99,33 +100,31 @@ static void query_kernelseg_details(char *buf)
 #if LINUX_VERSION_CODE > KERNEL_VERSION(4, 11, 0)
 	memset(tmpbuf, 0, TMPMAX);
 	snprintf(tmpbuf, TMPMAX,
-		 FMTSPC "," FMTSPC ",r--,vector table\n",
+		 "%08x,%08lx,r--,vector table\n",
+		 //FMTSPC "," FMTSPC ",r--,vector table\n",
 		 (TYPECST) VECTORS_BASE, (TYPECST) VECTORS_BASE + PAGE_SIZE);
 	strlcat(buf, tmpbuf, MAXLEN);
 #endif
 #endif
 
 	/* kernel fixmap region */
-#ifdef CONFIG_ARM
-	/* RELOOK: We seem to have an issue on ARM; the compile fails with:
-	 *  "./include/asm-generic/fixmap.h:29:38: error: invalid storage
-	 *   class for function ‘fix_to_virt’"
-	 * ### So, okay, as a *really silly and ugly* workaround am simply
-	 * copying in the required macros from the
-	 * arch/arm/include/asm/fixmap.h header manually here ###
-	 */
-//#define FIXADDR_START   0xffc00000UL
-//#define FIXADDR_END     0xfff00000UL
-	//SHOW_DELTA_M((TYPECST)FIXADDR_START, (TYPECST)FIXADDR_END));
-#else
-#include <asm/fixmap.h>
-	// seems to work fine on x86
 	memset(tmpbuf, 0, TMPMAX);
 	snprintf(tmpbuf, TMPMAX,
 		 FMTSPC "," FMTSPC ",r--,fixmap region\n",
-		 (TYPECST) FIXADDR_START, (TYPECST) FIXADDR_START + FIXADDR_SIZE);
-	strlcat(buf, tmpbuf, MAXLEN);
+#ifdef CONFIG_ARM
+	/* On ARM, the FIXADDR_START macro's only defined from 5.11!
+	 * For earlier kernels, as a really silly and ugly workaround am simply
+	 * copying it in here...
+	 */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 11, 0)
+#define FIXADDR_START 0xffc00000UL
 #endif
+		 (TYPECST) FIXADDR_START, (TYPECST) FIXADDR_END
+#else
+		 (TYPECST) FIXADDR_START, (TYPECST) FIXADDR_START + FIXADDR_SIZE
+#endif
+	);
+	strlcat(buf, tmpbuf, MAXLEN);
 
 	/* kernel module region
 	 * For the modules region, it's high in the kernel segment on typical 64-bit
@@ -149,6 +148,8 @@ static void query_kernelseg_details(char *buf)
 	strlcat(buf, tmpbuf, MAXLEN);
 #endif
 
+	/* TODO - sparsemem model; vmemmap region */
+
 	/* vmalloc region */
 	memset(tmpbuf, 0, TMPMAX);
 	snprintf(tmpbuf, TMPMAX,
@@ -156,15 +157,17 @@ static void query_kernelseg_details(char *buf)
 		 (TYPECST) VMALLOC_START, (TYPECST) VMALLOC_END);
 	strlcat(buf, tmpbuf, MAXLEN);
 
-	/* lowmem region: spans from PAGE_OFFSET to high_memory */
+	/* lowmem region: spans from PAGE_OFFSET for size of platform RAM */
 	memset(tmpbuf, 0, TMPMAX);
 	snprintf(tmpbuf, TMPMAX,
 		 FMTSPC "," FMTSPC ",rwx,lowmem region\n",
-		 (TYPECST) PAGE_OFFSET, (TYPECST) high_memory);
+		 (TYPECST)PAGE_OFFSET, (TYPECST)(PAGE_OFFSET + ram_size));
 	strlcat(buf, tmpbuf, MAXLEN);
 
+	pr_info("high_memory = 0x%x\n", high_memory);
+
 	/* (possible) highmem region;  may be present on some 32-bit systems */
-#ifdef CONFIG_HIGHMEM
+#if defined(CONFIG_HIGHMEM)  && (BITS_PER_LONG==32)
 	memset(tmpbuf, 0, TMPMAX);
 	snprintf(tmpbuf, TMPMAX,
 		 FMTSPC "," FMTSPC ",rwx,HIGHMEM region\n",
@@ -186,8 +189,7 @@ static void query_kernelseg_details(char *buf)
 	memset(tmpbuf, 0, TMPMAX);
 	snprintf(tmpbuf, TMPMAX,
 		 FMTSPC "," FMTSPC ",rwx,module region:\n",
-		 (TYPECST) MODULES_VADDR, (TYPECST) MODULES_END);
-	//strncat(buf, tmpbuf, TMPMAX - 1);
+		 (TYPECST)MODULES_VADDR, (TYPECST)MODULES_END);
 	strlcat(buf, tmpbuf, MAXLEN);
 #endif
 
@@ -196,7 +198,9 @@ static void query_kernelseg_details(char *buf)
 	memset(tmpbuf, 0, TMPMAX);
 	snprintf(tmpbuf, TMPMAX,
 		 "PAGE_SIZE," FMTSPC "\n"
-		 "TASK_SIZE," FMTSPC "\n", (TYPECST) PAGE_SIZE, (TYPECST) TASK_SIZE);
+		 "TASK_SIZE," FMTSPC "\n",
+//		"high_memory," FMTSPC "\n",
+		 (TYPECST) PAGE_SIZE, (TYPECST) TASK_SIZE); //, high_memory);
 	strlcat(buf, tmpbuf, MAXLEN);
 }
 
