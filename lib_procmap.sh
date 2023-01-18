@@ -9,7 +9,7 @@
 
 #---
 # Putting 'true' at the last line of a function is often reqd when 'bash
-# (unofficial) sttrict mode' is enabled, as we do...
+# (unofficial) strict mode' is enabled, as we do...
 #  set -euo pipefail 
 # Ref: http://redsymbol.net/articles/unofficial-bash-strict-mode/
 #---
@@ -22,7 +22,6 @@ source ${PFX}/config || {
  echo "${name}: fatal: could not source ${PFX}/config , aborting..."
  exit 1
 }
-#source ${SCRATCHFILE}
 source ${PFX}/.scratchfile
 
 LOCATED_REGION_ENTRY="<--LOCATED-->"
@@ -141,7 +140,9 @@ parse_ksegfile_write_archfile()
  VMALLOC_START=$(grep -w "vmalloc" ${KSEGFILE} |cut -d"${gDELIM}" -f1) || VMALLOC_START=""
  VMALLOC_END=$(grep -w "vmalloc" ${KSEGFILE} |cut -d"${gDELIM}" -f2) || VMALLOC_END=""
  PAGE_OFFSET=$(grep -w "lowmem" ${KSEGFILE} |cut -d"${gDELIM}" -f1) || PAGE_OFFSET=""
- high_memory=$(grep -w "lowmem" ${KSEGFILE} |cut -d"${gDELIM}" -f2) || high_memory=""
+ # RELOOK: The 'high_memory' location seems to be an issue; let's skip it for now at least...
+ #high_memory=$(grep -w "^high_memory" ${KSEGFILE} |cut -d"${gDELIM}" -f2) || high_memory=""
+ #high_memory=$(grep -w "lowmem" ${KSEGFILE} |cut -d"${gDELIM}" -f2) || high_memory=""
  PKMAP_BASE=$(grep -w "HIGHMEM" ${KSEGFILE} |cut -d"${gDELIM}" -f1) || PKMAP_BASE=""
 
  PAGE_SIZE=$(grep -w "PAGE_SIZE" ${KSEGFILE} |cut -d"${gDELIM}" -f2) || PAGE_SIZE=""
@@ -167,11 +168,11 @@ KASAN_SHADOW_END=${KASAN_SHADOW_END}
 VMALLOC_START=${VMALLOC_START}
 VMALLOC_END=${VMALLOC_END}
 PAGE_OFFSET=${PAGE_OFFSET}
-high_memory=${high_memory}
 PKMAP_BASE=${PKMAP_BASE}
 PAGE_SIZE=${PAGE_SIZE}
 TASK_SIZE=${TASK_SIZE}
 @EOF@
+#high_memory=${high_memory}
  echo
  true
 } # end parse_ksegfile_write_archfile()
@@ -714,24 +715,25 @@ insert_arch_label()
 local end_va=$1 archfile_entry archfile_entry_label
 
  if [ "${end_va:0:2}" = "0x" ]; then
-	    archfile_entry=$(grep "${end_va:2}" ${ARCHFILE})  # ${end_va:2} => leave out the '0x' part
+    archfile_entry=$(grep "${end_va:2}" ${ARCHFILE})  # ${end_va:2} => leave out the '0x' part
  else
-	    archfile_entry=$(grep "${end_va}" ${ARCHFILE})
+    archfile_entry=$(grep "${end_va}" ${ARCHFILE})
  fi
  [ -z "${archfile_entry}" ] && {
     printf "\n"
-	return
+    return
  }
 
  # Ok, we have a kernel arch entry; get it's name
  archfile_entry_label=$(echo "${archfile_entry}" |cut -d"=" -f1)
 
- # The values can overlap! F.e on some Aarch32, both PAGE_OFFSET and
- #  MODULES_END coincide (at 0x80000000); ditto for MODULES_VADDR and START_KVA
+ # The values can overlap! F.e on some Aarch32 with a 2:2 (or 3:1) VM split,
+ # both PAGE_OFFSET and MODULES_END coincide at 0x80000000 (or 0xc0000000);
+ # Ditto for MODULES_VADDR and START_KVA
  local entrylen=$(echo "${archfile_entry_label}" |wc -l)
  if [ ${entrylen} -ge 2 ]; then
     archfile_entry_label=$(tr '\n' '/' <<<"${archfile_entry_label}")
-	archfile_entry_label=${archfile_entry_label::-1}  # rm last '/'
+    archfile_entry_label=${archfile_entry_label::-1}  # rm last '/'
  fi
 
  tput bold
@@ -909,6 +911,7 @@ decho "nm = ${segname} ,  end_va = ${end_va}   ,   start_va = ${start_va}"
 		 fi
 		
 		 #=== ** normal case ** ===
+set -x
          if [ "${segname}" != "${LOCATED_REGION_ENTRY}" ]; then
             if [ ${flags} -eq 0 ] ; then
 			      printf "%s ${FMTSPC_VA}" "${LIN}" 0x"${end_va}"
@@ -922,6 +925,7 @@ decho "nm = ${segname} ,  end_va = ${end_va}   ,   start_va = ${start_va}"
 		 else
 		    printf "\n"
 		 fi
+set +x
     fi
 
 	#--- Collate and print the details of the current mapping (segment)
