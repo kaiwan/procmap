@@ -911,7 +911,7 @@ decho "nm = ${segname} ,  end_va = ${end_va}   ,   start_va = ${start_va}"
 		 fi
 		
 		 #=== ** normal case ** ===
-set -x
+#set -x
          if [ "${segname}" != "${LOCATED_REGION_ENTRY}" ]; then
             if [ ${flags} -eq 0 ] ; then
 			      printf "%s ${FMTSPC_VA}" "${LIN}" 0x"${end_va}"
@@ -925,7 +925,7 @@ set -x
 		 else
 		    printf "\n"
 		 fi
-set +x
+#set +x
     fi
 
 	#--- Collate and print the details of the current mapping (segment)
