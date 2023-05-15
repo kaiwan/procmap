@@ -203,7 +203,7 @@ show_selected_opt()
 PID=0
 XKERN_FILE=""
 
-# ref: https://wiki.bash-hackers.org/howto/getopts_tutorial
+# ref: https://www.geeksforgeeks.org/getopts-command-in-linux-with-examples/
 optspec=":h?-:"
 while getopts "${optspec}" opt
 do
