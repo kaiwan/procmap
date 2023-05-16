@@ -17,7 +17,7 @@ source ${ARCHFILE} || {
 KSPARSE_ENTRY="<... K sparse region ...>"
 VAS_NONCANONICAL_HOLE="<... 64-bit: non-canonical hole ...>"
 export MAPFLAG_WITHIN_REGION=10
-
+export RAM_START_PHYADDR=0x0
 
 #-----------------------s h o w A r r a y -----------------------------
 # Parameters:
@@ -84,6 +84,16 @@ setup_ksparse_top()
 # else!
 # We EXPECT to ONLY be passed a physical addr that maps to the kernel direct-
 # mapped addresses - lowmem addr.
+#
+# NOTE NOTE NOTE
+# Wrt the kernel code/data/bss, realized that converting the physical addr
+# found in /proc/iomem to a KVA is NOT a simple matter of adding the PA to
+# the PAGE_OFFSET value. It's platform-specific! F.e. on the TI BBB AArch32 (AM35xx
+# SoC), the Device Tree shows that RAM's mapped at 0x8000 0000 physical addr. We
+# have to take this into a/c else we'll calculate the KVA wrongly... So
+#   kva = (pa - RAM_START_PHYADDR) + PAGE_OFFSET
+# If we're not on a DT-based platform (like x86), then RAM_START_PHYADDR is 0...
+#
 # Parameters:
 #   $1 : phy addr (pa)
 pa2va()
@@ -92,9 +102,29 @@ pa2va()
 # bc(1), then convert it to hex as required (via printf)
 local pgoff_dec=$(printf "%llu" 0x${PAGE_OFFSET})
 local pa_dec=$(printf "%llu" 0x${1})
-local kva=$(bc <<< "${pa_dec}+${pgoff_dec}")
+local RAM_START_PHYADDR_DEC=$(printf "%llu" ${RAM_START_PHYADDR})
+local kva=$(bc <<< "(${pa_dec}-${RAM_START_PHYADDR_DEC})+${pgoff_dec}")
 printf "${FMTSPC_VA}" ${kva}
 } # end pa2va
+
+get_ram_phyaddr_from_dt()
+{
+ # ... Eg. DT snippet for RAM bank (for the TI BBB) ...
+ #	memory@80000000 {
+ #		device_type = "memory";
+ #		reg = < 0x80000000 0x20000000 >;
+ #                      ^^^^^^^^^^     len
+ #              $1 $2 $3  _$4_        $5
+ #           this is the start phy addr of RAM !
+ #	};
+ local dt_ram=0
+ [[ ! -d /proc/device-tree ]] && return # no DT, np
+ # Get it from the token after the @ symbol; easier...
+ dt_ram=$(dtc -I fs /proc/device-tree/ 2>/dev/null |grep -A3 "memory@"|grep "reg *= *<")
+ # fetch only the first hex number (following the '<')
+ RAM_START_PHYADDR=$(echo $dt_ram |awk -F"<" '{print $2}' |awk '{print $1}')
+ decho "RAM_START_PHYADDR = ${RAM_START_PHYADDR}"
+}
 
 # setup_kernelimg_mappings
 # Setup mappings for the kernel image itself; this usually consists of (could
@@ -104,8 +134,8 @@ printf "${FMTSPC_VA}" ${kva}
 #   2988031d1-29926c5bf : Kernel data
 #   2994ea000-29978ffff : Kernel bss
 # BUT, Carefully NOTE - the above are PHYSICAL ADDR, not kva's;
-# So, we'll have to convert them to kva's and then insert them (in order by
-# descending kva) into our gkArray[] data structure.
+# So, we'll have to convert them to kva's -SEE NOTE BELOW! - and then insert
+# them (in order by descending kva) into our gkArray[] data structure.
 setup_kernelimg_mappings()
 {
 local TMPF=/tmp/${name}/kimgpa
@@ -119,6 +149,24 @@ sudo grep -w "Kernel" /proc/iomem > ${TMPF}
  local i=1
  local REC
  local prev_startkva=0  #${TB_256}  #0
+
+ ###--- NOTE NOTE NOTE
+ # Wrt the kernel code/data/bss, realized that converting the physical addr
+ # found in /proc/iomem to a KVA is NOT a simple matter of adding the PA to
+ # the PAGE_OFFSET value. It's platform-specifc! F.e. on the TI BBB AArch32 (AM35xx
+ # SoC), the Device Tree shows that RAM's mapped at 0x8000 0000 physical addr. We
+ # have to take this into a/c else we'll calculate the KVA wrongly...
+ # BBB DTS:
+ # ...
+ #	memory@80000000 {
+ #		device_type = "memory";
+ #		reg = < 0x80000000 0x20000000 >;
+ #                      ^^^^^^^^^^     len
+ #           this is the start phy addr of RAM !
+ #	};
+ # ...
+ ###---
+ get_ram_phyaddr_from_dt
 
  for REC in $(cat ${TMPF})
  do
@@ -339,7 +387,7 @@ populate_kernel_segment_mappings()
  fi
 
  [ ${DEBUG} -eq 0 ] && rm -f ${KSEGFILE}
- #[ ${DEBUG} -eq 1 ] && show_gkArray 1
+ [ ${DEBUG} -eq 1 ] && show_gkArray 1
 
  ##################
  # Get all the kernel mapping data into a file:
