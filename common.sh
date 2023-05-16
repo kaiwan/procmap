@@ -354,7 +354,7 @@ verify_utils_present()
 {
 [ ! -d /proc ] && FatalError "proc fs not available or not mounted? Aborting..." || true
 check_deps_fatal "getconf bc make gcc kmod grep awk sed kill readlink head tail \
-cut cat tac sort wc ldd file"
+cut cat tac sort wc ldd file dtc"
 check_deps_warn "sudo tput ps smem"
 # GUI env?
 which xdpyinfo > /dev/null 2>&1 && check_deps_warn "yad" || true
