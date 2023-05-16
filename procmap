@@ -45,8 +45,10 @@
 # License: MIT.
 #set -x
 
-# Very VERY useful to catch Bugs !
-set -euo pipefail # http://redsymbol.net/articles/unofficial-bash-strict-mode/
+# Turn on unofficial Bash 'strict mode'! V useful
+# "Convert many kinds of hidden, intermittent, or subtle bugs into immediate, glaringly obvious errors"
+# ref: http://redsymbol.net/articles/unofficial-bash-strict-mode/
+set -euo pipefail
 
 export name=procmap
 PDIR=$(which $0)
