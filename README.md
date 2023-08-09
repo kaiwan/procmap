@@ -5,38 +5,26 @@ It outputs a simple visualization of the complete memory map of a given process 
 
 ***Usage:***
 
-> $ ./procmap
 
-Usage: procmap [options] --pid=PID-of-process-to-show-memory-map-of
 
-Options:
-
- --only-user     : show ONLY the usermode mappings or segments (not kernel VAS)
- 
- --only-kernel   : show ONLY the kernel-space mappings or segments (not user VAS)
- 
-  [default is to show BOTH]
-
- --locate=<start-vaddr>,<length_KB> : locate a given region within the process VAS
-
+    $ ./procmap
+    Usage: procmap [options] --pid=PID-of-process-to-show-memory-map-of
+    Options:
+     --only-user     : show ONLY the usermode mappings or segments (not kernel VAS)
+     --only-kernel   : show ONLY the kernel-space mappings or segments (not user VAS)
+            [default is to show BOTH]
+     --locate=<start-vaddr>,<length_KB> : locate a given region within the process VAS
        start-vaddr : a virtual address in hexadecimal
        length : length of the region to locate in KB
-
- --export-maps=filename
- 
-     write all map information gleaned to the file you specify in CSV (note that it overwrites the file)
- --export-kernel=filename
-     write kernel information gleaned to the file you specify in CSV (note that it overwrites the file)
-
- --verbose       : verbose mode (try it! see below for details)
- 
- --debug         : run in debug mode
- 
- --version|--ver : display version info.
- 
-...
-
-$ 
+     --export-maps=filename
+         write all map information gleaned to the file you specify in CSV (note that it overwrites the file)
+     --export-kernel=filename
+         write kernel information gleaned to the file you specify in CSV (note that it overwrites the file)
+     --verbose       : verbose mode (try it! see below for details)
+     --debug         : run in debug mode
+     --version|--ver : display version info.
+    ...
+    $
 
 
 ***IMPORTANT: Running procmap on systems other than x86_64***
@@ -44,15 +32,18 @@ $
 On systems other than x86_64 (like Aarch32/Aarch64/etc), we don't know for sure if the *kernel module component* can be compiled and built while executing on
 the target system; it may be possible to, it may not. Technically, to build a kernel module on the target system, you will require it to have a kernel development environment setup; this boils down to having the compiler, make and - key here - the 'kernel headers' package installed *for the kernel version it's currently running upon*. This can be a big ask... f.e., am running a *custom* 5.4 kernel on my Raspberry Pi; everything works fine, but as the kernel source tree for 5.4 isn't present (nor is there any kernel headers package), building kernel modules on it fails (while it works with the stock Raspbian kernel).
 So: **you will have to cross-compile the kernel module**; to do so:
-1. on your x86_64 *host* system:
-2. ensure you have an appropriate x86_64-to-ARM (or whatever) cross compiler installed
-3. git clone the procmap project
-4. cd procmap/procmap_kernel
-5. make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- 
+
+1. On your x86_64 *host* system:
+2. Ensure you have an appropriate x86_64-to-ARM (or whatever) cross compiler installed. Then:
+
+3. 
+     git clone the procmap project
+     cd procmap/procmap_kernel
+     make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf-
    (assuming the cross-compiler prefix is arm-linux-gnueabihf- (as is the case for the Raspberry Pi)
-6. verify that the procmap.ko kernel module is built
-7. if all okay, transfer it (scp or otherwise) to your target; place it (within the procmap source tree on the target device) in the procmap/procmap_kernel directory
-8. run procmap - it should now work.
+6. Verify that the procmap.ko kernel module is built
+7. If all okay, transfer it (scp or otherwise) to your target; place it (within the procmap source tree on the target device) in the *procmap/procmap_kernel* directory
+8. run *procmap* - it should now work.
 
 
 ***How does procmap work?***
@@ -90,7 +81,7 @@ Kernel:
 - Linux kernel 3.0 or later (technically, >= 2.6.12 should work)
 - debugfs must be supported and mounted
 - proc fs must be supported and mounted
-- you should have the rights to build and insmod(8) a third-party (us!) kernel module on your box
+- You should have the rights to build and insmod(8) a third-party (us!) kernel module on your box; in effect, you must have root (sudo)
 
 User utils:
 
@@ -99,6 +90,7 @@ User utils:
 - smem(8)
 - build system (make, gcc, binutils, etc)
 - common utils typically always installed on a Linux system (grep, ps, cut, cat, getopts, etc)
+- dtc (device tree compiler) on ARM-based platforms
 
 Also of course, you require *root* access (to install the kernel module (or the CAP_SYS_MODULE capability), and get the details of any process from /proc/PID/<...>).
 
