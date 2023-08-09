@@ -36,19 +36,20 @@ So: **you will have to cross-compile the kernel module**; to do so:
 1. On your x86_64 *host* system:
 2. Ensure you have an appropriate x86_64-to-ARM (or whatever) cross compiler installed. Then:
 
-3. 
-     git clone the procmap project
-     cd procmap/procmap_kernel
-     make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf-
-   (assuming the cross-compiler prefix is arm-linux-gnueabihf- (as is the case for the Raspberry Pi)
-6. Verify that the procmap.ko kernel module is built
+3. git clone the procmap project
+4. cd procmap/procmap_kernel
+5. make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf-
+     
+(assuming the cross-compiler prefix is arm-linux-gnueabihf- (as is the case for the Raspberry Pi)
+
+6. Now verify that the procmap.ko kernel module is successfully built
 7. If all okay, transfer it (scp or otherwise) to your target; place it (within the procmap source tree on the target device) in the *procmap/procmap_kernel* directory
 8. run *procmap* - it should now work.
 
 
 ***How does procmap work?***
 
-**In a nutshell, kernel-space:**
+**In a nutshell, in kernel-space:**
 
 The kernel memory map is garnered via the kernel component of this project - a *Loadable Kernel Module*. It collates all required information and makes that info available to userspace via a common interfacing technique - a debugfs (pseudo) file. Particulars:
 
@@ -57,7 +58,7 @@ Assuming the debugfs filesystem is mounted at /sys/kernel/debug, the kernel modu
 
 Reading this file generates the required kernel information, which the scripts interpret and display.
 
-**In a nutshell, userspace:**
+**In a nutshell, in userspace:**
 
 The userspace memory map is collated and displayed by iterating over the `/proc/PID/maps` pseudo-file of the given process.
 
