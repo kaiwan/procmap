@@ -415,12 +415,10 @@ main_wrapper()
  printf "https://github.com/kaiwan/procmap\n\n"
  date
 
- PRCS_PATHNAME=$(sudo realpath /proc/${PID}/exe)
-
- PRCS_NAME=$(cat /proc/${PARENT_PROCESS}/comm)
- THRD_NAME=$(cat /proc/${PID}/comm)
- #PRCS_NAME=$(trim_string_middle $(realpath /proc/${PID}/exe) 50)
- #PRCS_NAME=$(basename ${PRCS_PATHNAME})
+ PRCS_PATHNAME=$(realpath /proc/${PID}/exe)
+ [[ -z "${PRCS_PATHNAME}" ]] && PRCS_PATHNAME=$(sudo realpath /proc/${PID}/exe)
+ PRCS_NAME=$(sudo cat /proc/${PARENT_PROCESS}/comm)
+ THRD_NAME=$(sudo cat /proc/${PID}/comm)
 
  tput bold
  [[ ${ITS_A_THREAD} -eq 0 ]] && {
@@ -429,7 +427,7 @@ main_wrapper()
 	printf "[=====---  Start memory map for thread %d:%s of process %d:%s  ---=====]\n" \
 		${PID} ${THRD_NAME} ${PARENT_PROCESS} ${PRCS_NAME}
  }
- printf "[Pathname: %s ]\n" $(sudo realpath /proc/${PID}/exe)
+ printf "[Pathname: %s ]\n" ${PRCS_PATHNAME} #$(sudo realpath /proc/${PID}/exe)
  color_reset
  disp_fmt
 
