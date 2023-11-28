@@ -194,6 +194,32 @@ show_selected_opt()
   color_reset
 }
 
+validity_checks()
+{
+# validity checks on PID
+rgx='^[0-9]+$'
+if ! [[ ${PID} =~ ${rgx} ]] ; then
+ err 0 "Error: PID must be an integer value"
+fi
+[ ${PID} -eq 0 ] && {
+ err 0 "Specifying a valid PID with --pid=<PID> is mandatory"
+ }
+[ ! -f ${PFX}/do_vgraph.sh ] && {
+ err 0 "${name}: ${PFX}/do_vgraph.sh missing? Aborting..."
+ }
+[ ! -f ${PFX}/mapsfile_prep.sh ] && {
+ err 0 "${name}: ${PFX}/mapsfile_prep.sh missing? Aborting..."
+ }
+# Check for process existence
+sudo kill -0 ${PID} >/dev/null 2>&1 || {
+ err 0 "${name}: process with PID \"${PID}\" invalid (or dead now?) Aborting..."
+ }
+# Verify it's not a kernel thread
+sudo readlink /proc/${PID}/exe >/dev/null || {
+ err 0 "${name}: process with PID \"${PID}\" invalid; I believe it's a kernel thread. Aborting..."
+ }
+}
+
 
 #--- 'main' here
 
@@ -225,15 +251,7 @@ do
 				;;
 			  pid=*)
 				PID=$(echo "${OPTARG}" |cut -d"=" -f2)
-
-				# validity checks on PID
-				rgx='^[0-9]+$'
-				if ! [[ ${PID} =~ ${rgx} ]] ; then
-				   err 0 "Error: PID must be an integer value"
-				fi
-				[ ${PID} -eq 0 ] && {
-				 err 0 "Specifying a valid PID with --pid=<PID> is mandatory"
-				}
+				validity_checks ${PID}
 
 				# Is it a thread of a process?
 				set +e
@@ -319,24 +337,8 @@ XKERN_FILE=${XKERN_FILE}
 done
 shift $((OPTIND-1))
 
-[ ! -f ${PFX}/do_vgraph.sh ] && {
- err 0 "${name}: ${PFX}/do_vgraph.sh missing? Aborting..."
-}
-[ ! -f ${PFX}/mapsfile_prep.sh ] && {
- err 0 "${name}: ${PFX}/mapsfile_prep.sh missing? Aborting..."
-}
-# Check for process existence
-sudo kill -0 ${PID} >/dev/null 2>&1 || {
- err 0 "${name}: process with PID \"${PID}\" invalid (or dead now?) Aborting..."
-}
-# Verify it's not a kernel thread
-sudo readlink /proc/${PID}/exe >/dev/null || {
- err 0 "${name}: process with PID \"${PID}\" invalid; I believe it's a kernel thread. Aborting..."
-}
-
 LOG=log_procmap.txt
 TMPCSV=/tmp/${name}/vgrph.csv
-
 
 init_kernel_lkm_get_details |tee -a ${LOG}
 get_machine_set_arch_config |tee -a ${LOG}
