@@ -203,6 +203,7 @@ show_selected_opt()
 }
 
 PID=0
+ITS_A_THREAD=0
 XKERN_FILE=""
 
 # ref: https://www.geeksforgeeks.org/getopts-command-in-linux-with-examples/
@@ -223,9 +224,28 @@ do
 				exit 0
 				;;
 			  pid=*)
-	 	        PID=$(echo "${OPTARG}" |cut -d"=" -f2)
-				show_selected_opt "[i] will display memory map for process PID=${PID}"
-		        #echo "-p passed; PID=${PID}"
+				PID=$(echo "${OPTARG}" |cut -d"=" -f2)
+
+				# validity checks on PID
+				rgx='^[0-9]+$'
+				if ! [[ ${PID} =~ ${rgx} ]] ; then
+				   err 0 "Error: PID must be an integer value"
+				fi
+				[ ${PID} -eq 0 ] && {
+				 err 0 "Specifying a valid PID with --pid=<PID> is mandatory"
+				}
+
+				# Is it a thread of a process?
+				set +e
+				isathread ${PID}
+				[[ $? -eq 1 ]] && {
+					ITS_A_THREAD=1
+					show_selected_opt "[i] will display memory map for thread ${PID} of process ${PARENT_PROCESS}"
+				} || {
+					show_selected_opt "[i] will display memory map for process PID=${PID}"
+				}
+				set -e
+				#echo "-p passed; PID=${PID}"
 			    ;;
 			  only-user)
 				show_selected_opt "[i] will display ONLY user VAS"
@@ -298,14 +318,6 @@ XKERN_FILE=${XKERN_FILE}
   	esac
 done
 shift $((OPTIND-1))
-
-rgx='^[0-9]+$'
-if ! [[ ${PID} =~ ${rgx} ]] ; then
-   err 0 "Error: PID must be an integer value"
-fi
-[ ${PID} -eq 0 ] && {
- err 0 "Specifying the PID with --pid=<PID> is mandatory"
-}
 
 [ ! -f ${PFX}/do_vgraph.sh ] && {
  err 0 "${name}: ${PFX}/do_vgraph.sh missing? Aborting..."

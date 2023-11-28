@@ -350,7 +350,13 @@ disp_fmt
 
  #--- Footer
  tput bold
- printf "\n[=====---  End memory map for %d:%s  ---=====]\n" ${PID} ${PRCS_NAME}
+# printf "\n[=====---  End memory map for %d:%s  ---=====]\n" ${PID} ${PRCS_NAME}
+ [[ ${ITS_A_THREAD} -eq 0 ]] && {
+	printf "[=====---  End memory map for process %d:%s  ---=====]\n" ${PID} ${PRCS_NAME}
+ } || {
+	printf "[=====---  End memory map for thread %d:%s of process %d:%s  ---=====]\n" \
+		${PID} ${THRD_NAME} ${PARENT_PROCESS} ${PRCS_NAME}
+ }
  color_reset
 
  if [ ${VERBOSE} -eq 1 -a ${SHOW_USERSPACE} -eq 1 ]; then
@@ -411,11 +417,18 @@ main_wrapper()
 
  PRCS_PATHNAME=$(sudo realpath /proc/${PID}/exe)
 
+ PRCS_NAME=$(cat /proc/${PARENT_PROCESS}/comm)
+ THRD_NAME=$(cat /proc/${PID}/comm)
  #PRCS_NAME=$(trim_string_middle $(realpath /proc/${PID}/exe) 50)
- PRCS_NAME=$(basename ${PRCS_PATHNAME})
+ #PRCS_NAME=$(basename ${PRCS_PATHNAME})
 
  tput bold
- printf "[=====---  Start memory map for %d:%s  ---=====]\n" ${PID} ${PRCS_NAME}
+ [[ ${ITS_A_THREAD} -eq 0 ]] && {
+	printf "[=====---  Start memory map for process %d:%s  ---=====]\n" ${PID} ${PRCS_NAME}
+ } || {
+	printf "[=====---  Start memory map for thread %d:%s of process %d:%s  ---=====]\n" \
+		${PID} ${THRD_NAME} ${PARENT_PROCESS} ${PRCS_NAME}
+ }
  printf "[Pathname: %s ]\n" $(sudo realpath /proc/${PID}/exe)
  color_reset
  disp_fmt
@@ -545,6 +558,11 @@ fi
    local totalram=$(bc <<< "${totalram_kb}*1024")
    printf "\nTotal reported memory (RAM) on this system:\n"
    largenum_display ${totalram}
+
+   # Show ps and smem stats only if it's a process and not a worker/child thread of some process
+   [[ ${ITS_A_THREAD} -eq 1 ]] && {
+	echo ; return
+   }
 
    printf "\n\nMemory Usage stats for process PID %d:%s\n" ${PID} ${name}
    printf "Via ps(1):\n"

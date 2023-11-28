@@ -361,3 +361,25 @@ which xdpyinfo > /dev/null 2>&1 && check_deps_warn "yad" || true
 # need dtc? -only on systems that use the DT
 [[ -d /proc/device-tree ]] && check_deps_fatal "dtc" || true
 }
+
+## isathread
+# Param: PID
+# Returns:
+#   1 if $1 is a (worker/child) thread of some process, 0 if it's a process by itself, 127 on failure.
+isathread()
+{
+[ $# -ne 1 ] && {
+ aecho "isathread: parameter missing!" 1>&2
+ return 127
+}
+
+PARENT_PROCESS=${PID}
+local t1=$(ps -LA|grep -w "${PID}" |head -n1)
+local pid=$(echo ${t1} |cut -d' ' -f1)
+local lwp=$(echo ${t1} |cut -d' ' -f2)
+[[ ${pid} -eq ${lwp} ]] && return 0 || {
+	PARENT_PROCESS=${pid}
+	return 1
+  }
+}
+
