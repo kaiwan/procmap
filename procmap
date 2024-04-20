@@ -377,7 +377,10 @@ SHOW_USERSPACE=${SHOW_USERSPACE}
 #  -v : run in verbose mode
 #  -d : run in debug mode"
 dovg_cmdline="-p ${PID} -f ${TMPCSV}"
-[ ${DEBUG} -eq 1 ] && dovg_cmdline="${dovg_cmdline} -d"
+[ ${DEBUG} -eq 1 ] && {
+   dovg_cmdline="${dovg_cmdline} -d"
+   export PS4='+(${BASH_SOURCE}:${LINENO}): ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
+}
 [ ${VERBOSE} -eq 1 ] && dovg_cmdline="${dovg_cmdline} -v"
 [ ${SHOW_KERNELSEG} -eq 1 ] && dovg_cmdline="${dovg_cmdline} -k"
 [ ${SHOW_USERSPACE} -eq 1 ] && dovg_cmdline="${dovg_cmdline} -u"
