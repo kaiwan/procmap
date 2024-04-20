@@ -4,54 +4,55 @@
 #
 # Configuration file for the procmap project. 
 set -a  # export all
+ # Still, shellcheck likes them all explicitly 'export'ed
 export LC_ALL=C   # locale
 export name=procmap
-gDELIM=","
-VERBOSE=0
-DEBUG=0
-WRITELOG=0
-LOCATE_SPEC=""
+export gDELIM=","
+export VERBOSE=0
+export DEBUG=0
+export WRITELOG=0
+export LOCATE_SPEC=""
 
-LIMIT_SCALE_SZ=20
-LARGE_SPACE=12
+export LIMIT_SCALE_SZ=20
+export LARGE_SPACE=12
 
 # userspace VAS display configs
-SHOW_USERSPACE=1
-EMB=0  # set to 1 for 'embedded' systems; simpler [no float point, etc]
+export SHOW_USERSPACE=1
+export EMB=0  # set to 1 for 'embedded' systems; simpler [no float point, etc]
 
-SPARSE_SHOW=1
-SHOW_VSYSCALL_PAGE=0
-SHOW_STATS=1
+export SPARSE_SHOW=1
+export SHOW_VSYSCALL_PAGE=0
+export SHOW_STATS=0
 
 # kernel seg display configs
-SHOW_KERNELSEG=1
-KSEGFILE=/tmp/${name}/kseg_dtl
-ARCHFILE=/tmp/${name}/arch_dtl
-KERNELDIR=${PFX}/procmap_kernel
-KMOD=procmap
-DBGFS_LOC=$(mount |grep debugfs |awk '{print $3}')
-DBGFS_FILENAME=disp_kernelseg_details
-KSPARSE_SHOW=1
-SHOW_KSTATS=1
+export SHOW_KERNELSEG=1
+export KSEGFILE=/tmp/${name}/kseg_dtl
+export ARCHFILE=/tmp/${name}/arch_dtl
+export KERNELDIR=${PFX}/procmap_kernel
+export KMOD=procmap
+export DBGFS_LOC=$(mount |grep debugfs |awk '{print $3}')
+export DBGFS_FILENAME=disp_kernelseg_details
+export KSPARSE_SHOW=1
+export SHOW_KSTATS=1
 
 # Common sizes
-GB_1=$(bc <<< "scale=6; 1.0*1024.0*1024.0*1024.0")
-GB_2=$(bc <<< "scale=6; 2.0*1024.0*1024.0*1024.0")
-GB_3=$(bc <<< "scale=6; 3.0*1024.0*1024.0*1024.0")
-GB_4=$(bc <<< "scale=6; 4.0*1024.0*1024.0*1024.0")
-TB_1=$(bc <<< "scale=0; 1*1024*1024*1024*1024")
-TB_128=$(bc <<< "scale=6; 128.0*1024.0*1024.0*1024.0*1024.0")
-TB_256=$(bc <<< "scale=6; 256.0*1024.0*1024.0*1024.0*1024.0")
+export GB_1=$(bc <<< "scale=6; 1.0*1024.0*1024.0*1024.0")
+export GB_2=$(bc <<< "scale=6; 2.0*1024.0*1024.0*1024.0")
+export GB_3=$(bc <<< "scale=6; 3.0*1024.0*1024.0*1024.0")
+export GB_4=$(bc <<< "scale=6; 4.0*1024.0*1024.0*1024.0")
+export TB_1=$(bc <<< "scale=0; 1*1024*1024*1024*1024")
+export TB_128=$(bc <<< "scale=6; 128.0*1024.0*1024.0*1024.0*1024.0")
+export TB_256=$(bc <<< "scale=6; 256.0*1024.0*1024.0*1024.0*1024.0")
 
 # Arch-specific config setup is in the 'lib_procmap.sh' file
-IS_X86_64=0
-IS_Aarch32=0
-IS_Aarch64=0
-IS_X86_32=0
+export IS_X86_64=0
+export IS_Aarch32=0
+export IS_Aarch64=0
+export IS_X86_32=0
 
 # Colors
 # Find the curr encoded color functions (fg_xxx, bg_yyy) in the color.sh script
 # FG = foreground color
-FG_MAPNAME=fg_navyblue
-FG_KVAR=fg_darkgreen
-FG_LOC=fg_red
+export FG_MAPNAME=fg_navyblue
+export FG_KVAR=fg_darkgreen
+export FG_LOC=fg_red
