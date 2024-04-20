@@ -98,7 +98,7 @@ sed -i "s/47m//g" ${1}
 usage()
 {
  cat << @EOF@
-Usage: ${name} [options] --pid=PID-of-process-to-show-memory-map-of
+Usage: ${name} [options] -p|--pid=PID-of-process-to-show-memory-map-of
 
 Options:
  --only-user     : show ONLY the user mode mappings or segments (not kernel VAS)
@@ -194,15 +194,17 @@ show_selected_opt()
   color_reset
 }
 
+# Parameter: PID of the process
 validity_checks()
 {
+[[ $# -ne 1 ]] && return
 # validity checks on PID
 rgx='^[0-9]+$'
 if ! [[ ${PID} =~ ${rgx} ]] ; then
- err 0 "Error: PID must be an integer value"
+ err 0 "Error: Invalid PID (must be a positive integer)"
 fi
 [ ${PID} -eq 0 ] && {
- err 0 "Specifying a valid PID with --pid=<PID> is mandatory"
+ err 0 "Specifying a valid PID with -p|--pid=<PID> is mandatory"
  }
 [ ! -f ${PFX}/do_vgraph.sh ] && {
  err 0 "${name}: ${PFX}/do_vgraph.sh missing? Aborting..."
@@ -220,6 +222,26 @@ sudo readlink /proc/${PID}/exe >/dev/null || {
  }
 }
 
+# Parameter: PID of the process
+validate_pid()
+{
+	[[ $# -ne 1 ]] && return
+	validity_checks ${PID}
+#echo "1 PID=${PID}"
+
+	# Is it a thread of a process?
+	set +e
+	isathread ${PID}
+	[[ $? -eq 1 ]] && {
+		ITS_A_THREAD=1
+		show_selected_opt "[i] will display memory map for thread ${PID} of process ${PARENT_PROCESS}"
+	} || {
+		show_selected_opt "[i] will display memory map for process PID=${PID}"
+	}
+	set -e
+	#echo "-p passed; PID=${PID}"
+}
+
 
 #--- 'main' here
 
@@ -233,11 +255,15 @@ ITS_A_THREAD=0
 XKERN_FILE=""
 
 # ref: https://www.geeksforgeeks.org/getopts-command-in-linux-with-examples/
-optspec=":h?-:"
+optspec=":p:h?-:"
 while getopts "${optspec}" opt
 do
     case "${opt}" in
-		-)                       # 'long' opts '--xxx' style, ala checksec!
+	p) #echo "-p passed; pid=${OPTARG}"
+	   PID=${OPTARG}
+	   validate_pid ${PID}
+	   ;;
+	-)                       # 'long' opts '--xxx' style, ala checksec!
  #echo "optarg = ${OPTARG}"
  #prompt
 		    case "${OPTARG}" in
@@ -251,19 +277,7 @@ do
 				;;
 			  pid=*)
 				PID=$(echo "${OPTARG}" |cut -d"=" -f2)
-				validity_checks ${PID}
-
-				# Is it a thread of a process?
-				set +e
-				isathread ${PID}
-				[[ $? -eq 1 ]] && {
-					ITS_A_THREAD=1
-					show_selected_opt "[i] will display memory map for thread ${PID} of process ${PARENT_PROCESS}"
-				} || {
-					show_selected_opt "[i] will display memory map for process PID=${PID}"
-				}
-				set -e
-				#echo "-p passed; PID=${PID}"
+				validate_pid ${PID}
 			    ;;
 			  only-user)
 				show_selected_opt "[i] will display ONLY user VAS"
@@ -336,6 +350,8 @@ XKERN_FILE=${XKERN_FILE}
   	esac
 done
 shift $((OPTIND-1))
+
+[[ ${PID} -eq 0 ]] && err 0 "Error: Invalid PID (must be a positive integer)"
 
 LOG=log_procmap.txt
 TMPCSV=/tmp/${name}/vgrph.csv
