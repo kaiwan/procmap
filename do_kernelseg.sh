@@ -216,7 +216,7 @@ sudo grep -w "Kernel" /proc/iomem > ${TMPF}
 
 # Sort by descending kva!
 
-[ ${DEBUG} -eq 0 ] && rm -f ${TMPF}
+[ ${DEBUG} -eq 0 ] && rm -f ${TMPF} || true
 } # end setup_kernelimg_mappings
 
 #----------- i n t e r p r e t _ k e r n e l _ r e c -------------------

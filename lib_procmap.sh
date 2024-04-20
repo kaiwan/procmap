@@ -652,7 +652,7 @@ do_append_kernel_mapping()
 append_kernel_mapping()
 {
   do_append_kernel_mapping "$1" $2 $3 $4 $5 $6
-  [ ${LOC_LEN} -ne 0 ] && locate_region -k $3 $4
+  [ ${LOC_LEN} -ne 0 ] && locate_region -k $3 $4 || true
 }
 
 # do_append_userspace_mapping()

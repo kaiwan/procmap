@@ -415,8 +415,8 @@ main_wrapper()
  printf "https://github.com/kaiwan/procmap\n\n"
  date
 
- PRCS_PATHNAME=$(realpath /proc/${PID}/exe)
- [[ -z "${PRCS_PATHNAME}" ]] && PRCS_PATHNAME=$(sudo realpath /proc/${PID}/exe)
+ PRCS_PATHNAME=$(realpath /proc/${PID}/exe 2>/dev/null) || true
+ [[ -z "${PRCS_PATHNAME}" ]] && PRCS_PATHNAME=$(sudo realpath /proc/${PID}/exe 2>/dev/null) || true
  PRCS_NAME=$(sudo cat /proc/${PARENT_PROCESS}/comm)
  THRD_NAME=$(sudo cat /proc/${PID}/comm)
 

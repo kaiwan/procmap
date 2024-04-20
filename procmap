@@ -383,7 +383,7 @@ dovg_cmdline="-p ${PID} -f ${TMPCSV}"
 [ ${SHOW_USERSPACE} -eq 1 ] && dovg_cmdline="${dovg_cmdline} -u"
 [ ! -z "${LOCATE_SPEC}" ] && dovg_cmdline="${dovg_cmdline} -l ${LOCATE_SPEC}"
 
-${PFX}/do_vgraph.sh ${dovg_cmdline} | tee -a ${LOG} 
+${PFX}/do_vgraph.sh ${dovg_cmdline} | tee -a ${LOG} || true
 
 [ ${DEBUG} -eq 0 ] && rm -f ${TMPCSV}
 if [ ${WRITELOG} -eq 1 ]; then
