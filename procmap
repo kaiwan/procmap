@@ -97,17 +97,17 @@ sed -i "s/47m//g" ${1}
 
 usage()
 {
- cat << @EOF@
-Usage: ${name} [options] -p|--pid=PID-of-process-to-show-memory-map-of
+ cat >/tmp/.ph << @EOF@
+Usage: ${name} [options] -p PID (OR --pid=PID-of-process-to-show-memory-map-of)
 
 Options:
  --only-user     : show ONLY the user mode mappings or segments (not kernel VAS)
  --only-kernel   : show ONLY the kernel-space mappings or segments (not user VAS)
   [default is to show BOTH]
  --export-maps=filename
-     write all map information gleaned to the file you specify in CSV
+     write all map information gleaned to the file you specify in CSV format
  --export-kernel=filename
-     write kernel information gleaned to the file you specify in CSV
+     write kernel information gleaned to the file you specify in CSV format
  --verbose       : verbose mode (try it! see below for details)
  --debug         : run in debug mode
  --version|--ver : display version info.
@@ -150,7 +150,8 @@ Caveats / Limitations:
   Knowledgeable persons, pl help!
 
 @EOF@
- 1>&2
+cat /tmp/.ph 1>&2
+rm -f /tmp/.ph
 }
 
 ### To FIX:
@@ -251,7 +252,7 @@ validate_pid()
 }
 
 PID=0
-ITS_A_THREAD=0
+export ITS_A_THREAD=0
 XKERN_FILE=""
 
 # ref: https://www.geeksforgeeks.org/getopts-command-in-linux-with-examples/
@@ -331,7 +332,7 @@ XKERN_FILE=${XKERN_FILE}
 				# validate that a length has actually been passed
 				LOC_LEN=$(echo "${LOCATE_SPEC}" |cut -d, -f2)
 				decho "LOC_LEN = ${LOC_LEN}"
-				[ -z "${LOC_LEN}" -o ${LOC_LEN} -le 0 ] && {
+				[[ ( -z "${LOC_LEN}" ) || ( ${LOC_LEN} -le 0 ) ]] && {
 					err 0 "${name}: the length of the virtual address region to locate must be positive (KB)"
 				}
 				show_selected_opt "[i] locate region from (${LOCATE_SPEC}) (start-vaddr,len-in-Kb)"
