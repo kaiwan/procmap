@@ -100,17 +100,20 @@ usage()
  cat << @EOF@
 Usage: ${name} [options] -p|--pid=PID-of-process-to-show-memory-map-of
 
-Options:
- --only-user     : show ONLY the user mode mappings or segments (not kernel VAS)
- --only-kernel   : show ONLY the kernel-space mappings or segments (not user VAS)
-  [default is to show BOTH]
+The only *required* option switch is -p|--pid followed by the PID of the process
+
+The following option switches are all optional:
+ -u|--only-user  : show ONLY the user mode mappings or segments (not kernel VAS)
+ -k|--only-kernel: show ONLY the kernel-space mappings or segments (not user VAS)
+   [-u and -k are mutually exclusive and the default is to show BOTH]
  --export-maps=filename
-     write all map information gleaned to the file you specify in CSV
+                 : write all map information gleaned to the file you specify in CSV
  --export-kernel=filename
-     write kernel information gleaned to the file you specify in CSV
- --verbose       : verbose mode (try it! see below for details)
- --debug         : run in debug mode
- --version|--ver : display version info.
+                 : write kernel information gleaned to the file you specify in CSV
+ -v|--verbose    : verbose mode (try it! see below for details)
+ -d|--debug      : run in debug mode
+ --ver|--version : display version info
+ -h|--help       : display this help screen.
 
 See the config file as well.
 
@@ -127,7 +130,7 @@ In addition to the 'usual' stuff, the output now includes:
 -----------------------------
 Caveats / Limitations:
 -----------------------------
-- This utility is in the early stages of development and is continually
+- This utility is in development and is continually
   evolving. As of now, in terms of the precise arch-specific kernel
   memory layout specifics, it's almost certainly incomplete. For example, as of
   now we don't (can't?) show every kernel mapping as documented in the kernel
@@ -136,7 +139,7 @@ Caveats / Limitations:
   within one of the sparse regions on the map.
 
 - procmap currently supports the following CPU arch's:
-  x86_64, Aarch32, Aarch64; other archs - could use help
+  x86_64, AArch32, AArch64; other archs - could use help
 
 - running procmap on arch's other than x86_64:
   TL;DR: you might need to cross-compile the procmap kernel module (under
