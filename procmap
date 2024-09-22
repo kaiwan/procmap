@@ -166,7 +166,7 @@ VER_MINOR=5
 PRJ_URL="https://github.com/kaiwan/procmap"
 AUTHORS="Kaiwan N Billimoria"
 ORG="kaiwanTECH (Designer Graphix)"
-version()
+procmap_version()
 {
   printf "${name} ${VER_MAJOR}.${VER_MINOR}, (c) ${AUTHORS}, ${ORG}\n"
   printf "${PRJ_URL}\n"
@@ -346,6 +346,10 @@ XKERN_FILE=${XKERN_FILE}
 			  debug)
 				export DEBUG=1
 				show_selected_opt "[i] running in DEBUG mode"
+				;;
+			  ver|version)
+			    procmap_version
+				exit 0
 				;;
 			  *) err 1 "Unknown option '${OPTARG}'"
 				;;
