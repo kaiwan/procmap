@@ -258,26 +258,39 @@ ITS_A_THREAD=0
 XKERN_FILE=""
 
 # ref: https://www.geeksforgeeks.org/getopts-command-in-linux-with-examples/
-optspec=":p:h?-:"
+optspec=":p:ukvdh?-:"
 while getopts "${optspec}" opt
 do
+    #echo "opt = ${opt}"
     case "${opt}" in
 	p) #echo "-p passed; pid=${OPTARG}"
 	   PID=${OPTARG}
 	   validate_pid ${PID}
 	   ;;
+	u) show_selected_opt "[i] will display ONLY user VAS"
+	   export SHOW_KERNELSEG=0
+	   [[ ${SHOW_USERSPACE} -eq 0 ]] && {
+	     echo "The -u and -k options are mutually exclusive" ; exit 1
+	   }
+	   ;;
+	k) show_selected_opt "[i] will display ONLY kernel VAS"
+	   export SHOW_USERSPACE=0
+	   [[ ${SHOW_KERNELSEG} -eq 0 ]] && {
+	     echo "The -u and -k options are mutually exclusive" ; exit 1
+	   }
+	   ;;
+	v) export VERBOSE=1
+	   show_selected_opt "[i] running in VERBOSE mode"
+	   ;;
+	d) export DEBUG=1
+	   show_selected_opt "[i] running in DEBUG mode"
+	   ;;
+	h) usage ; exit 0
+	   ;;
 	-)                       # 'long' opts '--xxx' style, ala checksec!
  #echo "optarg = ${OPTARG}"
  #prompt
 		    case "${OPTARG}" in
-			  version|ver)
-			    version
-				exit 0
-				;;
-			  help)
-			    usage
-				exit 0
-				;;
 			  pid=*)
 				PID=$(echo "${OPTARG}" |cut -d"=" -f2)
 				validate_pid ${PID}
@@ -291,7 +304,7 @@ do
 				SHOW_USERSPACE=0
 			    ;;
 			  export-maps=*)
-	 	        XMAP_FILE=$(echo "${OPTARG}" |cut -d"=" -f2)
+				XMAP_FILE=$(echo "${OPTARG}" |cut -d"=" -f2)
 				[ -z "${XMAP_FILE}" ] && {
 					err 0 "${name}: pl specify the filename for the --export-maps=<filename> option"
 				}
@@ -349,6 +362,10 @@ XKERN_FILE=${XKERN_FILE}
 				;;
 			  ver|version)
 			    procmap_version
+				exit 0
+				;;
+			  help)
+			    usage
 				exit 0
 				;;
 			  *) err 1 "Unknown option '${OPTARG}'"
