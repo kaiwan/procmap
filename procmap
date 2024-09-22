@@ -100,17 +100,29 @@ usage()
  cat >/tmp/.ph << @EOF@
 Usage: ${name} [options] -p PID (OR --pid=PID-of-process-to-show-memory-map-of)
 
-Options:
- --only-user     : show ONLY the user mode mappings or segments (not kernel VAS)
- --only-kernel   : show ONLY the kernel-space mappings or segments (not user VAS)
-  [default is to show BOTH]
+The only *required* option switch is -p|--pid followed by the PID of the process
+
+The following option switches are all optional:
+ -u|--only-user  : show ONLY the user mode mappings or segments (not kernel VAS)
+ -k|--only-kernel: show ONLY the kernel-space mappings or segments (not user VAS)
+   [-u and -k are mutually exclusive and the default is to show BOTH]
  --export-maps=filename
+<<<<<<< HEAD
      write all map information gleaned to the file you specify in CSV format
  --export-kernel=filename
      write kernel information gleaned to the file you specify in CSV format
  --verbose       : verbose mode (try it! see below for details)
  --debug         : run in debug mode
  --version|--ver : display version info.
+=======
+                 : write all map information gleaned to the file you specify in CSV
+ --export-kernel=filename
+                 : write kernel information gleaned to the file you specify in CSV
+ -v|--verbose    : verbose mode (try it! see below for details)
+ -d|--debug      : run in debug mode
+ --ver|--version : display version info
+ -h|--help       : display this help screen.
+>>>>>>> 116e80274dd022a5572da014e79d8c3958936cd2
 
 See the config file as well.
 
@@ -127,7 +139,7 @@ In addition to the 'usual' stuff, the output now includes:
 -----------------------------
 Caveats / Limitations:
 -----------------------------
-- This utility is in the early stages of development and is continually
+- This utility is in development and is continually
   evolving. As of now, in terms of the precise arch-specific kernel
   memory layout specifics, it's almost certainly incomplete. For example, as of
   now we don't (can't?) show every kernel mapping as documented in the kernel
@@ -136,7 +148,7 @@ Caveats / Limitations:
   within one of the sparse regions on the map.
 
 - procmap currently supports the following CPU arch's:
-  x86_64, Aarch32, Aarch64; other archs - could use help
+  x86_64, AArch32, AArch64; other archs - could use help
 
 - running procmap on arch's other than x86_64:
   TL;DR: you might need to cross-compile the procmap kernel module (under
@@ -164,7 +176,7 @@ VER_MINOR=5
 PRJ_URL="https://github.com/kaiwan/procmap"
 AUTHORS="Kaiwan N Billimoria"
 ORG="kaiwanTECH (Designer Graphix)"
-version()
+procmap_version()
 {
   printf "${name} ${VER_MAJOR}.${VER_MINOR}, (c) ${AUTHORS}, ${ORG}\n"
   printf "${PRJ_URL}\n"
@@ -256,26 +268,39 @@ export ITS_A_THREAD=0
 XKERN_FILE=""
 
 # ref: https://www.geeksforgeeks.org/getopts-command-in-linux-with-examples/
-optspec=":p:h?-:"
+optspec=":p:ukvdh?-:"
 while getopts "${optspec}" opt
 do
+    #echo "opt = ${opt}"
     case "${opt}" in
 	p) #echo "-p passed; pid=${OPTARG}"
 	   PID=${OPTARG}
 	   validate_pid ${PID}
 	   ;;
+	u) show_selected_opt "[i] will display ONLY user VAS"
+	   export SHOW_KERNELSEG=0
+	   [[ ${SHOW_USERSPACE} -eq 0 ]] && {
+	     echo "The -u and -k options are mutually exclusive" ; exit 1
+	   }
+	   ;;
+	k) show_selected_opt "[i] will display ONLY kernel VAS"
+	   export SHOW_USERSPACE=0
+	   [[ ${SHOW_KERNELSEG} -eq 0 ]] && {
+	     echo "The -u and -k options are mutually exclusive" ; exit 1
+	   }
+	   ;;
+	v) export VERBOSE=1
+	   show_selected_opt "[i] running in VERBOSE mode"
+	   ;;
+	d) export DEBUG=1
+	   show_selected_opt "[i] running in DEBUG mode"
+	   ;;
+	h) usage ; exit 0
+	   ;;
 	-)                       # 'long' opts '--xxx' style, ala checksec!
  #echo "optarg = ${OPTARG}"
  #prompt
 		    case "${OPTARG}" in
-			  version|ver)
-			    version
-				exit 0
-				;;
-			  help)
-			    usage
-				exit 0
-				;;
 			  pid=*)
 				PID=$(echo "${OPTARG}" |cut -d"=" -f2)
 				validate_pid ${PID}
@@ -289,7 +314,7 @@ do
 				SHOW_USERSPACE=0
 			    ;;
 			  export-maps=*)
-	 	        XMAP_FILE=$(echo "${OPTARG}" |cut -d"=" -f2)
+				XMAP_FILE=$(echo "${OPTARG}" |cut -d"=" -f2)
 				[ -z "${XMAP_FILE}" ] && {
 					err 0 "${name}: pl specify the filename for the --export-maps=<filename> option"
 				}
@@ -344,6 +369,14 @@ XKERN_FILE=${XKERN_FILE}
 			  debug)
 				export DEBUG=1
 				show_selected_opt "[i] running in DEBUG mode"
+				;;
+			  ver|version)
+			    procmap_version
+				exit 0
+				;;
+			  help)
+			    usage
+				exit 0
 				;;
 			  *) err 1 "Unknown option '${OPTARG}'"
 				;;
