@@ -130,9 +130,20 @@ do
 	let k=i+1
     printf "%d," "${gArray[${k}]}"     # seg size
 	let k=i+2
-    printf "%x," "0x${gArray[${k}]}"   # start uva
+    #--- Nice bugfix here!
+    # On the TI BBB 32-bit, i noticed that the 'heap' would appear at or near
+    # the very top of the user VAS! that's just wrong... Investigating, i found
+    # that its as the /tmp/procmap/pmu file records were'nt being correctly
+    # sorted.. That was as running sort(1) on hex numbers does work *as long as
+    # they're seen as numbers and not strings*. To do that, we have to ensure
+    # that #s - like the start and end UVAs here - are left-padded with 0s!
+    # Then sort works correctly and all's well!
+    # (Interestingly, the %0zx printf format has it work portably for 32 and 64
+    # bit - avoiding the need to explicitly do %08x / %016x for 32/64 bit!)
+    printf "%0zx," "0x${gArray[${k}]}"   # start uva
 	let k=i+3
-    printf "%x," "0x${gArray[${k}]}"   # end uva
+    printf "%0zx," "0x${gArray[${k}]}"   # end uva
+    #---
 	let k=i+4
     printf "%s," "${gArray[${k}]}"     # mode+flag
 	let k=i+5
@@ -501,7 +512,7 @@ total_size_userspc
 # Reverse sort by 4th field, the hexadecimal end va; simple ASCII sort works
 # because numbers 0-9a-f are anyway in alphabetical order
 showArray 0 > /tmp/${name}/pmu
-sort -t"," -k4 -r /tmp/${name}/pmu > /tmp/${name}/pmufinal
+sort -f -t"," -k4 -r /tmp/${name}/pmu > /tmp/${name}/pmufinal
 ##################
 
 # draw it!
@@ -646,6 +657,6 @@ while getopts "p:f:l:h?kudv" opt; do
     esac
 done
 shift $((OPTIND-1))
-
+decho "gINFILE=${gINFILE}"
 main_wrapper ${PID}
 exit 0
