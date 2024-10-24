@@ -181,7 +181,7 @@ TASK_SIZE=${TASK_SIZE}
 # (Re)build the LKM - Loadable Kernel Module for this project
 build_lkm()
 {
- echo "[i] kernel: building the procmap LKM now..."
+ echo "[i] kernel: building the procmap kernel module now..."
 
  # kernel headers?
  [ ! -e /lib/modules/$(uname -r)/build ] && {
@@ -194,7 +194,7 @@ README.md file for details (section 'IMPORTANT: Running procmap on systems \
 other than x86_64')."
  }
 
- make clean >/dev/null 2>&1
+ make clean >/dev/null 2>&1 || true
  make >/dev/null 2>&1 || {
     FatalError "${name}: kernel module \"${KMOD}\" build failed, aborting..."
  }
