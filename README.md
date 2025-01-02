@@ -5,8 +5,6 @@ It outputs a simple visualization of the complete memory map of a given process 
 
 ***Usage:***
 
-
-
     $ ./procmap
     Usage: procmap [options] --pid=PID-of-process-to-show-memory-map-of
     Options:
@@ -26,30 +24,40 @@ It outputs a simple visualization of the complete memory map of a given process 
     ...
     $
 
+##Platforms that procmap has been tested upon:##
 
-***IMPORTANT: Running procmap on systems other than x86_64***
+- x86_64 (Ubuntu, Fedora distros)
+- AArch32
+    - Raspberry Pi Zero W
+    - TI BBB (BeagleBone Black) [some work's pending here though]
+- AArch64
+    - Raspberry Pi 3B, 4 Model B
+    - TI BGP (BeaglePlay)
 
-On systems other than x86_64 (like Aarch32/Aarch64/etc), we don't know for sure if the *kernel module component* can be compiled and built while executing on
+
+##IMPORTANT: Running procmap on systems other than x86_64##
+
+On systems other than x86_64 (like AArch32/AArch64/etc), we don't know for sure if the *kernel module component* can be compiled and built while executing on
 the target system; it may be possible to, it may not. Technically, to build a kernel module on the target system, you will require it to have a kernel development environment setup; this boils down to having the compiler, make and - key here - the 'kernel headers' package installed *for the kernel version it's currently running upon*. This can be a big ask... f.e., am running a *custom* 5.4 kernel on my Raspberry Pi; everything works fine, but as the kernel source tree for 5.4 isn't present (nor is there any kernel headers package), building kernel modules on it fails (while it works with the stock Raspbian kernel).
 So: **you will have to cross-compile the kernel module**; to do so:
 
 1. On your x86_64 *host* system:
 2. Ensure you have an appropriate x86_64-to-ARM (or whatever) cross compiler installed. Then:
 
-3. git clone the procmap project
-4. cd procmap/procmap_kernel
-5. make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf-
-     
-(assuming the cross-compiler prefix is arm-linux-gnueabihf- (as is the case for the Raspberry Pi)
+3. `git clone` the procmap project
+4. `cd procmap/procmap_kernel`
+5. `make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf-`
+
+(assuming the cross-compiler prefix is `arm-linux-gnueabihf-` (as is the case for the Raspberry Pi 32-bit)
 
 6. Now verify that the procmap.ko kernel module is successfully built
 7. If all okay, transfer it (scp or otherwise) to your target; place it (within the procmap source tree on the target device) in the *procmap/procmap_kernel* directory
 8. run *procmap* - it should now work.
 
 
-***How does procmap work?***
+##How does procmap work?##
 
-**In a nutshell, in kernel-space:**
+###In a nutshell, in kernel-space:###
 
 The kernel memory map is garnered via the kernel component of this project - a *Loadable Kernel Module*. It collates all required information and makes that info available to userspace via a common interfacing technique - a debugfs (pseudo) file. Particulars:
 
@@ -58,7 +66,7 @@ Assuming the debugfs filesystem is mounted at /sys/kernel/debug, the kernel modu
 
 Reading this file generates the required kernel information, which the scripts interpret and display.
 
-**In a nutshell, in userspace:**
+###In a nutshell, in userspace:###
 
 The userspace memory map is collated and displayed by iterating over the `/proc/PID/maps` pseudo-file of the given process.
 
@@ -75,7 +83,7 @@ To aid with visualization of the process VAS, we show the relative vertical "len
 
 The script works on both 32 and 64-bit Linux OS (lightly tested, I request more testing and bug/issue reports please!).
 
-***Requirements:***
+##Requirements:##
 
 Kernel:
 
@@ -97,7 +105,7 @@ Also of course, you require *root* access (to install the kernel module (or the 
 
 **Example**
 
-As an example, below, we run our script on process PID 1 on an x86_64 Ubuntu 18.04 Linux box. The resulting putput is pretty large; thus, we show a few (four) partial screenshots below; this should be enough to help you visualize the typical output. Of course, nothing beats cloning this project and trying it out yourself!
+As an example, below, we run our script on process PID 1 on an x86_64 Ubuntu 18.04 Linux box. The resulting putput is pretty large; thus, we show a few (four) partial screenshots below; this should be enough to help you visualize the typical output. Of course, nothing beats cloning or forking this project and trying it out yourself!
 
 ![screenshot 1 of 4 of procmap run](Screenshot1_x86_64.png)
 
