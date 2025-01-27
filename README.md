@@ -24,7 +24,7 @@ It outputs a simple visualization of the complete memory map of a given process 
     ...
     $
 
-##Platforms that procmap has been tested upon:##
+## Platforms that procmap has been tested upon:
 
 - x86_64 (Ubuntu, Fedora distros)
 - AArch32
@@ -35,7 +35,7 @@ It outputs a simple visualization of the complete memory map of a given process 
     - TI BGP (BeaglePlay)
 
 
-##IMPORTANT: Running procmap on systems other than x86_64##
+## IMPORTANT: Running procmap on systems other than x86_64
 
 On systems other than x86_64 (like AArch32/AArch64/etc), we don't know for sure if the *kernel module component* can be compiled and built while executing on
 the target system; it may be possible to, it may not. Technically, to build a kernel module on the target system, you will require it to have a kernel development environment setup; this boils down to having the compiler, make and - key here - the 'kernel headers' package installed *for the kernel version it's currently running upon*. This can be a big ask... f.e., am running a *custom* 5.4 kernel on my Raspberry Pi; everything works fine, but as the kernel source tree for 5.4 isn't present (nor is there any kernel headers package), building kernel modules on it fails (while it works with the stock Raspbian kernel).
@@ -55,9 +55,9 @@ So: **you will have to cross-compile the kernel module**; to do so:
 8. run *procmap* - it should now work.
 
 
-##How does procmap work?##
+## How does procmap work?
 
-###In a nutshell, in kernel-space:###
+### In a nutshell, in kernel-space:
 
 The kernel memory map is garnered via the kernel component of this project - a *Loadable Kernel Module*. It collates all required information and makes that info available to userspace via a common interfacing technique - a debugfs (pseudo) file. Particulars:
 
@@ -66,7 +66,7 @@ Assuming the debugfs filesystem is mounted at /sys/kernel/debug, the kernel modu
 
 Reading this file generates the required kernel information, which the scripts interpret and display.
 
-###In a nutshell, in userspace:###
+### In a nutshell, in userspace:
 
 The userspace memory map is collated and displayed by iterating over the `/proc/PID/maps` pseudo-file of the given process.
 
@@ -83,7 +83,7 @@ To aid with visualization of the process VAS, we show the relative vertical "len
 
 The script works on both 32 and 64-bit Linux OS (lightly tested, I request more testing and bug/issue reports please!).
 
-##Requirements:##
+## Requirements:
 
 Kernel:
 

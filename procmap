@@ -107,14 +107,6 @@ The following option switches are all optional:
  -k|--only-kernel: show ONLY the kernel-space mappings or segments (not user VAS)
    [-u and -k are mutually exclusive and the default is to show BOTH]
  --export-maps=filename
-<<<<<<< HEAD
-     write all map information gleaned to the file you specify in CSV format
- --export-kernel=filename
-     write kernel information gleaned to the file you specify in CSV format
- --verbose       : verbose mode (try it! see below for details)
- --debug         : run in debug mode
- --version|--ver : display version info.
-=======
                  : write all map information gleaned to the file you specify in CSV
  --export-kernel=filename
                  : write kernel information gleaned to the file you specify in CSV
@@ -122,7 +114,6 @@ The following option switches are all optional:
  -d|--debug      : run in debug mode
  --ver|--version : display version info
  -h|--help       : display this help screen.
->>>>>>> 116e80274dd022a5572da014e79d8c3958936cd2
 
 See the config file as well.
 
