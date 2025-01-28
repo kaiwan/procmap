@@ -124,20 +124,20 @@ As an example, below, we run our script on process PID 1 on an x86_64 Ubuntu 18.
 [...]
 
 
-**Note:**
+## A Note on the (optional) statistics display
 
-- As of now, we also show some **statistics** when done. The stats display is set to Off by default; to turn them On, set the `config:SHOW_STATS` variable to `1`. Once turned on, these stats show up:
-     - total sizes of kernel and user VAS's (bytes to TB range)
-     - total RAM reported by the system
+We optionally show some **statistics** when done. The stats display is set to Off by default; to turn them On, set the `config:SHOW_STATS` variable to `1`. Once on, these stats show up:
 
-     - If the process user virtual address space (VAS) memory is displayed, the stats also show, for that process:
-        - the total number of VMA (Virtual Memory Area) objects the kernel currently maintains for it, and how many are 'sparse' regions
-        - the amount and percentage of memory in it's userspace VAS that is just 'sparse' (empty; on 64-bit systems it can be very high!) vs the actually used memory amount and percentage
+ - Total sizes of kernel and user VAS's (bytes to TB range)
+ - Total RAM reported by the system
 
-         - memory usage statistics for this process via:
-            - ps(1)
-            - smem(8)
+ - If the process user virtual address space (VAS) memory is displayed, the stats also show, for that process:
+   - The total number of VMA (Virtual Memory Area) objects the kernel currently maintains for it, and how many are 'sparse' regions
+   - The amount and percentage of memory in it's userspace VAS that is just 'sparse' (empty; on 64-bit systems it can be very high!) vs the actually used memory amount and percentage
+   - Memory usage statistics for this process via:
+     - ps(1)
+     - smem(8)
 
-- As a bonus, the output is logged - appended - to the file log_procmap.txt. Look up this log when done.
+As a bonus, the output is logged - appended - to the file `log_procmap.txt`. Look it up when done.
 
 [End doc]
