@@ -15,6 +15,17 @@
 # Project URL:
 # https://github.com/kaiwan/seals
 
+[ -z "${PDIR}" ] && {
+  PDIR="$(which $0)"
+  PDIR="$(dirname $0)"  # true if procmap isn't in PATH
+  PFX="$(dirname ${PDIR})"    # dir in which this script and tools reside
+
+  source ${PFX}/../err_common.sh || {
+    echo "${name}: fatal: could not source file '${PFX}/../err_common.sh', aborting..."
+    exit 1
+  }
+}
+
 #------------------- Colors!! Yay :-) -----------------------------------------
 # Ref: https://stackoverflow.com/questions/5947742/how-to-change-the-output-color-of-echo-in-linux
 # [Ans by Drew Noakes]
@@ -152,7 +163,7 @@ Echo()
  local msgpfx2_disp=""
  [ ${VERBOSE_MSG} -eq 1 ] && msgpfx2_disp="${msgpfx2_log}"
 
- local msgtxt="$@"
+ local msgtxt="$*"
  local msgfull_log="${msgpfx1_log}${msgpfx2_log}${msgtxt}"
  local msg_disp="${msgpfx1_disp}${SEP}${msgtxt}"
  [ ${VERBOSE_MSG} -eq 1 ] && msg_disp="${msgfull_log}"
