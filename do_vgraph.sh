@@ -33,26 +33,9 @@
 # kaiwan -dot- billimoria -at- gmail -dot- com
 # kaiwanTECH
 # License: MIT.
-PFX=$(dirname $(which $0 2>/dev/null))    # dir in which 'procmap' and tools reside
-source ${PFX}/common.sh || {
- echo "${name}: fatal: could not source ${PFX}/common.sh , aborting..."
- exit 1
-}
-source ${PFX}/config || {
- echo "${name}: fatal: could not source ${PFX}/config , aborting..."
- exit 1
-}
-source ${PFX}/lib_procmap.sh || {
- echo "${name}: fatal: could not source ${PFX}/lib_procmap.sh , aborting..."
- exit 1
-}
 source ${PFX}/do_kernelseg.sh || {
- echo "${name}: fatal: could not source ${PFX}/do_kernelseg.sh , aborting..."
- exit 1
-}
-source ${ARCHFILE} || {
- echo "${name}: fatal: could not source ${ARCHFILE} , aborting..."
- exit 1
+   echo "${name}: fatal: could not source ${PFX}/do_kernelseg.sh , aborting..."
+   exit 1
 }
 
 # Titles, etc...

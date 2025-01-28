@@ -4,10 +4,7 @@
 # https://github.com/kaiwan/procmap
 #
 # (c) Kaiwan NB
-source ${PFX}/config || {
- echo "${name}: fatal: could not source ${PFX}/config , aborting..."
- exit 1
-}
+
 # All arch-specific vars are here!
 source ${ARCHFILE} || {
  echo "${name}: fatal: could not source ${ARCHFILE} , aborting..."

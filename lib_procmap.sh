@@ -18,10 +18,6 @@ source ${PFX}/common.sh || {
  echo "${name}: fatal: could not source ${PFX}/common.sh , aborting..."
  exit 1
 }
-source ${PFX}/config || {
- echo "${name}: fatal: could not source ${PFX}/config , aborting..."
- exit 1
-}
 source ${PFX}/.scratchfile
 
 LOCATED_REGION_ENTRY="<--LOCATED-->"

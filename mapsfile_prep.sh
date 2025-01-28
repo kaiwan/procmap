@@ -10,16 +10,6 @@
 # kaiwan -at- kaiwantech -dot- com
 # kaiwanTECH
 # License: MIT
-PFX=$(dirname $(which $0 2>/dev/null))    # dir in which 'procmap' and tools reside
-source ${PFX}/common.sh || {
- echo "${name}: fatal: could not source ${PFX}/common.sh , aborting..."
- exit 1
-}
-source ${PFX}/config || {
- echo "${name}: fatal: could not source ${PFX}/config , aborting..."
- exit 1
-}
-
 TMPF=/tmp/${name}/prep.$$
 TMPF_R=${TMPF}.reversed
 gencsv()
@@ -27,7 +17,9 @@ gencsv()
 #sudo awk '{print $1, $6}' ${infile} > ${TMPF}
 # CSV format for the foll fields:
 #  start_uva,end_uva,mode/p|s,offset,image_file
-sudo awk '{printf("%s,%s,%s,%s\n", $1,$2,$3,$6)}' ${infile} > ${TMPF}
+sudo awk '{printf("%s,%s,%s,%s\n", $1,$2,$3,$6)}' ${infile} | sudo tee ${TMPF} >/dev/null
+#shellcheck: ^-- SC2024 (warning): sudo doesn't affect redirects. Use ..| sudo tee file
+#sudo awk '{printf("%s,%s,%s,%s\n", $1,$2,$3,$6)}' ${infile} > ${TMPF}
 sed --in-place 's/-/,/' ${TMPF}
 sed --in-place 's/ /,/' ${TMPF}
 # del comment lines
