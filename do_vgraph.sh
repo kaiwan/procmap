@@ -361,7 +361,6 @@ disp_fmt
 
  #--- Footer
  tput bold
-# printf "\n[=====---  End memory map for %d:%s  ---=====]\n" ${PID} ${PRCS_NAME}
  [[ ${ITS_A_THREAD} -eq 0 ]] && {
 	printf "[=====---  End memory map for process %d:%s  ---=====]\n" ${PID} ${PRCS_NAME}
  } || {
@@ -546,6 +545,12 @@ fi
    # The [vsyscall] VMA shows up but the NULL trap doesn't
    [ ${SHOW_VSYSCALL_PAGE} -eq 1 ] && let numvmas=numvmas+1  # for the NULL trap page
 
+   #--- Total reported memory (RAM) on the system
+   local totalram_kb=$(grep "^MemTotal" /proc/meminfo |cut -d: -f2|awk '{print $1}')
+   local totalram=$(bc <<< "${totalram_kb}*1024")
+   printf "\nTotal reported memory (RAM) on this system:\n"
+   largenum_display ${totalram}
+
  if [ ${SHOW_USERSPACE} -eq 1 ] ; then
    printf "\n\n=== Statistics for Userspace: ===\n"
    printf "For PID %d:%s\n" ${PID} ${name}
@@ -561,12 +566,6 @@ fi
    printf "\nTotal User VAS that's valid (mapped) memory:\n"
    largenum_display ${gTotalSegSize} ${USER_VAS_SIZE}
    printf "\n===\n"
-
-   #--- Memory occupied by this process
-   local totalram_kb=$(grep "^MemTotal" /proc/meminfo |cut -d: -f2|awk '{print $1}')
-   local totalram=$(bc <<< "${totalram_kb}*1024")
-   printf "\nTotal reported memory (RAM) on this system:\n"
-   largenum_display ${totalram}
 
    # Show ps and smem stats only if it's a process and not a worker/child thread of some process
    [[ ${ITS_A_THREAD} -eq 1 ]] && {
