@@ -3,6 +3,8 @@
 
 It outputs a simple visualization of the complete memory map of a given process in a vertically-tiled format **ordered by descending virtual address** (see **screenshots** below). The script has the intelligence to show kernel and userspace mappings as well as calculate and show the sparse memory regions that will be present. Also, each segment or mapping is (very approximately) scaled by relative size and color-coded for readability. On 64-bit systems, it also shows the so-called non-canonical sparse region or 'hole' (typically close to a whopping 16,384 PB on the x86_64).
 
+***Hey, be sure to see the [Examples](https://github.com/kaiwan/procmap#examples) section !***
+
 ***Usage:***
 
     $ ./procmap
@@ -109,6 +111,9 @@ Also of course, you require *root* access (to install the kernel module (or the 
 
 In case you can't see or play the above (quite fantastic!) '*asciinema*' widget, pl visit this link to see the ASCII screencast:
 https://asciinema.org/a/700116 
+
+### 2. Running procmap on the TI BeagleBone Black (BBB) ARM-32 board (with PID set to a 'bash' process)
+[![asciicast](https://asciinema.org/a/700143.svg)](https://asciinema.org/a/700143)
 
 
 ## A Note on the (optional) statistics display
