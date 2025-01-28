@@ -55,9 +55,29 @@ shift ; shift
 runcmd "$*"
 }
 
+source ../color.sh || {
+  echo "couldn't source ../color.sh"; exit 1
+}
+Echo_tests()
+{
+echo "Echo*() tests:"
+
+DEBUG=1 ; decho  "decho test: DEBUG == 1" # should show
+DEBUG=0 ; decho  "decho test: DEBUG == 0" # shouldn't show
+iecho  "iecho test"
+aecho  "aecho test"
+wecho  "wecho test"
+cecho  "cecho test"
+techo  "techo test"
+}
+
 
 #--- 'main'
-[[ ! -x ${PROCMAP} ]] && die "procmap script not located crrectly? (value = ${PROCMAP})"
+[[ ! -x ${PROCMAP} ]] && die "procmap script not located correctly? (value = ${PROCMAP})"
+
+Echo_tests
+echo "[Enter] to proceed, ^C to abort ..."; read
+
 gen_and_run_put
 PID=$(pgrep --newest put)
 [[ -z "${PID}" ]] && PID=1
@@ -74,6 +94,9 @@ runtest n ${NTC} "${PROCMAP} --pid=-100"
 runtest n ${NTC} "${PROCMAP} -p -9"
 runtest n ${NTC} "${PROCMAP} -p abc0"
 runtest n ${NTC} "${PROCMAP} -p 1234567890"
+
+# TODO : test case w/ v large user VAS (eg. python..)
+# and the 'heap' (still) shows up too high in the u VAS !
 
 # test cases with all/any options passed
 
