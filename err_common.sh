@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #------------------------------------------------------------------
 # err_common.sh
 #
@@ -8,7 +8,7 @@
 # kaiwan -at- kaiwantech -dot- com
 # MIT / GPL v2
 #------------------------------------------------------------------
-export TOPDIR=$(pwd)
+export TOPDIR="$(pwd)"
 export VERBOSE_MSG=0
 export DEBUG=0
 # Replace with log filename
@@ -17,14 +17,14 @@ export COLOR=1
 
 #--- Icons
 # src: /usr/share/icons/Humanity/actions/
-ICON_NEXT=go-next
-ICON_BACK=go-previous
-ICON_YES=add  #go-next
-ICON_NO=remove   #gtk-remove
-ICON_ADD=add  #gtk-add
-ICON_REGISTER=player_record
-ICON_SIGNIN=format-text-direction-ltr
-ICON_EXIT=stock_mark   #system-log-out
+#ICON_NEXT=go-next
+#ICON_BACK=go-previous
+#ICON_YES=add  #go-next
+#ICON_NO=remove   #gtk-remove
+#ICON_ADD=add  #gtk-add
+#ICON_REGISTER=player_record
+#ICON_SIGNIN=format-text-direction-ltr
+#ICON_EXIT=stock_mark   #system-log-out
 
 
 # QP
@@ -35,7 +35,7 @@ QP()
 	_ERR_HDR_FMT="%.23s %s[%s]: "
 	_ERR_MSG_FMT="${_ERR_HDR_FMT}%s\n"
     [ ${COLOR} -eq 1 ] && fg_blue
-	printf " QP: $_ERR_MSG_FMT" $(date +%F.%T.%N) " ${BASH_SOURCE[1]##*/}:${FUNCNAME[2]}" |tee -a ${LOGFILE_COMMON}
+	printf " QP: $_ERR_MSG_FMT" "$(date +%F.%T.%N)" " ${BASH_SOURCE[1]##*/}:${FUNCNAME[2]}" |tee -a ${LOGFILE_COMMON}
 	dumpstack
 	#printf " QP: $_ERR_MSG_FMT" $(date +%F.%T.%N) " ${BASH_SOURCE[1]##*/}:${BASH_LINENO[0]}" |tee -a ${LOGFILE_COMMON}
     [ ${COLOR} -eq 1 ] && color_reset
@@ -78,7 +78,7 @@ cli_handle_error()
   if [ $# -lt 1 ] ; then
 	cecho "FatalError :: <no error msg>"
   else
-	cecho "FatalError :: $@"
+	cecho "FatalError :: $*"
   fi
   dumpstack
   [ ${COLOR} -eq 1 ] && color_reset
@@ -126,7 +126,7 @@ warn()
 {
   [ $# -eq 0 ] && return
   fg_yellow
-  ShowTitle "!WARNING! $@"
+  ShowTitle "!WARNING! $*"
   #QP
   color_reset
 }

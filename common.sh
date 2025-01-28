@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #------------------------------------------------------------------
 # common.sh
 #
@@ -8,11 +8,11 @@
 # kaiwan -at- kaiwantech -dot- com
 # License: MIT
 #------------------------------------------------------------------
-export TOPDIR=$(pwd)
-ON=1
-OFF=0
-
-PFX=$(dirname $(which $0 2>/dev/null))    # dir in which 'procmap' and tools reside
+export TOPDIR="$(pwd)"
+#ON=1
+#OFF=0
+name=$(basename $0)
+PFX=$(dirname "$(which $0 2>/dev/null)")    # dir in which 'procmap' and tools reside
 source ${PFX}/err_common.sh || {
  echo "$name: could not source ${PFX}/err_common.sh, aborting..."
  exit 1
@@ -34,8 +34,8 @@ prompt()
 runcmd()
 {
 [ $# -eq 0 ] && return
-echo "$@"
-eval "$@"
+echo "$*"
+eval "$*"
 }
 
 # ref: https://stackoverflow.com/questions/369758/how-to-trim-whitespace-from-a-bash-variable
@@ -100,7 +100,7 @@ mysudo()
 }
 local msg=$1
 shift
-local cmd="$@"
+local cmd="$*"
 aecho "${LOGNAME}: ${msg}"
 sudo --preserve-env sh -c "${cmd}"
 }
@@ -112,7 +112,7 @@ sudo --preserve-env sh -c "${cmd}"
 # "AIA" = Abort If Absent :-)
 check_root_AIA()
 {
-	if [ `id -u` -ne 0 ]; then
+	if [ $(id -u) -ne 0 ]; then
 		Echo "Error: need to run as root! Aborting..."
 		exit 1
 	fi
@@ -184,7 +184,7 @@ GetIP()
 get_yn_reply()
 {
 aecho -n "Type Y or N please (followed by ENTER) : "
-str="${@}"
+str="${*}"
 while true
 do
    aecho ${str}
@@ -297,7 +297,7 @@ trim_string_middle()
 vecho()
 {
 [ ${VERBOSE} -eq 0 ] && return
-echo "[v] $@"
+echo "[v] $*"
 }
 
 #---------- c h e c k _ d e p s ---------------------------------------
@@ -316,7 +316,7 @@ local util needinstall=0
 local severity=$1
 shift
 
-for util in $@
+for util in "$@"
 do
  which ${util} > /dev/null 2>&1 || {
    [ ${needinstall} -eq 0 ] && wecho "The following utilit[y|ies] or package(s) do NOT seem to be installed:"
@@ -382,4 +382,3 @@ local lwp=$(echo ${t1} |cut -d' ' -f2)
 	return 1
   }
 }
-

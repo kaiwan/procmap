@@ -13,7 +13,7 @@
 #  set -euo pipefail 
 # Ref: http://redsymbol.net/articles/unofficial-bash-strict-mode/
 #---
-PFX=$(dirname $(which $0 2>/dev/null))    # dir in which 'procmap' and tools reside
+PFX=$(dirname "$(which $0 2>/dev/null)")    # dir in which 'procmap' and tools reside
 source ${PFX}/common.sh || {
  echo "${name}: fatal: could not source ${PFX}/common.sh , aborting..."
  exit 1
@@ -180,7 +180,7 @@ build_lkm()
  echo "[i] kernel: building the procmap kernel module now..."
 
  # kernel headers?
- [ ! -e /lib/modules/$(uname -r)/build ] && {
+ [ ! -e /lib/modules/"$(uname -r)"/build ] && {
     FatalError "${name}: suitable build env for kernel modules is missing! \
 Pl install the Linux kernel headers (via the appropriate package). If you \
 cannot install a 'kernel headers' package (perhaps you're running a custom \
@@ -247,7 +247,10 @@ set +x
 
   # Finally! generate the kernel seg details
   rm -f ${KSEGFILE} 2>/dev/null
-  sudo cat ${DBGFS_LOC}/${KMOD}/${DBGFS_FILENAME} > ${KSEGFILE}.$$
+  sudo cat ${DBGFS_LOC}/${KMOD}/${DBGFS_FILENAME} | sudo tee ${KSEGFILE}.$$ >/dev/null
+  # shellcheck: ^-- SC2024 (warning): sudo doesn't affect redirects. Use ..| sudo tee file
+  #sudo cat ${DBGFS_LOC}/${KMOD}/${DBGFS_FILENAME} > ${KSEGFILE}.$$
+
   # CSV fmt:
   #  start_kva,end_kva,mode,name-of-region
 
