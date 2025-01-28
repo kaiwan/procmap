@@ -103,25 +103,12 @@ User utils:
 
 Also of course, you require *root* access (to install the kernel module (or the CAP_SYS_MODULE capability), and get the details of any process from /proc/PID/<...>).
 
-**Example**
+## Examples
+### 1. Running procmap on an x86_64 Ubuntu 24.04 LTS box (with PID set to 1)
+[![asciicast](https://asciinema.org/a/700116.svg)](https://asciinema.org/a/700116) 
 
-As an example, below, we run our script on process PID 1 on an x86_64 Ubuntu 18.04 Linux box. The resulting putput is pretty large; thus, we show a few (four) partial screenshots below; this should be enough to help you visualize the typical output. Of course, nothing beats cloning or forking this project and trying it out yourself!
-
-![screenshot 1 of 4 of procmap run](Screenshot1_x86_64.png)
-
-[...]
-
-![screenshot 2 of 4 of procmap run](Screenshot2_x86_64.png)
-
-[...]
-
-![screenshot 3 of 4 of procmap run](Screenshot3_x86_64.png)
-
-[...]
-
-![screenshot 4 of 4 of procmap run](Screenshot4_x86_64.png)
-
-[...]
+In case you can't see or play the above (quite fantastic!) '*asciinema*' widget, pl visit this link to see the ASCII screencast:
+https://asciinema.org/a/700116 
 
 
 ## A Note on the (optional) statistics display
