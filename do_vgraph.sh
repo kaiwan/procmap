@@ -94,7 +94,7 @@ gkRow=0
 #-----------------------s h o w A r r a y -----------------------------
 # Parameters:
 #   $1 : debug print; if 1, it's just a debug print, if 0 we're writing it's
-#        data to a file in order to proess further (sort/etc)
+#        data to a file in order to process further (sort/etc)
 showArray()
 {
 local i k DIM=6
@@ -102,7 +102,7 @@ local i k DIM=6
 if [ $1 -eq 1 ] ; then
   echo
   decho "gRow = ${gRow}"
-  # gArray ::  [segname],[size],[start_uva],[end_uva],[mode],[offset]
+  # gArray ::  [segname],[size],[start_va],[end_va],[mode],[offset]
   echo "showArray():
 [segname,size,start_uva,end_uva,mode,offset]"
 fi
@@ -123,11 +123,14 @@ do
     # Then sort works correctly and all's well!
     # (Interestingly, the %0zx printf format has it work portably for 32 and 64
     # bit - avoiding the need to explicitly do %08x / %016x for 32/64 bit!)
-    printf "%0zx," "0x${gArray[${k}]}"   # start uva
+    printf "%0zx," "0x${gArray[${k}]}"   # start va
 	let k=i+3
-    printf "%0zx," "0x${gArray[${k}]}"   # end uva
+    printf "%0zx," "0x${gArray[${k}]}"   # end va
     #---
 	let k=i+4
+    # UNSURE / RELOOK
+    # error here ?? only on console device (no color)
+    # 'environment: line 131: printf: : invalid number' ??
     printf "%s," "${gArray[${k}]}"     # mode+flag
 	let k=i+5
     printf "%x\n" "0x${gArray[${k}]}" # file offset

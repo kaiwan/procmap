@@ -31,50 +31,52 @@
 # [Ans by Drew Noakes]
 # Useful Ref! https://i.stack.imgur.com/a2S4s.png
 
+# Always fail gracefully (via the tput <...> || true )
+# This is required on consoles that don't support colour!
 #--- Foreground Colors
-fg_black() { tput setaf 0 
+fg_black() { tput setaf 0 || true
 }
-fg_darkgrey() { tput setaf 232
+fg_darkgrey() { tput setaf 232 || true
 }
-fg_red() { tput setaf 1
+fg_red() { tput setaf 1 || true
 }
-fg_purple() { tput setaf 125
+fg_purple() { tput setaf 125 || true
 }
-fg_orange() { tput setaf 166
+fg_orange() { tput setaf 166 || true
 }
-fg_green() { tput setaf 2 
+fg_green() { tput setaf 2 || true
 }
-fg_darkgreen() { tput setaf 22
+fg_darkgreen() { tput setaf 22 || true
 }
-fg_yellow() { tput setaf 3
+fg_yellow() { tput setaf 3 || true
 }
-fg_blue() { tput setaf 4
+fg_blue() { tput setaf 4 || true
 }
-fg_navyblue() { tput setaf 17
+fg_navyblue() { tput setaf 17 || true
 }
-fg_magenta() { tput setaf 5
+fg_magenta() { tput setaf 5 || true
 }
-fg_cyan() { tput setaf 6
+fg_cyan() { tput setaf 6 || true
 }
-fg_white() { tput setaf 7
+fg_white() { tput setaf 7 || true
 }
-fg_grey() { tput setaf 8
+fg_grey() { tput setaf 8 || true
 }
  
 #--- Background Colors
-bg_white() { tput setab 7
+bg_white() { tput setab 7 || true
 }
-bg_gray() { tput setab 250
+bg_gray() { tput setab 250 || true
 }
-bg_red() { tput setab 1
+bg_red() { tput setab 1 || true
 }
-bg_green() { tput setab 2
+bg_green() { tput setab 2 || true
 }
-bg_yellow() { tput setab 3
+bg_yellow() { tput setab 3 || true
 }
-bg_blue() { tput setab 4
+bg_blue() { tput setab 4 || true
 }
-bg_cyan() { tput setab 6
+bg_cyan() { tput setab 6 || true
 }
 
 #--- Text Attributes  <-- NOK!
@@ -97,7 +99,7 @@ bg_cyan() { tput setab 6
 #  Reset text attributes to normal without clearing screen.
 color_reset()
 { 
-   tput sgr0 
+   tput sgr0 || true
 } 
 
 #--------------------- E c h o ----------------------------------------
@@ -186,7 +188,7 @@ Echo()
  color_reset                      # Reset to normal.
  
  case "${tag}" in
-   DDEBUG) tput dim ; fg_cyan #fg_magenta
+   DDEBUG) tput dim || true ; fg_cyan #fg_magenta
          ;;
    INFO)  #tput        # Deliberate: no special attribs for 'info'
          ;;

@@ -381,8 +381,8 @@ shift $((OPTIND-1))
 LOG=log_procmap.txt
 TMPCSV=/tmp/${name}/vgrph.csv
 
-init_kernel_lkm_get_details |tee -a ${LOG}
-get_machine_set_arch_config |tee -a ${LOG}
+init_kernel_lkm_get_details |tee -a ${LOG} || true
+get_machine_set_arch_config |tee -a ${LOG} || true
 
 # Invoke the prep_mapsfile script to prep the memory map file
 ${PFX}/mapsfile_prep.sh ${PID} ${TMPCSV} || exit 1
