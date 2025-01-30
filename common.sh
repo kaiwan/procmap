@@ -316,8 +316,9 @@ local util needinstall=0
 local severity=$1
 shift
 
-for util in "$@"
+for util in $@
 do
+ #echo "util = $util"
  which ${util} > /dev/null 2>&1 || {
    [ ${needinstall} -eq 0 ] && wecho "The following utilit[y|ies] or package(s) do NOT seem to be installed:"
    iecho "[!]  ${util}"
@@ -327,7 +328,7 @@ do
 done
 if [ ${needinstall} -eq 1 ] ; then
    [ ${severity} -eq 1 ] && {
-      FatalError "You must first install the required package(s) shown above \
+      FatalError "You must first install the required package(s) or utilities shown above \
 (check console and log output too) and then retry, thanks. Aborting..."
    } || {
       wecho "WARNING! The package(s) shown above are not present"
