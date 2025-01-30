@@ -880,50 +880,50 @@ decho "nm = ${segname} ,  end_va = ${end_va}   ,   start_va = ${start_va}"
 
 	if [ ${rownum} -eq 1 ] ; then                            # first row
 	   decho "%%%%%%%%%%%%%%%%%% FIRST LOOP"
-       tput bold
-       if [ "${1}" = "-k" ] ; then
-          printf "%s ${FMTSPC_VA}\n" "${LIN_HIGHEST_K}" 0x"${end_va}"
-       elif [ "${1}" = "-u" ] ; then
+	   tput bold || true
+           if [ "${1}" = "-k" ] ; then
+              printf "%s ${FMTSPC_VA}\n" "${LIN_HIGHEST_K}" 0x"${end_va}"
+           elif [ "${1}" = "-u" ] ; then
   	      printf "%s ${FMTSPC_VA}\n" "${LIN_HIGHEST_U}" 0x${END_UVA}
-       fi
+           fi
 	   color_reset
 	elif [ ${rownum} -eq ${totalrows} ] ; then               # last loop iteration
 	   decho "%%%%%%%%%%%%%%%%%% LAST LOOP"
-       if [ "$1" = "-k" -a ${IS_64_BIT} -eq 1 ] ; then
-           tput bold
-           printf "%s ${FMTSPC_VA}" "${LIN_LOWEST_K}" 0x${START_KVA}
-	       insert_arch_label ${START_KVA}
-	       color_reset
+           if [ "$1" = "-k" -a ${IS_64_BIT} -eq 1 ] ; then
+              tput bold || true
+              printf "%s ${FMTSPC_VA}" "${LIN_LOWEST_K}" 0x${START_KVA}
+	      insert_arch_label ${START_KVA}
+	      color_reset
 	   else
-           printf "%s ${FMTSPC_VA}" "${LIN}" 0x${end_va}
-	       insert_arch_label ${end_va}
+              printf "%s ${FMTSPC_VA}" "${LIN}" 0x${end_va}
+	      insert_arch_label ${end_va}
 	   fi
 	 #elif [ ${rownum} -gt 0 ] ; then   # ** normal case **
 	else                                                    #  ** normal case **
 	   #decho "%%%%%%%%%%%%%%%%%% NORMAL LOOP"
 
 		 #============ -l option: LOCATE region ! ======================
-         if [ ${LOC_LEN} -ne 0 -a "${segname}" = "${LOCATED_REGION_ENTRY}" ]; then
-		    show_located_region_in_map
-			let rownum=rownum+1
-			continue
-		 fi
+           if [ ${LOC_LEN} -ne 0 -a "${segname}" = "${LOCATED_REGION_ENTRY}" ]; then
+	        show_located_region_in_map
+		let rownum=rownum+1
+		continue
+	   fi
 		
 		 #=== ** normal case ** ===
 #set -x
-         if [ "${segname}" != "${LOCATED_REGION_ENTRY}" ]; then
-            if [ ${flags} -eq 0 ] ; then
-			      printf "%s ${FMTSPC_VA}" "${LIN}" 0x"${end_va}"
-			elif  [ ${flags} -eq ${MAPFLAG_WITHIN_REGION} ] ; then
-			      printf "%s ${FMTSPC_VA}" "${LIN_WITHIN_REGION}" 0x"${end_va}"
-			fi
-		 fi
+           if [ "${segname}" != "${LOCATED_REGION_ENTRY}" ]; then
+               if [ ${flags} -eq 0 ] ; then
+		      printf "%s ${FMTSPC_VA}" "${LIN}" 0x"${end_va}"
+		elif  [ ${flags} -eq ${MAPFLAG_WITHIN_REGION} ] ; then
+		      printf "%s ${FMTSPC_VA}" "${LIN_WITHIN_REGION}" 0x"${end_va}"
+		fi
+	   fi
 
-		 if [ "$1" = "-k" ] ; then
-		    insert_arch_label ${end_va}
-		 else
-		    printf "\n"
-		 fi
+	   if [ "$1" = "-k" ] ; then
+	      insert_arch_label ${end_va}
+	   else
+	      printf "\n"
+	   fi
 #set +x
     fi
 
@@ -949,11 +949,19 @@ decho "nm = ${segname} ,  end_va = ${end_va}   ,   start_va = ${start_va}"
 		tmp3_nocolor=$(printf "[%7.2f MB" ${szMB})
 		tlen=${#tmp3_nocolor}
     elif (( $(echo "${szMB} > 1024" |bc -l) )); then
+#set -x
       if (( $(echo "${szGB} < 1024" |bc -l) )); then
 		# print GB only
-		tmp4=$(printf "%s%s[%7.2f GB%s" $(tput bold) $(fg_purple) ${szGB} $(color_reset))
+		#-- TODO / RELOOK !!! bug here!
+		# ++ printf '%s%s[%7.2f GB%s' '' 8.03 ''
+		# environment: line 132: printf: : invalid number
+		# + tmp4='8.03[   0.00 GB'
+		#--
+		#tmp4=$(printf "%s%s[%7.2f GB%s" $(tput bold) $(fg_purple) ${szGB} $(color_reset))
+		tmp4=$(printf "[%7.2f GB" ${szGB})
 		tmp4_nocolor=$(printf "[%7.2f GB" ${szGB})
 		tlen=${#tmp4_nocolor}
+#set +x
     elif (( $(echo "${szGB} > 1024" |bc -l) )); then
       if (( $(echo "${szTB} < 1024" |bc -l) )); then
 		# print TB only
