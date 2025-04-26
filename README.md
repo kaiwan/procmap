@@ -132,4 +132,16 @@ We optionally show some **statistics** when done. The stats display is set to Of
 
 As a bonus, the output is logged - appended - to the file `log_procmap.txt`. Look it up when done.
 
+### Exporting the output ###
+- Use the --export-maps=filename option to write all map information gleaned to the file filename (writes in CSV format).
+- If you just want the output (with color info), simply use output redirection:
+
+  `procmap -p 12345 > procmap_saved.txt`
+
+ It contains the ANSI color sequence codes within it; this is good, as to see it with color, simply 'cat' the file!
+    - If you want to strip out the ANSI color sequence, do this:
+
+  `sed -r 's/\x1B\[[0-9;]*[a-zA-Z]//g' procmap_saved.txt`
+
+
 [End doc]
