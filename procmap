@@ -23,7 +23,7 @@
 #
 # Thus, we obtain a full 'picture', a COMPLETE MEMORY MAP of the given process's
 # VAS (Virtual Address Space)!
-# 
+#
 # Common terms:
 #  kva = kernel virtual address
 #  uva =   user virtual address
@@ -376,7 +376,7 @@ XKERN_FILE=${XKERN_FILE}
 done
 shift $((OPTIND-1))
 
-[[ ${PID} -eq 0 ]] && err 0 "Error: Invalid PID (must be a positive integer)"
+[[ ${PID} -eq 0 ]] && err 0 "Specifying a valid PID with -p|--pid=<PID> is mandatory"
 
 LOG=log_procmap.txt
 TMPCSV=/tmp/${name}/vgrph.csv
