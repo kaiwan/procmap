@@ -291,86 +291,86 @@ do
 	-)                       # 'long' opts '--xxx' style, ala checksec!
  #echo "optarg = ${OPTARG}"
  #prompt
-		    case "${OPTARG}" in
-			  pid=*)
-				PID=$(echo "${OPTARG}" |cut -d"=" -f2)
-				validate_pid ${PID}
-			    ;;
-			  only-user)
-				show_selected_opt "[i] will display ONLY user VAS"
-				SHOW_KERNELSEG=0
-			    ;;
-			  only-kernel)
-			    show_selected_opt "[i] will display ONLY kernel VAS"
-				SHOW_USERSPACE=0
-			    ;;
-			  export-maps=*)
-				XMAP_FILE=$(echo "${OPTARG}" |cut -d"=" -f2)
-				[ -z "${XMAP_FILE}" ] && {
-					err 0 "${name}: pl specify the filename for the --export-maps=<filename> option"
-				}
-				[ -f ${XMAP_FILE} ] && {
-					err 0 "${name}: specified filename for --export-maps=<filename> option already exists, aborting..."
-				}
-				touch ${XMAP_FILE} || {
-					err 0 "${name}: cannot create/write to specified file \"${XMAP_FILE}\", pl re-specify it or adjust permissions"
-				}
-			    show_selected_opt "[i] will write all map info to ${XMAP_FILE} (CSV)"
-				# Write 'scratch' data that we require in other support scripts here..
-				cat >> ${SCRATCHFILE} << @EOF@
+	    case "${OPTARG}" in
+		  pid=*)
+			PID=$(echo "${OPTARG}" |cut -d"=" -f2)
+			validate_pid ${PID}
+		    ;;
+		  only-user)
+			show_selected_opt "[i] will display ONLY user VAS"
+			SHOW_KERNELSEG=0
+		    ;;
+		  only-kernel)
+		    show_selected_opt "[i] will display ONLY kernel VAS"
+			SHOW_USERSPACE=0
+		    ;;
+		  export-maps=*)
+			XMAP_FILE=$(echo "${OPTARG}" |cut -d"=" -f2)
+			[ -z "${XMAP_FILE}" ] && {
+				err 0 "${name}: pl specify the filename for the --export-maps=<filename> option"
+			}
+			[ -f ${XMAP_FILE} ] && {
+				err 0 "${name}: specified filename for --export-maps=<filename> option already exists, aborting..."
+			}
+			touch ${XMAP_FILE} || {
+				err 0 "${name}: cannot create/write to specified file \"${XMAP_FILE}\", pl re-specify it or adjust permissions"
+			}
+		    show_selected_opt "[i] will write all map info to ${XMAP_FILE} (CSV)"
+			# Write 'scratch' data that we require in other support scripts here..
+			cat >> ${SCRATCHFILE} << @EOF@
 XMAP_FILE=${XMAP_FILE}
 @EOF@
-			    ;;
-			  export-kernel=*)
+		    ;;
+		  export-kernel=*)
 	 	        XKERN_FILE=$(echo "${OPTARG}" |cut -d"=" -f2)
-				[ -z "${XKERN_FILE}" ] && {
-					err 0 "${name}: pl specify the filename for the --export-kernel=<filename> option"
-				}
-				[ -f ${XKERN_FILE} ] && {
-					err 0 "${name}: specified filename for --export-kernel=<filename> option already exists, aborting..."
-				}
-				touch ${XKERN_FILE} || {
+			[ -z "${XKERN_FILE}" ] && {
+				err 0 "${name}: pl specify the filename for the --export-kernel=<filename> option"
+			}
+			[ -f ${XKERN_FILE} ] && {
+				err 0 "${name}: specified filename for --export-kernel=<filename> option already exists, aborting..."
+			}
+			touch ${XKERN_FILE} || {
 					err 0 "${name}: cannot create/write to specified file \"${XKERN_FILE}\", pl re-specify it or adjust permissions"
-				}
-			    show_selected_opt "[i] will write kernel info to ${XKERN_FILE} (CSV)"
-				# Write 'scratch' data that we require in other support scripts here..
-				cat >> ${SCRATCHFILE} << @EOF@
+			}
+		    show_selected_opt "[i] will write kernel info to ${XKERN_FILE} (CSV)"
+			# Write 'scratch' data that we require in other support scripts here..
+			cat >> ${SCRATCHFILE} << @EOF@
 XKERN_FILE=${XKERN_FILE}
 @EOF@
-			    ;;
-			  locate=*)
-				LOCATE_SPEC=${OPTARG:7}  # cut out the 'locate=' beginning
-				LOC_STARTADDR=$(echo "${LOCATE_SPEC}" |cut -d, -f1)
-				# Validity check; expect the vaddr to be in hex (0x....)
-				[ "${LOC_STARTADDR:0:2}" != "0x" ] && {
-					err 0 "${name}: the start virtual address Must be specified as a hexadecimal qty (0x....)"
-				}
-				# validate that a length has actually been passed
-				LOC_LEN=$(echo "${LOCATE_SPEC}" |cut -d, -f2)
-				decho "LOC_LEN = ${LOC_LEN}"
-				[[ ( -z "${LOC_LEN}" ) || ( ${LOC_LEN} -le 0 ) ]] && {
-					err 0 "${name}: the length of the virtual address region to locate must be positive (KB)"
-				}
-				show_selected_opt "[i] locate region from (${LOCATE_SPEC}) (start-vaddr,len-in-Kb)"
-				;;
-			  verbose)
-				export VERBOSE=1
-				show_selected_opt "[i] running in VERBOSE mode"
-				;;
-			  debug)
-				export DEBUG=1
-				show_selected_opt "[i] running in DEBUG mode"
-				;;
-			  ver|version)
-			    procmap_version
-				exit 0
-				;;
-			  help)
-			    usage
-				exit 0
-				;;
-			  *) err 1 "Unknown option '${OPTARG}'"
-				;;
+		    ;;
+		  locate=*)
+			LOCATE_SPEC=${OPTARG:7}  # cut out the 'locate=' beginning
+			LOC_STARTADDR=$(echo "${LOCATE_SPEC}" |cut -d, -f1)
+			# Validity check; expect the vaddr to be in hex (0x....)
+			[ "${LOC_STARTADDR:0:2}" != "0x" ] && {
+				err 0 "${name}: the start virtual address Must be specified as a hexadecimal qty (0x....)"
+			}
+			# validate that a length has actually been passed
+			LOC_LEN=$(echo "${LOCATE_SPEC}" |cut -d, -f2)
+			decho "LOC_LEN = ${LOC_LEN}"
+			[[ ( -z "${LOC_LEN}" ) || ( ${LOC_LEN} -le 0 ) ]] && {
+				err 0 "${name}: the length of the virtual address region to locate must be positive (KB)"
+			}
+			show_selected_opt "[i] locate region from (${LOCATE_SPEC}) (start-vaddr,len-in-Kb)"
+			;;
+		  verbose)
+			export VERBOSE=1
+			show_selected_opt "[i] running in VERBOSE mode"
+			;;
+		  debug)
+			export DEBUG=1
+			show_selected_opt "[i] running in DEBUG mode"
+			;;
+		  ver|version)
+		    procmap_version
+			exit 0
+			;;
+		  help)
+		    usage
+			exit 0
+			;;
+		  *) err 1 "Unknown option '${OPTARG}'"
+			;;
   	        esac
   	esac
 done
