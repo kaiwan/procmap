@@ -358,14 +358,14 @@ disp_fmt
  if [ ${VERBOSE} -eq 1 -a ${SHOW_USERSPACE} -eq 1 ]; then
     printf "[Pathname: %s ]\n" ${PRCS_PATHNAME}
     printf "\n[v] "
-    runcmd sudo ls -l ${PRCS_PATHNAME}
+    runcmd "ls -l ${PRCS_PATHNAME}"
     printf "\n[v] "
-    runcmd sudo file ${PRCS_PATHNAME}
+    runcmd "file ${PRCS_PATHNAME}"
 
     which ldd >/dev/null 2>&1 && {
 	  # arch-specific?
       printf "\n[v] "
-      runcmd sudo ldd ${PRCS_PATHNAME}
+      runcmd "ldd ${PRCS_PATHNAME}"
       #printf "\n"
     }
  fi
@@ -411,10 +411,20 @@ main_wrapper()
  printf "https://github.com/kaiwan/procmap\n\n"
  date
 
- PRCS_PATHNAME=$(realpath /proc/${PID}/exe 2>/dev/null) || true
- [[ -z "${PRCS_PATHNAME}" ]] && PRCS_PATHNAME=$(sudo realpath /proc/${PID}/exe 2>/dev/null) || true
- PRCS_NAME=$(sudo cat /proc/${PARENT_PROCESS}/comm)
- THRD_NAME=$(sudo cat /proc/${PID}/comm)
+ # If we can't get the real name via /proc/pid/exe, fallback to using /proc/pid/status and 'which'
+ [[ -z "${PRCS_PATHNAME}" ]] && {
+   PRCS_PATHNAME=$(realpath /proc/${PID}/exe 2>/dev/null) || {
+      local name=$(grep "^Name" /proc/${PID}/status |cut -d: -f2|xargs)  #|xargs to trim whitespace!
+      PRCS_PATHNAME=$(which ${name})
+   }
+ }
+ # PARENT_PROCESS is the orig PID
+ PRCS_NAME=$(cat /proc/${PARENT_PROCESS}/comm 2>/dev/null) || \
+    PRCS_NAME=$(grep "^Name" /proc/${PID}/status |cut -d: -f2|xargs)  #|xargs to trim whitespace!
+ #PRCS_PPID=$(ps -o ppid= -p ${PID})
+ PRCS_PPID=$(ps -LA |awk -v pid=${PID} '$2==pid {print $1}')
+ THRD_NAME=$(cat /proc/${PRCS_PPID}/task/${PID}/comm 2>/dev/null) || \
+    THRD_NAME=$(ps -o comm= -p ${PID})
 
  tput bold
  [[ ${ITS_A_THREAD} -eq 0 ]] && {
@@ -423,7 +433,7 @@ main_wrapper()
 	printf "[=====---  Start memory map for thread %d:%s of process %d:%s  ---=====]\n" \
 		${PID} ${THRD_NAME} ${PARENT_PROCESS} ${PRCS_NAME}
  }
- printf "[Pathname: %s ]\n" ${PRCS_PATHNAME} #$(sudo realpath /proc/${PID}/exe)
+ printf "[Pathname: %s ]\n" ${PRCS_PATHNAME}
  color_reset
  disp_fmt
 
