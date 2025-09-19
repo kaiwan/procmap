@@ -146,8 +146,8 @@ parse_ksegfile_write_archfile()
 
  # Delete the PAGE_SIZE and TASK_SIZE lines from the KSEGFILE file
  # as we don't want it in the kernel map processing loop that follows
- sed --in-place '/^PAGE_SIZE/d' ${KSEGFILE}
- sed --in-place '/^TASK_SIZE/d' ${KSEGFILE}
+ sed --in-place '/^PAGE_SIZE/d' ${KSEGFILE} 2>/dev/null
+ sed --in-place '/^TASK_SIZE/d' ${KSEGFILE} 2>/dev/null
 
 # We *require* these 'globals' again later in the script;
 # So we place them into an 'arch' file (we try and keep a 'descending order
@@ -223,6 +223,10 @@ set +x
 
   # Ok, the kernel module is there, lets insert it!
   #ls -l ${KMOD}.ko
+
+  # force passwd
+  #alias sudo='sudo -k'
+
   sudo rmmod ${KMOD} 2>/dev/null || true   # rm any stale instance
   sudo insmod ./${KMOD}.ko || {
 	    echo "${name}: insmod(8) on kernel module \"${KMOD}\" failed, build again and retry..."
@@ -317,7 +321,7 @@ USER_VAS_SIZE=$(bc <<< "(${END_UVA_DEC}-${START_UVA_DEC}+1)")
 # scripts that require it
 
 # Delete earier values that we'll replace with the proper ones now...
-sed --in-place '/^PAGE_SIZE/d' ${ARCHFILE}
+sed --in-place '/^PAGE_SIZE/d' ${ARCHFILE} 2>/dev/null
 
 cat >> ${ARCHFILE} << @EOF@
 
@@ -386,7 +390,7 @@ KERNEL_VAS_SIZE=$(bc <<< "(${HIGHEST_KVA_DEC}-${START_KVA_DEC}+1)")
 # scripts that require it
 
 # Delete earier values that we'll replace with the proper ones now...
-sed --in-place '/^PAGE_SIZE/d' ${ARCHFILE}
+sed --in-place '/^PAGE_SIZE/d' ${ARCHFILE} 2>/dev/null
 
 cat >> ${ARCHFILE} << @EOF@
 ARCH=Aarch32
@@ -471,7 +475,7 @@ START_UVA_DEC=0
 # scripts that require it
 
 # Delete earier values that we'll replace with the proper ones now...
-sed --in-place '/^PAGE_SIZE/d' ${ARCHFILE}
+sed --in-place '/^PAGE_SIZE/d' ${ARCHFILE} 2>/dev/null
 
 cat >> ${ARCHFILE} << @EOF@
 
@@ -569,8 +573,9 @@ else    # 32-bit
 fi
 
 # By now the the kernel 'archfile' has been generated; source it in...
-source ${ARCHFILE} || {
- FatalError "${name}: could not source ${ARCHFILE} , aborting..."
+source ${ARCHFILE} 2>/dev/null || {
+ #FatalError "${name}: could not source ${ARCHFILE} , aborting..."
+ echo "${name}: could not source ${ARCHFILE} ..."
 }
 
 local mach=$(uname -m)

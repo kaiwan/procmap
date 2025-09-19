@@ -14,12 +14,10 @@ TMPF=/tmp/${name}/prep.$$
 TMPF_R=${TMPF}.reversed
 gencsv()
 {
-#sudo awk '{print $1, $6}' ${infile} > ${TMPF}
 # CSV format for the foll fields:
-#  start_uva,end_uva,mode/p|s,offset,image_file
-sudo awk '{printf("%s,%s,%s,%s\n", $1,$2,$3,$6)}' ${infile} | sudo tee ${TMPF} >/dev/null
+#  start_uva,end_uva,mode+p|s,offset,image_file
+awk '{printf("%s,%s,%s,%s\n", $1,$2,$3,$6)}' ${infile} | tee ${TMPF} >/dev/null
 #shellcheck: ^-- SC2024 (warning): sudo doesn't affect redirects. Use ..| sudo tee file
-#sudo awk '{printf("%s,%s,%s,%s\n", $1,$2,$3,$6)}' ${infile} > ${TMPF}
 sed --in-place 's/-/,/' ${TMPF}
 sed --in-place 's/ /,/' ${TMPF}
 # del comment lines

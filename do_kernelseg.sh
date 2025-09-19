@@ -97,7 +97,7 @@ pa2va()
 {
 # TIP : for bash arithmetic w/ large #s, first calculate in *decimal* base using
 # bc(1), then convert it to hex as required (via printf)
-local pgoff_dec=$(printf "%llu" 0x${PAGE_OFFSET})
+local pgoff_dec=$(printf "%llu" 0x${PAGE_OFFSET} 2>/dev/null)
 local pa_dec=$(printf "%llu" 0x${1})
 local RAM_START_PHYADDR_DEC=$(printf "%llu" ${RAM_START_PHYADDR})
 local kva=$(bc <<< "(${pa_dec}-${RAM_START_PHYADDR_DEC})+${pgoff_dec}")

@@ -166,7 +166,7 @@ VER_MAJOR=0
 VER_MINOR=5
 PRJ_URL="https://github.com/kaiwan/procmap"
 AUTHORS="Kaiwan N Billimoria"
-ORG="kaiwanTECH (Designer Graphix)"
+ORG="kaiwanTECH (Designer Graphics)"
 procmap_version()
 {
   printf "${name} ${VER_MAJOR}.${VER_MINOR}, (c) ${AUTHORS}, ${ORG}\n"
@@ -216,14 +216,28 @@ fi
 [ ! -f ${PFX}/mapsfile_prep.sh ] && {
  err 0 "${name}: ${PFX}/mapsfile_prep.sh missing? Aborting..."
  }
+#---
+# Musn't use sudo as far as is possible, thus allowing regular users to view
+# their own processes's user VAS
+#---
 # Check for process existence
-sudo kill -0 ${PID} >/dev/null 2>&1 || {
- err 0 "${name}: process with PID \"${PID}\" invalid (or dead now?) Aborting..."
+ps -LA|grep -w ${PID} >/dev/null 2>&1 || {
+ err 0 "${name}: process/thread with PID \"${PID}\" is invalid (or dead now?) Aborting..."
  }
 # Verify it's not a kernel thread
-sudo readlink /proc/${PID}/exe >/dev/null || {
- err 0 "${name}: process with PID \"${PID}\" invalid; I believe it's a kernel thread. Aborting..."
- }
+local pname
+pname=$(grep "^Name" /proc/${PID}/status |cut -d: -f2|xargs)  #|xargs to trim whitespace!
+ps aux|grep -w "\[${pname}\]" >/dev/null 2>&1 && {  # name in square brackets? it's a kthread
+ err 0 "${name}: process with PID \"${PID}\" name \"[${pname}]\" is invalid; I believe it's a kernel thread. Aborting..."
+} || true
+
+# Do we own the process (or thread) PID? If we can send it signal 0, yes, else no
+PROCESS_OWNER=0
+kill -0 ${PID} 2>/dev/null && PROCESS_OWNER=1 || true
+
+# If we don't own the process, we simply can't proceed...
+[[ ${PROCESS_OWNER} -eq 0 ]] && err 0 "FATAL: you don't own the process (or thread) with PID ${PID}
+Either run this util as root or only upon processes (or threads) you own" || true
 }
 
 # Parameter: PID of the process
@@ -381,6 +395,7 @@ shift $((OPTIND-1))
 LOG=log_procmap.txt
 TMPCSV=/tmp/${name}/vgrph.csv
 
+## TODO : why call these now??
 init_kernel_lkm_get_details |tee -a ${LOG} || true
 get_machine_set_arch_config |tee -a ${LOG} || true
 
