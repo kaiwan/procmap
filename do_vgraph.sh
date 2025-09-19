@@ -447,8 +447,12 @@ main_wrapper()
  fi
 
  #----------- KERNEL-SPACE VAS calculation and drawing
+ # Requires root (sudo)
  # Show kernelspace? Yes by default!
  if [ ${SHOW_KERNELSEG} -eq 1 ] ; then
+    #init_kernel_lkm_get_details |tee -a ${LOG} || true
+    #get_machine_set_arch_config |tee -a ${LOG} || true
+
     populate_kernel_segment_mappings
     graphit -k
  else
@@ -536,10 +540,13 @@ fi
 
    local PID=$1
    local name="$2"
-   local numvmas=$(sudo wc -l /proc/${PID}/maps |awk '{print $1}')
+   local numvmas=0
+   #local numvmas=$(sudo wc -l /proc/${PID}/maps |awk '{print $1}')
+   wc -l /proc/${PID}/maps >/dev/null 2>&1 && local numvmas=$(wc -l /proc/${PID}/maps |awk '{print $1}') || \
+     echo "*Whoops, getting num VMAs requires you to run procmap as root*"
    #[ ${gFileLines} -ne ${numvmas} ] && printf " [!] Warning! # VMAs does not match /proc/${PID}/maps\n"
    # The [vsyscall] VMA shows up but the NULL trap doesn't
-   [ ${SHOW_VSYSCALL_PAGE} -eq 1 ] && let numvmas=numvmas+1  # for the NULL trap page
+   [[ ${numvmas} -ne 0 && ${SHOW_VSYSCALL_PAGE} -eq 1 ]] && let numvmas=numvmas+1  # for the NULL trap page
 
    #--- Total reported memory (RAM) on the system
    local totalram_kb=$(grep "^MemTotal" /proc/meminfo |cut -d: -f2|awk '{print $1}')
@@ -550,10 +557,10 @@ fi
  if [ ${SHOW_USERSPACE} -eq 1 ] ; then
    printf "\n\n=== Statistics for Userspace: ===\n"
    printf "For PID %d:%s\n" ${PID} ${name}
-   printf " %d VMAs (segments or mappings)" ${numvmas}
+   [[ ${numvmas} -ne 0 ]] && printf " %d VMAs (segments or mappings)" ${numvmas} || true
 
    [ ${SPARSE_SHOW} -eq 1 ] && {
-     printf ", %d sparse regions (includes NULL trap page)\n" ${gNumSparse}
+     printf " %d sparse regions (includes NULL trap page)\n" ${gNumSparse}
      printf "Total User VAS that is Sparse memory:\n"
      largenum_display ${gTotalSparseSize} ${USER_VAS_SIZE}
    }
@@ -568,24 +575,25 @@ fi
 	echo ; return
    }
 
-   printf "\n\nMemory Usage stats for process PID %d:%s\n" ${PID} ${name}
+   printf "\nMemory Usage stats for process PID %d:%s\n" ${PID} ${name}
    printf "Via ps(1):\n"
 # ps aux|head -n1
 # USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
-   sudo ps aux |awk -v pid=${PID} '$2==pid {printf(" %%MEM=%u   VSZ=%lu KB   \
+   ps aux |awk -v pid=${PID} '$2==pid {printf(" %%MEM=%u   VSZ=%lu KB   \
 RSS=%lu KB\n", $4,$5,$6)}'
 
   which smem >/dev/null 2>&1 && {
-   printf "Via smem(8) [might take a while, pl wait ...] :\n"
+   # This requires root for processes you don't own
+   [[ ${PROCESS_OWNER} -eq 1 ]] && {
+     printf "Via smem(8) [might take a while, pl wait ...] :\n"
 # smem|head -n1
 # PID User     Command                         Swap      USS      PSS      RSS 
-   sudo smem |awk -v pid=${PID} '$1==pid {printf(" swap=%u   USS=%lu KB   \
-PSS=%lu KB   RSS=%lu KB\n", $4,$5,$6,$7)}'
-  } || {
-    vecho "smem(8) not installed? skipping..."
+     smem |awk -v pid=${PID} '$1==pid {printf(" swap=%u   USS=%lu KB   \
+PSS=%lu KB   RSS=%lu KB\n", $4,$5,$6,$7)}' || echo "OOPS, requires root"
+   } || vecho "smem(8) requires root, skipping..."
   }
- else
-  echo
+ #else
+ # echo
  fi       # if ${SHOW_USERSPACE} -eq 1
 } # end stats()
 
