@@ -32,6 +32,7 @@
 #include <asm/fixmap.h>
 #include "convenient.h"
 
+// TODO - rm this, use pr_fmt()
 #define OURMODNAME   "procmap"
 
 MODULE_AUTHOR("Kaiwan N Billimoria");
@@ -55,6 +56,40 @@ MODULE_VERSION("0.2");
 
 static struct dentry *gparent;
 DEFINE_MUTEX(mtx);
+
+#include <linux/string.h>
+/*
+ * Try to use Red Hat’s version header if present.
+ * Rocky/Alma sometimes don’t ship it, so we fall back.
+ */
+#ifdef CONFIG_RHEL_VERSION
+#include <linux/rh_rhel_version.h>
+#endif
+
+/*
+ * Unified helper to determine “effective RHEL release code”.
+ * - On upstream kernels, returns 0 (unused).
+ * - On RHEL/Rocky with rh_rhel_version.h, returns RHEL_RELEASE_CODE.
+ * - Otherwise, tries to parse UTS_RELEASE string (e.g. "el8_10" → 810).
+ */
+static int using_rhel;
+#include <generated/utsrelease.h>
+static inline int effective_rhel_release_code(void)
+{
+#ifdef CONFIG_RHEL_VERSION
+    return RHEL_RELEASE_CODE;
+#else
+    /* Fallback: check for "elX_Y" in the release string */
+    if (strstr(UTS_RELEASE, "el8_10"))
+        return 810;
+    if (strstr(UTS_RELEASE, "el8_9"))
+        return 809;
+    if (strstr(UTS_RELEASE, "el8_8"))
+        return 808;
+    /* extend as needed for other releases */
+    return 0; /* unknown or not RHEL-ish */
+#endif
+}
 
 /*
  * query_kernelseg_details
@@ -83,11 +118,19 @@ static void query_kernelseg_details(char *buf)
 	char tmpbuf[TMPMAX];
 	unsigned long ram_size;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0)
-	ram_size = totalram_pages() * PAGE_SIZE;
-#else // totalram_pages() undefined on the BeagleBone running an older 4.19 kernel..
-	ram_size = totalram_pages * PAGE_SIZE;
+	// RHEL: Rocky/Alma/...
+	if (using_rhel)
+		ram_size = totalram_pages() * PAGE_SIZE;
+	else {
+		if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0))
+			ram_size = totalram_pages() * PAGE_SIZE;
+		else { // totalram_pages() undefined on the BeagleBone running an older 4.19 kernel..
+#if defined(CONFIG_ARM)
+		// TODO: test on ARM
+			ram_size = totalram_pages * PAGE_SIZE;
 #endif
+		}
+	}
 
 #if defined(CONFIG_ARM64)
 	pr_info("%s:VA_BITS (CONFIG_ARM64_VA_BITS) = %d\n", KBUILD_MODNAME, VA_BITS);
@@ -276,6 +319,11 @@ static int __init procmap_init(void)
 	int ret = 0;
 
 	pr_info("%s: inserted\n", OURMODNAME);
+	if (effective_rhel_release_code() >= 808) {
+		using_rhel = 1;
+		pr_info("fyi, RHEL release = %d\n", effective_rhel_release_code());
+	}
+
 	ret = setup_debugfs_file();
 	return ret;
 }
