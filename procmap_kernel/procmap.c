@@ -18,6 +18,8 @@
  * (c) kaiwanTECH
  * License: MIT
  */
+#define pr_fmt(fmt) "%s:%s(): " fmt, KBUILD_MODNAME, __func__
+
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -31,9 +33,6 @@
 #include <asm/pgtable.h>
 #include <asm/fixmap.h>
 #include "convenient.h"
-
-// TODO - rm this, use pr_fmt()
-#define OURMODNAME   "procmap"
 
 MODULE_AUTHOR("Kaiwan N Billimoria");
 MODULE_DESCRIPTION("procmap: an LKM, the kernel component of the procmap project");
@@ -133,9 +132,9 @@ static void query_kernelseg_details(char *buf)
 	}
 
 #if defined(CONFIG_ARM64)
-	pr_info("%s:VA_BITS (CONFIG_ARM64_VA_BITS) = %d\n", KBUILD_MODNAME, VA_BITS);
+	pr_info("VA_BITS (CONFIG_ARM64_VA_BITS) = %d\n", VA_BITS);
 	if (VA_BITS > 48 && PAGE_SIZE == (64*1024)) // typically 52 bits and 64K pages
-		pr_warn("%s:*** >= ARMv8.2 with LPA? (YMMV, not supported here) ***\n", KBUILD_MODNAME);
+		pr_warn("*** >= ARMv8.2 with LPA? (YMMV, not supported here) ***\n");
 #endif
 
 #ifdef ARM
@@ -283,14 +282,14 @@ static int setup_debugfs_file(void)
 	int stat = 0;
 
 	if (!IS_ENABLED(CONFIG_DEBUG_FS)) {
-		pr_warn("%s: debugfs unsupported! Aborting ...\n", OURMODNAME);
+		pr_warn("debugfs unsupported! Aborting ...\n");
 		return -EINVAL;
 	}
 
 	/* Create a dir under the debugfs mount point, whose name is the module name */
-	gparent = debugfs_create_dir(OURMODNAME, NULL);
+	gparent = debugfs_create_dir(KBUILD_MODNAME, NULL);
 	if (!gparent) {
-		pr_info("%s: debugfs_create_dir failed, aborting...\n", OURMODNAME);
+		pr_info("debugfs_create_dir failed, aborting...\n");
 		stat = PTR_ERR(gparent);
 		goto out_fail_1;
 	}
@@ -299,12 +298,12 @@ static int setup_debugfs_file(void)
 #define DBGFS_FILE1	"disp_kernelseg_details"
 	file1 = debugfs_create_file(DBGFS_FILE1, 0444, gparent, (void *)NULL, &dbgfs_fops);
 	if (!file1) {
-		pr_info("%s: debugfs_create_file failed, aborting...\n", OURMODNAME);
+		pr_info("debugfs_create_file failed, aborting...\n");
 		stat = PTR_ERR(file1);
 		goto out_fail_2;
 	}
-	pr_debug("%s: debugfs file 1 <debugfs_mountpt>/%s/%s created\n",
-		 OURMODNAME, OURMODNAME, DBGFS_FILE1);
+	pr_debug("debugfs file 1 <debugfs_mountpt>/%s/%s created\n",
+		 KBUILD_MODNAME, DBGFS_FILE1);
 
 	return 0;		/* success */
 
@@ -318,7 +317,7 @@ static int __init procmap_init(void)
 {
 	int ret = 0;
 
-	pr_info("%s: inserted\n", OURMODNAME);
+	pr_info("inserted\n");
 	if (effective_rhel_release_code() >= 808) {
 		using_rhel = 1;
 		pr_info("fyi, RHEL release = %d\n", effective_rhel_release_code());
@@ -331,7 +330,7 @@ static int __init procmap_init(void)
 static void __exit procmap_exit(void)
 {
 	debugfs_remove_recursive(gparent);
-	pr_info("%s: removed\n", OURMODNAME);
+	pr_info("removed\n");
 }
 
 module_init(procmap_init);
