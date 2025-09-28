@@ -33,7 +33,7 @@
 #------------------------------------------------------------------
 # IMPORTANT : Set FNAME_C to the kernel module name source filename (without .c).
 # This enables you to use this Makefile as a template; just update this variable!
-# As well, the MYDEBUG variable (see it below) can be set to 'y' or 'n' (no being
+# As well, the KEEP_DEBUG_INFO variable (see it below) can be set to 'y' or 'n' (no being
 # the default)
 FNAME_C ?= procmap
 ifeq ($(FNAME_C),)
@@ -63,7 +63,7 @@ ifeq ($(ARCH),arm)
 else ifeq ($(ARCH),arm64)
   # *UPDATE* 'KDIR' below to point to the ARM64 (AArch64) Linux kernel source
   # tree on your box
-  KDIR ?= ~/arm64_prj/kernel/linux
+  KDIR ?= /xtra/rpi_work/rpi_64bit/kernel_rpi/linux/
 else ifeq ($(ARCH),powerpc)
   # *UPDATE* 'KDIR' below to point to the PPC64 Linux kernel source tree on your box
   KDIR ?= ~/ppc_prj/kernel/linux-5.4
@@ -84,7 +84,7 @@ PWD            := $(shell pwd)
 obj-m          += ${FNAME_C}.o
 
 #--- Debug or production mode?
-# Set the MYDEBUG variable accordingly to y/n resp. We keep it off (n) by default.
+# Set the KEEP_DEBUG_INFO variable accordingly to y/n resp. We keep it off (n) by default.
 # (Actually, debug info is always going to be generated when you build the
 # module on a debug kernel, where CONFIG_DEBUG_INFO is defined, making this
 # setting of the ccflags-y (or the older EXTRA_CFLAGS) variable mostly redundant
@@ -92,13 +92,13 @@ obj-m          += ${FNAME_C}.o
 # This simply helps us influence the build on a production kernel, forcing
 # generation of debug symbols, if so required. Also, realize that the DEBUG
 # macro is turned on by many CONFIG_*DEBUG* options; hence, we use a different
-# macro var name, MYDEBUG).
-MYDEBUG := n
+# macro var name, KEEP_DEBUG_INFO).
+KEEP_DEBUG_INFO := n
 DBG_STRIP := y
-ifeq (${MYDEBUG}, y)
+ifeq (${KEEP_DEBUG_INFO}, y)
 # https://www.kernel.org/doc/html/latest/kbuild/makefiles.html#compilation-flags
 # EXTRA_CFLAGS deprecated; use ccflags-y
-  ccflags-y   += -DDEBUG -g -ggdb -gdwarf-4 -Wall -fno-omit-frame-pointer -fvar-tracking-assignments
+  ccflags-y   += -DDEBUG -g -ggdb -gdwarf-4 -Og -Wall -fno-omit-frame-pointer -fvar-tracking-assignments
   DBG_STRIP := n
 else
   ccflags-y   += -UDEBUG -Wall
@@ -127,7 +127,9 @@ endif
 
 all:
 	@echo
-	@echo '--- Building : KDIR=${KDIR} ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} ccflags-y="${ccflags-y}" MYDEBUG=${MYDEBUG} DBG_STRIP=${DBG_STRIP} ---'
+	@echo -n "\e[1m\e[41m"
+	@echo '--- Building : KDIR=${KDIR} ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} ccflags-y="${ccflags-y}" KEEP_DEBUG_INFO=${KEEP_DEBUG_INFO} DBG_STRIP=${DBG_STRIP} ---'
+	@echo -n "\e[0m"
 	@${CC} --version|head -n1
 	@echo
 	make -C $(KDIR) M=$(PWD) modules
@@ -136,11 +138,15 @@ all:
 	fi
 install:
 	@echo
+	@echo -n "\e[1m\e[41m"
 	@echo "--- installing ---"
+	@echo -n "\e[0m"
 	@echo " [First, invoking the 'make' ]"
 	make
 	@echo
+	@echo -n "\e[1m\e[34m"
 	@echo " [Now for the 'sudo make install' ]"
+	@echo -n "\e[0m"
 	sudo make -C $(KDIR) M=$(PWD) modules_install
 	sudo depmod
 	@echo " [If !debug and !(module signing), stripping debug info from ${KMODDIR}/extra/${FNAME_C}.ko]"
@@ -148,22 +154,28 @@ install:
            sudo ${STRIP} --strip-debug ${KMODDIR}/extra/${FNAME_C}.ko ; \
 	fi
 dt:
-ifeq (,$(shell which dtc))
+ifeq (,$(shell which dtc 2>/dev/null))
 	$(error ERROR: install the DTC compiler first)
 endif
-	@echo "--- compiles the Device Tree Blob (DTB) from the DTS (ARM/PPC/etc) ---"
+	@echo -n "\e[1m\e[41m"
+	@echo "--- compiles the Device Tree Blob (DTB) from the DTS (ARM/PPC/Risc-V/etc) ---"
+	@echo -n "\e[0m"
 	dtc -@ -I dts -O dtb -o $(FNAME_C).dtb $(FNAME_C).dts
 	# DTBO - Device Tree Blob Overlay
 nsdeps:
+	@echo -n "\e[1m\e[41m"
 	@echo "--- nsdeps (namespace dependencies resolution; for possibly importing ns's) ---"
+	@echo -n "\e[0m"
 	make -C $(KDIR) M=$(PWD) nsdeps
 clean:
 	@echo
+	@echo -n "\e[1m\e[41m"
 	@echo "--- cleaning ---"
+	@echo -n "\e[0m"
 	@echo
 	make -C $(KDIR) M=$(PWD) clean
 # from 'indent'; comment out if you want the backup kept
-	rm -f *~ *.dtb
+	rm -f *.dtb *.dtbo
 
 # Any usermode programs to build? Insert the build target(s) below
 
@@ -180,82 +192,111 @@ code-style:
 # coding style guidelines.
 # Note! original source file(s) is overwritten, so we back it up.
 indent:
-ifeq (,$(shell which indent))
+ifeq (,$(shell which indent 2>/dev/null))
 	$(error ERROR: install indent first)
 endif
 	@echo
+	@echo -n "\e[1m\e[41m"
 	@echo "--- applying kernel code style indentation with indent ---"
+	@echo -n "\e[0m"
 	@echo
 	mkdir bkp 2> /dev/null; cp -f *.[chsS] bkp/
-	${INDENT} -linux --line-length95 *.[chsS]
+# Prefixing a hyphen before a command has make continue even if the cmd fails
+	-${INDENT} -linux --line-length95 *.[chsS]
 	  # add source files as required
 
 # Detailed check on the source code styling / etc
 checkpatch:
 	make clean
 	@echo
+	@echo -n "\e[1m\e[41m"
 	@echo "--- kernel code style check with checkpatch.pl ---"
+	@echo -n "\e[0m"
 	@echo
-	$(KDIR)/scripts/checkpatch.pl --no-tree -f --max-line-length=95 *.[ch]
+	-$(KDIR)/scripts/checkpatch.pl --no-tree -f --max-line-length=95 *.[ch]
 	  # add source files as required
 
 #--- Static Analysis
 # sa : "wrapper" target over the following kernel static analyzer targets
 sa:
+	make sa_clangtidy
 	make sa_sparse
 	make sa_gcc
 	make sa_flawfinder
 	make sa_cppcheck
 
+# static analysis with clang-tidy
+sa_clangtidy:
+ifeq (,$(shell which clang-tidy 2>/dev/null))
+	$(error ERROR: install clang-tidy first)
+endif
+	make clean
+	@echo
+	@echo -n "\e[1m\e[41m"
+	@echo "--- static analysis with clang-tidy ---"
+	@echo -n "\e[0m"
+	@echo
+	-CHECKS_ON="-*,clang-analyzer-*,bugprone-*,cert-*,concurrency-*,performance-*,portability-*,linuxkernel-*,readability-*,misc-*"; CHECKS_OFF="-clang-analyzer-cplusplus*,-misc-include-cleaner,-readability-identifier-length,-readability-braces-around-statements" ; clang-tidy -header-filter=.* --use-color *.[ch] -checks=$$CHECKS_ON,$$CHECKS_OFF
+
 # static analysis with sparse
 sa_sparse:
-ifeq (,$(shell which sparse))
+ifeq (,$(shell which sparse 2>/dev/null))
 	$(error ERROR: install sparse first)
 endif
 	make clean
 	@echo
+	@echo -n "\e[1m\e[41m"
 	@echo "--- static analysis with sparse ---"
+	@echo -n "\e[0m"
 	@echo
 # If you feel it's too much, use C=1 instead
 # NOTE: deliberately IGNORING warnings from kernel headers!
-	make -Wsparse-all C=2 CHECK="/usr/bin/sparse --os=linux --arch=$(ARCH)" -C $(KDIR) M=$(PWD) modules 2>&1 |egrep -v "^\./include/.*\.h|^\./arch/.*\.h"
+	-make -Wsparse-all C=2 CHECK="/usr/bin/sparse --os=linux --arch=$(ARCH)" -C $(KDIR) M=$(PWD) modules 2>&1 |egrep -v "^\./include/.*\.h|^\./arch/.*\.h"
 
 # static analysis with gcc
 sa_gcc:
 	make clean
 	@echo
+	@echo -n "\e[1m\e[41m"
 	@echo "--- static analysis with gcc ---"
+	@echo -n "\e[0m"
 	@echo
-	make W=1 -C $(KDIR) M=$(PWD) modules
+	-make W=1 -C $(KDIR) M=$(PWD) modules
 
 # static analysis with flawfinder
 sa_flawfinder:
-ifeq (,$(shell which flawfinder))
+ifeq (,$(shell which flawfinder 2>/dev/null))
 	$(error ERROR: install flawfinder first)
 endif
 	make clean
 	@echo
+	@echo -n "\e[1m\e[41m"
 	@echo "--- static analysis with flawfinder ---"
+	@echo -n "\e[0m"
 	@echo
-	flawfinder *.[ch]
+	-flawfinder *.[ch]
 
 # static analysis with cppcheck
 sa_cppcheck:
-ifeq (,$(shell which cppcheck))
+ifeq (,$(shell which cppcheck 2>/dev/null))
 	$(error ERROR: install cppcheck first)
 endif
 	make clean
 	@echo
+	@echo -n "\e[1m\e[41m"
 	@echo "--- static analysis with cppcheck ---"
+	@echo -n "\e[0m"
 	@echo
-	cppcheck -v --force --enable=all -i .tmp_versions/ -i *.mod.c -i bkp/ --suppress=missingIncludeSystem .
+	-cppcheck -v --force --enable=all -i .tmp_versions/ -i *.mod.c -i bkp/ --suppress=missingIncludeSystem .
 
 # Packaging: just generates a tar.xz of the source as of now
 tarxz-pkg:
 	rm -f ../${FNAME_C}.tar.xz 2>/dev/null
 	make clean
 	@echo
+	@echo -n "\e[1m\e[41m"
 	@echo "--- packaging ---"
+	@echo -n "\e[0m"
 	@echo
 	tar caf ../${FNAME_C}.tar.xz *
 	ls -l ../${FNAME_C}.tar.xz
@@ -264,29 +305,38 @@ tarxz-pkg:
 	@echo '              tar -xvf ${FNAME_C}.tar.xz --one-top-level'
 
 help:
+	@echo -n "\e[1m\e[41m"
 	@echo '=== Makefile Help : additional targets available ==='
+	@echo -n "\e[0m"
 	@echo
 	@echo 'TIP: Type make <tab><tab> to show all valid targets'
-	@echo 'FYI: KDIR=${KDIR} ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} ccflags-y="${ccflags-y}" MYDEBUG=${MYDEBUG} DBG_STRIP=${DBG_STRIP}'
+	@echo 'FYI: KDIR=${KDIR} ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} ccflags-y="${ccflags-y}" KEEP_DEBUG_INFO=${KEEP_DEBUG_INFO} DBG_STRIP=${DBG_STRIP}'
 
 	@echo
+	@echo -n "\e[1m\e[34m"
 	@echo '--- 'usual' kernel LKM targets ---'
+	@echo -n "\e[0m"
 	@echo 'typing "make" or "all" target : builds the kernel module object (the .ko)'
 	@echo 'install     : installs the kernel module(s) to INSTALL_MOD_PATH (default here: /lib/modules/$(shell uname -r)/).'
-	@echo '            : Takes care of performing debug-only symbols stripping iff MYDEBUG=n and not using module signature'
+	@echo '            : Takes care of performing debug-only symbols stripping iff KEEP_DEBUG_INFO=n and not using module signature'
 	@echo 'dt          : compiles the Device Tree Blob (DTB) from the DTS file (applicable to ARM, PPC, RISC-V, etc)'
 	@echo 'nsdeps      : namespace dependencies resolution; for possibly importing namespaces'
 	@echo 'clean       : cleanup - remove all kernel objects, temp files/dirs, etc'
 
 	@echo
+	@echo -n "\e[1m\e[34m"
 	@echo '--- kernel code style targets ---'
+	@echo -n "\e[0m"
 	@echo 'code-style : "wrapper" target over the following kernel code style targets'
 	@echo ' indent     : run the $(INDENT) utility on source file(s) to indent them as per the kernel code style'
 	@echo ' checkpatch : run the kernel code style checker tool on source file(s)'
 
 	@echo
+	@echo -n "\e[1m\e[34m"
 	@echo '--- kernel static analyzer targets ---'
+	@echo -n "\e[0m"
 	@echo 'sa         : "wrapper" target over the following kernel static analyzer targets'
+	@echo ' sa_clangtidy  : run the static analysis clang-tidy tool on the source file(s)'
 	@echo ' sa_sparse     : run the static analysis sparse tool on the source file(s)'
 	@echo ' sa_gcc        : run gcc with option -W1 ("Generally useful warnings") on the source file(s)'
 	@echo ' sa_flawfinder : run the static analysis flawfinder tool on the source file(s)'
@@ -294,17 +344,23 @@ help:
 	@echo 'TIP: use Coccinelle as well: https://www.kernel.org/doc/html/v6.1/dev-tools/coccinelle.html'
 
 	@echo
+	@echo -n "\e[1m\e[34m"
 	@echo '--- kernel dynamic analysis targets ---'
+	@echo -n "\e[0m"
 	@echo 'da_kasan   : DUMMY target: this is to remind you to run your code with the dynamic analysis KASAN tool enabled; requires configuring the kernel with CONFIG_KASAN On, rebuild and boot it'
 	@echo 'da_lockdep : DUMMY target: this is to remind you to run your code with the dynamic analysis LOCKDEP tool (for deep locking issues analysis) enabled; requires configuring the kernel with CONFIG_PROVE_LOCKING On, rebuild and boot it'
 	@echo 'TIP: Best to build a debug kernel with several kernel debug config options turned On, boot via it and run all your test cases'
 
 	@echo
+	@echo -n "\e[1m\e[34m"
 	@echo '--- misc targets ---'
+	@echo -n "\e[0m"
 	@echo 'tarxz-pkg  : tar and compress the LKM source files as a tar.xz into the dir above; allows one to transfer and build the module on another system'
 	@echo '        TIP: When extracting, to extract into a directory with the same name as the tar file, do this:'
 	@echo '              tar -xvf ${FNAME_C}.tar.xz --one-top-level'
+	@echo -n "\e[1m\e[31m"
 	@echo '--- Tips ---'
+	@echo -n "\e[0m"
 	@echo '  If the build fails with a (GCC compiler failure) message like'
 	@echo '   unrecognized command-line option ‘-ftrivial-auto-var-init=zero’'
 	@echo '  it's likely that you're using an older GCC. Try installing gcc-12 (or later),'
