@@ -111,20 +111,21 @@ usage()
  cat >/tmp/.ph << @EOF@
 Usage: ${name} [options] -p PID (OR --pid=PID-of-process-to-show-memory-map-of)
 
-The only *required* option switch is -p|--pid followed by the PID of the process
+The only *required* option switch is:
+ -p PID|--pid=PID : PID of the process whose virtual memory map's to be displayed
 
 The following option switches are all optional:
- -u|--only-user  : show ONLY the user mode mappings or segments (not kernel VAS)
- -k|--only-kernel: show ONLY the kernel-space mappings or segments (not user VAS)
+ -u|--only-user   : show ONLY the user mode mappings or segments (not kernel VAS)
+ -k|--only-kernel : show ONLY the kernel-space mappings or segments (not user VAS)
    [-u and -k are mutually exclusive and the default is to show BOTH]
  --export-maps=filename
-                 : write all map information gleaned to the file you specify in CSV
+                  : write all map information gleaned to the file you specify in CSV
  --export-kernel=filename
-                 : write kernel information gleaned to the file you specify in CSV
- -v|--verbose    : verbose mode (try it! see below for details)
- -d|--debug      : run in debug mode
- --ver|--version : display version info
- -h|--help       : display this help screen.
+                  : write kernel information gleaned to the file you specify in CSV
+ -v|--verbose     : verbose mode (try it! see below for details)
+ -d|--debug       : run in debug mode
+ --ver|--version  : display version info
+ -h|--help        : display this help screen.
 
 See the config file as well.
 
@@ -163,9 +164,20 @@ Caveats / Limitations:
   me), I simply put in what seems logical (but am unsure of it's accuracy).
   Knowledgeable persons, pl help!
 
+-----------------------------
+Installation
+-----------------------------
+- From v0.6 onward, an 'install' script's been provided (install_procmap);
+  obviously, it must be run the very first time - as root - to install procmap.
+  Major advantages of this approach include:
+   - Regular users can browse their own process's user VAS (no root access reqd)
+   - The procmap kernel module needs to be run and collect details only once,
+     at install time.
+
 @EOF@
 cat /tmp/.ph 1>&2
 rm -f /tmp/.ph
+procmap_version
 }
 
 ### To FIX:
@@ -174,14 +186,17 @@ rm -f /tmp/.ph
 #          length : length of the region to locate in KB
 
 VER_MAJOR=0
-VER_MINOR=5
+VER_MINOR=6
 PRJ_URL="https://github.com/kaiwan/procmap"
 AUTHORS="Kaiwan N Billimoria"
-ORG="kaiwanTECH (Designer Graphics)"
+ORG="kaiwanTECH"
+LIC="MIT"
 procmap_version()
 {
-  printf "${name} ${VER_MAJOR}.${VER_MINOR}, (c) ${AUTHORS}, ${ORG}\n"
+  printf "${name} ver ${VER_MAJOR}.${VER_MINOR}\n"
+  printf "(c) ${AUTHORS}, ${ORG}\n"
   printf "${PRJ_URL}\n"
+  printf "License: ${LIC}\n"
 }
 
 # Parameters:
@@ -278,6 +293,20 @@ validate_pid()
  usage
  exit 0
 }
+
+#----------------------------------------------------------
+# This work's now taken over by the new design - to avoid root when seeing userspace only
+#[[ ${SHOW_KERNELSEG} -eq 1 ]] && init_kernel_lkm_get_details |tee -a ${LOG} || true # this does req root
+# So now, just gain access to the procmap kernel report, here: ${KSEGFILE} 
+[[ ! -f ${KSEGFILE} ]] && {
+   echo "${name}: *FATAL* : procmap's kernel detail report file (${KSEGFILE})
+seems to be unavailable?
+Check: has procmap been correctly installed (with it's kernel detail report) the
+first time? (You can rerun the installer - sudo ./install_procmap - if required.)
+Aborting..."
+   exit 1
+}
+#----------------------------------------------------------
 
 PID=0
 export ITS_A_THREAD=0
@@ -406,9 +435,7 @@ shift $((OPTIND-1))
 LOG=log_procmap.txt
 TMPCSV=/tmp/${name}/vgrph.csv
 
-## TODO : why call these now??
-#echo "SHOW_KERNELSEG = ${SHOW_KERNELSEG}"
-[[ ${SHOW_KERNELSEG} -eq 1 ]] && init_kernel_lkm_get_details |tee -a ${LOG} || true # this does req root
+parse_ksegfile_write_archfile
 get_machine_set_arch_config |tee -a ${LOG} || true # this does not req root
 
 # Invoke the prep_mapsfile script to prep the memory map file

@@ -1,0 +1,173 @@
+#!/bin/bash
+# Part of the 'procmap' project, a utility to show the kernel and/or user
+# virtual address space of any given process.
+# This is the initial 'install' script.
+# Major advantages of this approach include:
+#  1. Regular users can browse their own process's user VAS (no root access reqd)
+#  2. The procmap kernel module needs to be run and collect details only once,
+#     at install time.
+#
+# Author:
+# Kaiwan N Billimoria
+# kaiwan -at- kaiwantech -dot- com
+# kaiwan -dot- billimoria -at- gmail -dot- com
+# kaiwanTECH
+#
+# License: MIT.
+ 
+# Turn on unofficial Bash 'strict mode'! V useful
+# "Convert many kinds of hidden, intermittent, or subtle bugs into immediate, glaringly obvious errors"
+# ref: http://redsymbol.net/articles/unofficial-bash-strict-mode/
+set -euo pipefail
+
+name=$(basename $0)
+
+# set the common paths
+PATH=${PATH}:/sbin/:/usr/sbin/:/usr/bin/:/bin/
+export TERM=xterm-256color
+# sanitize the environment before run
+[[ "$(env | sed -r -e '/^(PWD|SHLVL|_)=/d')" ]] && {
+  export TERM=xterm-256color
+ # exec -c "$0" "$@"
+}
+
+PDIR=$(which $0)
+[ -z "${PDIR}" ] && PDIR=$(dirname $0)  # true if procmap isn't in PATH
+export PFX=$(dirname ${PDIR})    # dir in which this script and tools reside
+
+source config || {
+ echo "${name}: fatal: could not source file 'config', aborting..."
+ exit 1
+}
+
+VERBOSE=1
+DEBUG=0
+
+vecho()
+{
+  [[ ${VERBOSE} -eq 1 ]] && echo "[v] $*"
+}
+decho()
+{
+  [[ ${DEBUG} -eq 1 ]] && echo "[d] $*"
+}
+die()
+{
+echo >&2 "${name}: ***FATAL ERROR***
+Error detail follows:
+$*" ; exit 1
+}
+
+# build_lkm()
+# (Re)build the LKM - Loadable Kernel Module for this project
+build_lkm()
+{
+ echo "[i] kernel: building the procmap kernel module now..."
+
+ # kernel headers?
+ [ ! -e /lib/modules/"$(uname -r)"/build ] && \
+    die "
+Suitable build env for kernel modules is missing!
+Pl install the Linux kernel headers (via the appropriate package). If you
+cannot install a 'kernel headers' package (perhaps you're running a custom
+built kernel), then you will need to cross-compile the procmap kernel module
+on your host and copy it across to the target device.
+
+Pl see this project's
+README.md file for details: https://github.com/kaiwan/procmap#procmap
+(Plus the section 'IMPORTANT: Running procmap on systems other than x86_64'
+ https://github.com/kaiwan/procmap#important-running-procmap-on-systems-other-than-x86_64)."
+
+ cd procmap_kernel || die "cd procmap_kernel failed"
+ make clean >/dev/null 2>&1 || true
+ make >/dev/null 2>&1 || die "kernel module \"${KMOD}\" build failed, aborting..."
+ if [ ! -s ${KMOD}.ko ] ; then
+    die "kernel module \"${KMOD}\" not generated? aborting..."
+ fi
+ vecho " kernel: LKM built"
+} # end build_lkm()
+
+# init_kernel_lkm_get_details()
+init_kernel_lkm_get_details()
+{
+#set +x
+  vecho "kernel: init kernel LKM and get details:"
+  if [ ! -d ${DBGFS_LOC} ] ; then
+ 	die "kernel debugfs not supported or mounted? aborting..."
+  else
+    vecho " debugfs location verfied"
+  fi
+
+  #TOP=$(pwd)
+
+  if [ ! -s ${KMOD}.ko -o ${KMOD}.c -nt ${KMOD}.ko ] ; then
+     build_lkm
+  fi
+
+  # Ok, the kernel module is there, lets insert it!
+  #ls -l ${KMOD}.ko
+
+  rmmod ${KMOD} 2>/dev/null || true   # rm any stale instance
+  insmod ./${KMOD}.ko || {
+	echo "${name}: insmod(8) on kernel module \"${KMOD}\" failed, will rebuild and retry now..."
+        build_lkm
+	insmod ./${KMOD}.ko || return
+  }
+  # Whoa! with set -o pipefail enabled AND using grep -q, all kinds of crazy s*it
+  # Practical sol: do NOT use -q, redirect stdout & stderr to null dev!
+  # ref: https://stackoverflow.com/questions/19120263/why-exit-code-141-with-grep-q
+  lsmod | egrep -w "^${KMOD}" >/dev/null 2>&1
+  [ $? -ne 0 ] && die "insmod(8) on kernel module \"${KMOD}\" failed? aborting..."
+  vecho " LKM inserted into kernel"
+  ls ${DBGFS_LOC}/${KMOD}/${DBGFS_FILENAME} >/dev/null 2>&1 || {
+	 rmmod ${KMOD}
+	 die "required debugfs file not present? aborting..."
+  }
+  vecho " debugfs file present"
+} # end init_kernel_lkm_get_details()
+
+#--- Setup the one-time kernel-details file
+setup_kernel_dtl_file()
+{
+# Finally! generate the kernel seg details
+[[ ! -d ${REPORT_DIR} ]] && mkdir -p ${REPORT_DIR} #|| die "failed creating procmap report dir"
+TEMP_KSEGFILE=${REPORT_DIR}/$(basename ${KSEGFILE}).$$
+#echo "TEMP_KSEGFILE = $TEMP_KSEGFILE"
+cat ${DBGFS_LOC}/${KMOD}/${DBGFS_FILENAME} > ${TEMP_KSEGFILE}
+# CSV fmt of ${KSEGFILE}.$$
+#  start_kva,end_kva,mode,name-of-region
+# Must numerically sort the kernel mappings by descending kva (2nd field)
+rm -f ${KSEGFILE} 2>/dev/null || true
+sort -t"," -k2n -r ${TEMP_KSEGFILE} > ${KSEGFILE}
+chmod 0444 ${KSEGFILE}
+
+rm -f ${TEMP_KSEGFILE} || true
+echo "[i] procmap: one-time kernel details placed here:${KSEGFILE}
+
+TIP:
+This kernel-detail file - ${KSEGFILE} - is ALWAYS required by procmap,
+even when viewing only the user virtual address space of any given process.
+Thus, pl back it up, so that you can restore it in this location if required
+in future."
+
+decho "kseg dtl:
+$(cat ${KSEGFILE})" || true
+} # end setup_kernel_dtl_file()
+
+
+#--- 'main'
+[[ -f ${KSEGFILE} ]] && {
+  echo "WARNING! procmap seems to be already be installed on this system!
+Would you like to re-install it (overwriting the original kernel-detail file (${KSEGFILE})?
+[y/n]"
+  read re
+  [[ "${re}" = "y" ||  "${re}" = "Y" ]] || exit 0
+}
+
+[[ $(id -u) -ne 0 ]] && die "requires root"
+DIR=$(pwd)
+init_kernel_lkm_get_details || true
+setup_kernel_dtl_file
+rmmod ${KMOD} || true
+cd ${DIR}
+exit 0
