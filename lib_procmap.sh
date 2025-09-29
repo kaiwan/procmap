@@ -146,8 +146,8 @@ parse_ksegfile_write_archfile()
 
  # Delete the PAGE_SIZE and TASK_SIZE lines from the KSEGFILE file
  # as we don't want it in the kernel map processing loop that follows
- sed --in-place '/^PAGE_SIZE/d' ${KSEGFILE} 2>/dev/null
- sed --in-place '/^TASK_SIZE/d' ${KSEGFILE} 2>/dev/null
+ sed --in-place '/^PAGE_SIZE/d' ${KSEGFILE} 2>/dev/null || true
+ sed --in-place '/^TASK_SIZE/d' ${KSEGFILE} 2>/dev/null || true
 
 # We *require* these 'globals' again later in the script;
 # So we place them into an 'arch' file (we try and keep a 'descending order
@@ -173,100 +173,6 @@ TASK_SIZE=${TASK_SIZE}
  true
 } # end parse_ksegfile_write_archfile()
 
-# build_lkm()
-# (Re)build the LKM - Loadable Kernel Module for this project
-build_lkm()
-{
- echo "[i] kernel: building the procmap kernel module now..."
-
- # kernel headers?
- [ ! -e /lib/modules/"$(uname -r)"/build ] && {
-    FatalError "${name}: suitable build env for kernel modules is missing! \
-Pl install the Linux kernel headers (via the appropriate package). If you \
-cannot install a 'kernel headers' package (perhaps you're running a custom \
-built kernel), then you will need to cross-compile the procmap kernel module \
-on your host and copy it across to the target device. Pl see this project's \
-README.md file for details (section 'IMPORTANT: Running procmap on systems \
-other than x86_64')."
- }
-
- make clean >/dev/null 2>&1 || true
- make >/dev/null 2>&1 || {
-    FatalError "${name}: kernel module \"${KMOD}\" build failed, aborting..."
- }
- if [ ! -s ${KMOD}.ko ] ; then
-    echo "${name}: kernel module \"${KMOD}\" not generated? aborting..."
-	return
- fi
- vecho " kernel: LKM built"
-} # end build_lkm()
-
-# init_kernel_lkm_get_details()
-init_kernel_lkm_get_details()
-{
-set +x
-  vecho "kernel: init kernel LKM and get details:"
-  if [ ! -d ${DBGFS_LOC} ] ; then
- 	echo "${name}: kernel debugfs not supported or mounted? aborting..."
- 	return
-  else
-    vecho " debugfs location verfied"
-  fi
-
-  TOP=$(pwd)
-  cd ${KERNELDIR} || return && true
-  #pwd
-
-  if [ ! -s ${KMOD}.ko -o ${KMOD}.c -nt ${KMOD}.ko ] ; then
-     build_lkm
-  fi
-
-  # Ok, the kernel module is there, lets insert it!
-  #ls -l ${KMOD}.ko
-
-  # force passwd
-  #alias sudo='sudo -k'
-
-  sudo rmmod ${KMOD} 2>/dev/null || true   # rm any stale instance
-  sudo insmod ./${KMOD}.ko || {
-	    echo "${name}: insmod(8) on kernel module \"${KMOD}\" failed, build again and retry..."
-        build_lkm
-	    sudo insmod ./${KMOD}.ko || return
-  }
-  # Whoa! with set -o pipefail enabled AND using grep -q, all kinds of crazy s*it
-  # Practical sol: do NOT use -q, redirect stdout & stderr to null dev!
-  # ref- https://stackoverflow.com/questions/19120263/why-exit-code-141-with-grep-q
-  lsmod | egrep -w "^${KMOD}" >/dev/null 2>&1
-  [ $? -ne 0 ] && {
-	    echo "${name}: insmod(8) on kernel module \"${KMOD}\" failed? aborting..."
-		return
-  }
-  vecho " LKM inserted into kernel"
-  sudo ls ${DBGFS_LOC}/${KMOD}/${DBGFS_FILENAME} >/dev/null 2>&1 || {
-     echo "${name}: required debugfs file not present? aborting..."
-	 sudo rmmod ${KMOD}
-	 return
-  }
-  vecho " debugfs file present"
-
-  # Finally! generate the kernel seg details
-  rm -f ${KSEGFILE} 2>/dev/null
-  sudo cat ${DBGFS_LOC}/${KMOD}/${DBGFS_FILENAME} | sudo tee ${KSEGFILE}.$$ >/dev/null
-  # shellcheck: ^-- SC2024 (warning): sudo doesn't affect redirects. Use ..| sudo tee file
-  #sudo cat ${DBGFS_LOC}/${KMOD}/${DBGFS_FILENAME} > ${KSEGFILE}.$$
-
-  # CSV fmt:
-  #  start_kva,end_kva,mode,name-of-region
-
-  # Must numerically sort the kernel mappings by descending kva (2nd field)
-  sort -t"," -k2n -r ${KSEGFILE}.$$ > ${KSEGFILE}
-  rm -f ${KSEGFILE}.$$
-  decho "kseg dtl:
-$(cat ${KSEGFILE})"
-
-  parse_ksegfile_write_archfile
-  true
-} # end init_kernel_lkm_get_details()
 
 #######################################################################
 # Arch-specific details
@@ -804,12 +710,14 @@ do
 	local archfile_entry archfile_entry_label
 
     #--- Retrieve values from the file
+#set -x
 	segname=$(echo "${REC}" | cut -d"," -f1)
 	seg_sz=$(echo "${REC}" | cut -d"," -f2)
 	start_va=$(echo "${REC}" | cut -d"," -f3)
 	end_va=$(echo "${REC}" | cut -d"," -f4)
 	mode=$(echo "${REC}" | cut -d"," -f5)
 	flags=$(echo "${REC}" | cut -d"," -f6)
+#set +x
 
 	if [ "$1" = "-u" ] ; then
 	   offset=$(echo "${REC}" | cut -d"," -f6)
@@ -1072,7 +980,7 @@ decho "nm = ${segname} ,  end_va = ${end_va}   ,   start_va = ${start_va}"
     segscale=${#seg_sz}    # strlen(seg_sz)
 	# Exception to this check: if we're in a 'located region' (via -l option)
     [ "${segname}" != "${LOCATED_REGION_ENTRY}" -a ${segscale} -lt 4 ] && {   # min seg size is 4096 bytes
-        echo "procmap:graphit(): fatal error, segscale (# digits) <= 3! Aborting..."
+        echo "procmap:graphit(): fatal error, seg size < 4096 [segscale (# digits) <= 4] Aborting..."
 	    echo "Kindly report this as a bug, thanks!"
 	    exit 1
     }
