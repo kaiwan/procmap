@@ -139,6 +139,7 @@ local TMPF=/tmp/${name}/kimgpa
 local start_pa end_pa mapname
 local start_kva end_kva
 
+###--- This appears to be the ONE place where we still require sudo ! ---###
 sudo grep -w "Kernel" /proc/iomem > ${TMPF}
 
 #--- loop over the kernel image recs
@@ -231,10 +232,15 @@ sudo grep -w "Kernel" /proc/iomem > ${TMPF}
 # Populate the global 'n-dim' (n=5) array gkArr.
 interpret_kernel_rec()
 {
+local numcol=$(echo "$1" | tr ',' ' ' | wc -w)
+#echo "p1 = $1; nc=$numcol"
+[[ ${numcol} -lt 4 ]] && return  # req 5 fields in the record (4 as segname could be 1 word)
+
 local gap=0  # size (in bytes, decimal) of the kernel region,
              # i.e., end_kva - start_kva
 local start_kva=0x$(echo "${1}" |cut -d"${gDELIM}" -f1)
 local end_kva=0x$(echo "${1}" |cut -d"${gDELIM}" -f2)
+#echo "numcol = $numcol; skva=${start_kva} ekva=${end_kva}"
 
 # Skip comment lines
 echo "${start_kva}" | grep -q "^#" && return
@@ -373,6 +379,8 @@ populate_kernel_segment_mappings()
  done 1>&2
  #----------
 
+#exit
+
  # TODO - ins k sparse region from last (lowest) valid k mapping to top end uva
  prevseg_start_kva_hex=$(printf "0x%llx" ${prevseg_start_kva})
  decho "prevseg_start_kva_hex = ${prevseg_start_kva_hex}"
@@ -383,7 +391,7 @@ populate_kernel_segment_mappings()
      setup_noncanonical_sparse_region
  fi
 
- [ ${DEBUG} -eq 0 ] && rm -f ${KSEGFILE}
+ [ ${DEBUG} -eq 0 ] && rm -f ${KSEGFILE} 2>/dev/null
  [ ${DEBUG} -eq 1 ] && show_gkArray 1
 
  ##################
