@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+#  #!/bin/bash
 # procmap
 # https://github.com/kaiwan/procmap
 #
@@ -44,6 +45,16 @@
 #
 # License: MIT.
 #set -x
+
+# set the common paths
+PATH=${PATH}:/sbin/:/usr/sbin/:/usr/bin/:/bin/
+export TERM=xterm-256color
+
+# sanitize the environment before run
+[[ "$(env | sed -r -e '/^(PWD|SHLVL|_)=/d')" ]] && {
+  export TERM=xterm-256color
+ # exec -c "$0" "$@"
+}
 
 # Turn on unofficial Bash 'strict mode'! V useful
 # "Convert many kinds of hidden, intermittent, or subtle bugs into immediate, glaringly obvious errors"
@@ -396,8 +407,9 @@ LOG=log_procmap.txt
 TMPCSV=/tmp/${name}/vgrph.csv
 
 ## TODO : why call these now??
-init_kernel_lkm_get_details |tee -a ${LOG} || true
-get_machine_set_arch_config |tee -a ${LOG} || true
+#echo "SHOW_KERNELSEG = ${SHOW_KERNELSEG}"
+[[ ${SHOW_KERNELSEG} -eq 1 ]] && init_kernel_lkm_get_details |tee -a ${LOG} || true # this does req root
+get_machine_set_arch_config |tee -a ${LOG} || true # this does not req root
 
 # Invoke the prep_mapsfile script to prep the memory map file
 ${PFX}/mapsfile_prep.sh ${PID} ${TMPCSV} || exit 1
