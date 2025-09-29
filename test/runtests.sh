@@ -86,7 +86,6 @@ PID=$(pgrep --newest put)
 PTC=1
 runtest p ${PTC} "${PROCMAP} --pid=${PID}"
 runtest p ${PTC} "${PROCMAP} -p ${PID}"
-runtest p ${PTC} "${PROCMAP} -p 1 --only-user"
 pkill put
 
 # Negative Test Cases (NTCs)
@@ -96,6 +95,7 @@ runtest n ${NTC} "${PROCMAP} -p -9"
 runtest n ${NTC} "${PROCMAP} -p abc0"
 runtest n ${NTC} "${PROCMAP} -p 1234567890"
 runtest p ${PTC} "${PROCMAP} -p 1"
+runtest p ${PTC} "${PROCMAP} -p 1 --only-user"
 
 # TODO : test case w/ v large user VAS (eg. python..)
 # and the 'heap' (still) shows up too high in the u VAS !
