@@ -167,7 +167,7 @@ isathread()
  return 127
 }
 
-PARENT_PROCESS=${PID}
+export PARENT_PROCESS=${PID}
 local t1=$(ps -LA|grep -w "${PID}" |head -n1)
 local pid=$(echo ${t1} |cut -d' ' -f1)
 local lwp=$(echo ${t1} |cut -d' ' -f2)
