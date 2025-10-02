@@ -137,7 +137,6 @@ cat ${DBGFS_LOC}/${KMOD}/${DBGFS_FILENAME} > ${TEMP_KSEGFILE}
 # CSV fmt of ${KSEGFILE}.$$
 #  start_kva,end_kva,mode,name-of-region
 # Must numerically sort the kernel mappings by descending kva (2nd field)
-rm -f ${KSEGFILE} 2>/dev/null || true
 sort -t"," -k2n -r ${TEMP_KSEGFILE} > ${KSEGFILE}
 chmod 0444 ${KSEGFILE}
 

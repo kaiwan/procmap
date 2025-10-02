@@ -391,7 +391,6 @@ populate_kernel_segment_mappings()
      setup_noncanonical_sparse_region
  fi
 
- [ ${DEBUG} -eq 0 ] && rm -f ${KSEGFILE} 2>/dev/null
  [ ${DEBUG} -eq 1 ] && show_gkArray 1
 
  ##################
