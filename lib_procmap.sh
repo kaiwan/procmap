@@ -141,7 +141,7 @@ parse_ksegfile_write_archfile()
  #high_memory=$(grep -w "lowmem" ${KSEGFILE} |cut -d"${gDELIM}" -f2) || high_memory=""
  PKMAP_BASE=$(grep -w "HIGHMEM" ${KSEGFILE} |cut -d"${gDELIM}" -f1) || PKMAP_BASE=""
 
- PAGE_SIZE=$(grep -w "PAGE_SIZE" ${KSEGFILE} |cut -d"${gDELIM}" -f2) || PAGE_SIZE=""
+ PAGE_SIZE=$(grep -w "PAGE_SIZE" ${KSEGFILE} |cut -d"${gDELIM}" -f2) || PAGE_SIZE=1000
  TASK_SIZE=$(grep -w "TASK_SIZE" ${KSEGFILE} |cut -d"${gDELIM}" -f2) || TASK_SIZE=""
 
  # Delete the PAGE_SIZE and TASK_SIZE lines from the KSEGFILE file
@@ -979,12 +979,17 @@ decho "nm = ${segname} ,  end_va = ${end_va}   ,   start_va = ${start_va}"
     # Simplify: We base the 'height' of each segment on the number of digits
     # in the segment size (in bytes)!
     segscale=${#seg_sz}    # strlen(seg_sz)
-	# Exception to this check: if we're in a 'located region' (via -l option)
-    [ "${segname}" != "${LOCATED_REGION_ENTRY}" -a ${segscale} -lt 4 ] && {   # min seg size is 4096 bytes
-        echo "procmap:graphit(): fatal error, seg size < 4096 [segscale (# digits) <= 4] Aborting..."
+	# Exceptions to this check:
+	# 1. Null trap
+	if [ "${segname}" = "< NULL trap >" ] ; then
+		segscale=1   # assign a segscale of 1 for the null trap, so that it gets printed as a single line box
+	# 2. if we're in a 'located region' (via -l option)
+    elif [ "${segname}" != "${LOCATED_REGION_ENTRY}" -a ${segscale} -lt 4 ] ; then  # && {   # min seg size is 4096 bytes
+        echo "procmap:graphit(): fatal error, seg size < 4096 [segscale (# digits) <= 4].
+		segname = ${segname}, segscale = ${segscale}. Aborting..."
 	    echo "Kindly report this as a bug, thanks!"
 	    exit 1
-    }
+    fi
     decho "seg_sz = ${seg_sz} segscale=${segscale}"
 
     local box_height=0
