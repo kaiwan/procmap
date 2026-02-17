@@ -144,6 +144,9 @@ gTotalSegSize=0
 setup_nulltrap_page()
 {
   local pgsz_hex=$(printf "%x" ${PAGE_SIZE})
+  #local pgsz_hex=$(printf "%x" 4096)  # ${PAGE_SIZE})
+  # TODO : why is PAGE_SIZE == 0 ???
+  # Have temporarily patched PAGE_SIZE to 0x1000 in lib_procmap.sh:parse_ksegfile_write_archfile()
   append_userspace_mapping "${NULLTRAP_STR}" ${PAGE_SIZE} 0 \
      ${pgsz_hex} "----" 0
 
