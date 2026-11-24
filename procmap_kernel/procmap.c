@@ -275,10 +275,11 @@ static const struct file_operations dbgfs_fops = {
 	.read = dbgfs_show_kernelseg,
 };
 
+/* Note: modern debugfs dir/file creation 5.0+ doesn't require ret value
+ * checking */
 static int setup_debugfs_file(void)
 {
 	struct dentry *file1;
-	int stat = 0;
 
 	if (!IS_ENABLED(CONFIG_DEBUG_FS)) {
 		pr_warn("debugfs unsupported! Aborting ...\n");
@@ -287,29 +288,14 @@ static int setup_debugfs_file(void)
 
 	/* Create a dir under the debugfs mount point, whose name is the module name */
 	gparent = debugfs_create_dir(KBUILD_MODNAME, NULL);
-	if (!gparent) {
-		pr_info("debugfs_create_dir failed, aborting...\n");
-		stat = PTR_ERR(gparent);
-		goto out_fail_1;
-	}
 
 	/* Create a generic debugfs file */
 #define DBGFS_FILE1	"disp_kernelseg_details"
 	file1 = debugfs_create_file(DBGFS_FILE1, 0444, gparent, (void *)NULL, &dbgfs_fops);
-	if (!file1) {
-		pr_info("debugfs_create_file failed, aborting...\n");
-		stat = PTR_ERR(file1);
-		goto out_fail_2;
-	}
 	pr_debug("debugfs file 1 <debugfs_mountpt>/%s/%s created\n",
 		 KBUILD_MODNAME, DBGFS_FILE1);
 
 	return 0;		/* success */
-
- out_fail_2:
-	debugfs_remove_recursive(gparent);
- out_fail_1:
-	return stat;
 }
 
 static int __init procmap_init(void)
