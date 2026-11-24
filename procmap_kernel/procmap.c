@@ -264,8 +264,7 @@ static ssize_t dbgfs_show_kernelseg(struct file *filp, char __user *ubuf,
 
 	query_kernelseg_details(kbuf);
 
-	ret = simple_read_from_buffer(ubuf, MAXLEN, fpos, kbuf, strlen(kbuf));
-	//MSG("ret = %ld\n", ret);
+	ret = simple_read_from_buffer(ubuf, count, fpos, kbuf, strlen(kbuf));
 	kfree(kbuf);
 	mutex_unlock(&mtx);
 
