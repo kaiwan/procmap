@@ -992,7 +992,7 @@ decho "nm = ${segname} ,  end_va = ${end_va}   ,   start_va = ${start_va}"
 	# Exception to this check: if we're in a 'located region' (via -l option)
 	# (The NULL trap page is PAGE_SIZE bytes, so it passes this check normally.)
     if [ "${segname}" != "${LOCATED_REGION_ENTRY}" -a ${segscale} -lt 4 ] ; then  # min seg size is 4096 bytes
-        echo "procmap:graphit(): fatal error, seg size < 4096 [segscale (# digits) <= 4].
+        echo "procmap:graphit(): fatal error, seg size < 4096 [segscale (# digits) < 4].
 		segname = ${segname}, segscale = ${segscale}. Aborting..."
 	    echo "Kindly report this as a bug, thanks!"
 	    exit 1
