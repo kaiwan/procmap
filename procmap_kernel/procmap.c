@@ -137,7 +137,7 @@ static void query_kernelseg_details(char *buf)
 		pr_warn("*** >= ARMv8.2 with LPA? (YMMV, not supported here) ***\n");
 #endif
 
-#ifdef ARM
+#if defined(CONFIG_ARM)
 	/* On ARM, the definition of VECTORS_BASE turns up only in kernels >= 4.11 */
 #if LINUX_VERSION_CODE > KERNEL_VERSION(4, 11, 0)
 	memset(tmpbuf, 0, TMPMAX);
@@ -206,7 +206,7 @@ static void query_kernelseg_details(char *buf)
 		 (TYPECST)PAGE_OFFSET, (TYPECST)(PAGE_OFFSET + ram_size));
 	strlcat(buf, tmpbuf, MAXLEN);
 
-	pr_debug("high_memory = 0x%016lx\n", high_memory);
+	pr_debug("high_memory = 0x%016lx\n", (uintptr_t)high_memory);
 
 	/* (possible) highmem region;  may be present on some 32-bit systems */
 #if defined(CONFIG_HIGHMEM)  && (BITS_PER_LONG==32)
