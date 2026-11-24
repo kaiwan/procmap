@@ -989,12 +989,9 @@ decho "nm = ${segname} ,  end_va = ${end_va}   ,   start_va = ${start_va}"
     # Simplify: We base the 'height' of each segment on the number of digits
     # in the segment size (in bytes)!
     segscale=${#seg_sz}    # strlen(seg_sz)
-	# Exceptions to this check:
-	# 1. Null trap
-	if [ "${segname}" = "< NULL trap >" ] ; then
-		segscale=1   # assign a segscale of 1 for the null trap, so that it gets printed as a single line box
-	# 2. if we're in a 'located region' (via -l option)
-    elif [ "${segname}" != "${LOCATED_REGION_ENTRY}" -a ${segscale} -lt 4 ] ; then  # && {   # min seg size is 4096 bytes
+	# Exception to this check: if we're in a 'located region' (via -l option)
+	# (The NULL trap page is PAGE_SIZE bytes, so it passes this check normally.)
+    if [ "${segname}" != "${LOCATED_REGION_ENTRY}" -a ${segscale} -lt 4 ] ; then  # min seg size is 4096 bytes
         echo "procmap:graphit(): fatal error, seg size < 4096 [segscale (# digits) <= 4].
 		segname = ${segname}, segscale = ${segscale}. Aborting..."
 	    echo "Kindly report this as a bug, thanks!"
