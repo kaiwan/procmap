@@ -141,13 +141,23 @@ parse_ksegfile_write_archfile()
  #high_memory=$(grep -w "lowmem" ${KSEGFILE} |cut -d"${gDELIM}" -f2) || high_memory=""
  PKMAP_BASE=$(grep -w "HIGHMEM" ${KSEGFILE} |cut -d"${gDELIM}" -f1) || PKMAP_BASE=""
 
- PAGE_SIZE=$(grep -w "PAGE_SIZE" ${KSEGFILE} |cut -d"${gDELIM}" -f2) || PAGE_SIZE=1000
+ PAGE_SIZE=$(grep -w "PAGE_SIZE" ${KSEGFILE} |cut -d"${gDELIM}" -f2) || PAGE_SIZE=""
  TASK_SIZE=$(grep -w "TASK_SIZE" ${KSEGFILE} |cut -d"${gDELIM}" -f2) || TASK_SIZE=""
 
- # Delete the PAGE_SIZE and TASK_SIZE lines from the KSEGFILE file
- # as we don't want it in the kernel map processing loop that follows
- sed --in-place '/^PAGE_SIZE/d' ${KSEGFILE} 2>/dev/null || true
- sed --in-place '/^TASK_SIZE/d' ${KSEGFILE} 2>/dev/null || true
+ # NOTE: KSEGFILE is the one-time install-time report; treat it as READ-ONLY.
+ # (Earlier code deleted the PAGE_SIZE/TASK_SIZE lines from it in place; when
+ # run as root that permanently lost them, causing PAGE_SIZE==0 on later runs.)
+ # No need to remove them: interpret_kernel_rec() skips records with < 4 fields.
+ #
+ # Older installs may already have lost these lines; recover what we can.
+ if [[ -z "${PAGE_SIZE}" ]] ; then
+    PAGE_SIZE=$(printf "%x" "$(getconf PAGE_SIZE)")   # hex, as the LKM reports it
+    wecho "PAGE_SIZE missing from ${KSEGFILE}; using getconf value (0x${PAGE_SIZE}).
+ Pl re-run the installer (sudo ./install_procmap) to regenerate the kernel report."
+ fi
+ [[ -z "${TASK_SIZE}" ]] && \
+    wecho "TASK_SIZE missing from ${KSEGFILE} (needed on AArch64).
+ Pl re-run the installer (sudo ./install_procmap) to regenerate the kernel report."
 
 # We *require* these 'globals' again later in the script;
 # So we place them into an 'arch' file (we try and keep a 'descending order
