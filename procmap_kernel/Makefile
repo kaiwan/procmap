@@ -31,18 +31,49 @@
 # VERSION : 0.2
 
 #------------------------------------------------------------------
-# IMPORTANT : Set FNAME_C to the kernel module name source filename (without .c).
-# This enables you to use this Makefile as a template; just update this variable!
-# As well, the KEEP_DEBUG_INFO variable (see it below) can be set to 'y' or 'n' (no being
-# the default)
+# HOW THIS MAKEFILE IS READ (Documentation/kbuild/modules.rst, "Shared Makefile")
+# make reads this file twice:
+#  1. when you type 'make <target>': KERNELRELEASE is empty, so only the
+#     'normal make' part (after 'else') is seen;
+#  2. when the 'make -C $(KDIR) M=... modules' in our recipes runs kbuild, which
+#     reads this file again with KERNELRELEASE set: only the kbuild part is seen.
+# Anything above the 'ifneq' is seen by both passes.
+#------------------------------------------------------------------
+
+#--- Shared by both passes
+# IMPORTANT : Set FNAME_C to the kernel module name (without .c).
 FNAME_C ?= procmap
+# Debug build? y/n; override with 'make KEEP_DEBUG_INFO=y' (command-line
+# variables reach the kbuild pass too, via MAKEFLAGS).
+KEEP_DEBUG_INFO ?= n
+
+ifneq ($(KERNELRELEASE),)
+#==================================================================
+# Part 1: kbuild. Only kbuild variables here; no targets, no CC/KDIR.
+#==================================================================
+obj-m           := $(FNAME_C).o
+
+ifeq ($(KEEP_DEBUG_INFO),y)
+# https://www.kernel.org/doc/html/latest/kbuild/makefiles.html#compilation-flags
+# (No -Og: kernel code is built and tested at -O2/-Os; -g is enough for gdb.)
+  ccflags-y += -DDEBUG -g -ggdb -gdwarf-4 -fno-omit-frame-pointer -fvar-tracking-assignments
+else
+  ccflags-y += -UDEBUG
+endif
+# We always keep the dynamic debug facility enabled; this allows us to dynamically
+# turn on/off debug printk's later... To disable it simply comment out the following line
+ccflags-y += -DDYNAMIC_DEBUG_MODULE
+
+else
+#==================================================================
+# Part 2: normal make - the targets you type: make, make install, make sa, ...
+#==================================================================
 ifeq ($(FNAME_C),)
   $(error ERROR: you Must pass the C file like this: \
   make FNAME_C=csrc-filename-without-.c target-name)
 else ifneq ("$(origin FNAME_C)", "command line")
   $(info FNAME_C=$(FNAME_C))
 endif
-#------------------------------------------------------------------
 
 #--- To support cross-compiling for kernel modules
 # For architecture (cpu) 'arch', invoke make as:
@@ -75,37 +106,31 @@ else
 endif
 #---
 
+#---
 # Compiler
+# Just in case you get this error when building (it did happen to me on Ubuntu
+# 22.04 x86_64):
+# gcc: error: unrecognized command-line option -ftrivial-auto-var-init=zero ...
+# It very likely implies you’re using an older version of the GCC compiler
+# (Ubuntu 22.04 defaults to using GCC v11); so, install GCC v12 (sudo apt
+# install gcc-12) and change the Makefile:
+# CC     := $(CROSS_COMPILE)gcc-12
+#---
 CC     := $(CROSS_COMPILE)gcc
 #CC    := clang
 STRIP := ${CROSS_COMPILE}strip
 
 PWD            := $(shell pwd)
-obj-m          += ${FNAME_C}.o
 
-#--- Debug or production mode?
-# Set the KEEP_DEBUG_INFO variable accordingly to y/n resp. We keep it off (n) by default.
-# (Actually, debug info is always going to be generated when you build the
-# module on a debug kernel, where CONFIG_DEBUG_INFO is defined, making this
-# setting of the ccflags-y (or the older EXTRA_CFLAGS) variable mostly redundant
-# (besides the still useful -DDEBUG).
-# This simply helps us influence the build on a production kernel, forcing
-# generation of debug symbols, if so required. Also, realize that the DEBUG
-# macro is turned on by many CONFIG_*DEBUG* options; hence, we use a different
-# macro var name, KEEP_DEBUG_INFO).
-KEEP_DEBUG_INFO := n
+
+#--- Debug or production mode? (KEEP_DEBUG_INFO is set above, for both passes)
+# Debug info is always generated when building against a debug kernel
+# (CONFIG_DEBUG_INFO); KEEP_DEBUG_INFO forces it on a production kernel too.
+# We use our own variable name as DEBUG is turned on by many CONFIG_*DEBUG* options.
 DBG_STRIP := y
 ifeq (${KEEP_DEBUG_INFO}, y)
-# https://www.kernel.org/doc/html/latest/kbuild/makefiles.html#compilation-flags
-# EXTRA_CFLAGS deprecated; use ccflags-y
-  ccflags-y   += -DDEBUG -g -ggdb -gdwarf-4 -Og -Wall -fno-omit-frame-pointer -fvar-tracking-assignments
   DBG_STRIP := n
-else
-  ccflags-y   += -UDEBUG -Wall
 endif
-# We always keep the dynamic debug facility enabled; this allows us to dynamically
-# turn on/off debug printk's later... To disable it simply comment out the following line
-ccflags-y   += -DDYNAMIC_DEBUG_MODULE
 KMODDIR ?= /lib/modules/$(shell uname -r)
 
 # Gain access to kernel configs (the '-' says 'continue on error')
@@ -128,11 +153,11 @@ endif
 all:
 	@echo
 	@echo -n "\e[1m\e[41m"
-	@echo '--- Building : KDIR=${KDIR} ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} ccflags-y="${ccflags-y}" KEEP_DEBUG_INFO=${KEEP_DEBUG_INFO} DBG_STRIP=${DBG_STRIP} ---'
+	@echo '--- Building : KDIR=${KDIR} ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} KEEP_DEBUG_INFO=${KEEP_DEBUG_INFO} DBG_STRIP=${DBG_STRIP} ---'
 	@echo -n "\e[0m"
 	@${CC} --version|head -n1
 	@echo
-	make -C $(KDIR) M=$(PWD) modules
+	$(MAKE) -C $(KDIR) M=$(PWD) modules
 	if [ "${DBG_STRIP}" = "y" ]; then \
 	   ${STRIP} --strip-debug ${FNAME_C}.ko ; \
 	fi
@@ -142,40 +167,30 @@ install:
 	@echo "--- installing ---"
 	@echo -n "\e[0m"
 	@echo " [First, invoking the 'make' ]"
-	make
+	$(MAKE)
 	@echo
 	@echo -n "\e[1m\e[34m"
 	@echo " [Now for the 'sudo make install' ]"
 	@echo -n "\e[0m"
-	sudo make -C $(KDIR) M=$(PWD) modules_install
+	sudo $(MAKE) -C $(KDIR) M=$(PWD) modules_install
 	sudo depmod
-	@echo " [If !debug and !(module signing), stripping debug info from ${KMODDIR}/extra/${FNAME_C}.ko]"
+	@echo " [If !debug and !(module signing), stripping debug info from ${KMODDIR}/updates/${FNAME_C}.ko]"
 	if [ "${DBG_STRIP}" = "y" ]; then \
-           sudo ${STRIP} --strip-debug ${KMODDIR}/extra/${FNAME_C}.ko ; \
+           sudo ${STRIP} --strip-debug ${KMODDIR}/updates/${FNAME_C}.ko ; \
 	fi
-dt:
-ifeq (,$(shell which dtc 2>/dev/null))
-	$(error ERROR: install the DTC compiler first)
-endif
-	@echo -n "\e[1m\e[41m"
-	@echo "--- compiles the Device Tree Blob (DTB) from the DTS (ARM/PPC/Risc-V/etc) ---"
-	@echo -n "\e[0m"
-	dtc -@ -I dts -O dtb -o $(FNAME_C).dtb $(FNAME_C).dts
-	# DTBO - Device Tree Blob Overlay
 nsdeps:
 	@echo -n "\e[1m\e[41m"
 	@echo "--- nsdeps (namespace dependencies resolution; for possibly importing ns's) ---"
 	@echo -n "\e[0m"
-	make -C $(KDIR) M=$(PWD) nsdeps
+	$(MAKE) -C $(KDIR) M=$(PWD) nsdeps
 clean:
 	@echo
 	@echo -n "\e[1m\e[41m"
 	@echo "--- cleaning ---"
 	@echo -n "\e[0m"
 	@echo
-	make -C $(KDIR) M=$(PWD) clean
+	$(MAKE) -C $(KDIR) M=$(PWD) clean
 # from 'indent'; comment out if you want the backup kept
-	rm -f *.dtb *.dtbo
 
 # Any usermode programs to build? Insert the build target(s) below
 
@@ -185,14 +200,14 @@ INDENT := indent
 
 # code-style : "wrapper" target over the following kernel code style targets
 code-style:
-	make indent
-	make checkpatch
+	$(MAKE) indent
+	$(MAKE) checkpatch
 
 # indent- "beautifies" C code - to conform to the the Linux kernel
 # coding style guidelines.
 # Note! original source file(s) is overwritten, so we back it up.
 indent:
-ifeq (,$(shell which indent 2>/dev/null))
+ifeq (,$(shell which indent))
 	$(error ERROR: install indent first)
 endif
 	@echo
@@ -207,30 +222,30 @@ endif
 
 # Detailed check on the source code styling / etc
 checkpatch:
-	make clean
+	$(MAKE) clean
 	@echo
 	@echo -n "\e[1m\e[41m"
 	@echo "--- kernel code style check with checkpatch.pl ---"
 	@echo -n "\e[0m"
 	@echo
-	-$(KDIR)/scripts/checkpatch.pl --no-tree -f --max-line-length=95 *.[ch]
+	-$(KDIR)/scripts/checkpatch.pl --no-tree -f --max-line-length=80 *.[ch]
 	  # add source files as required
 
 #--- Static Analysis
 # sa : "wrapper" target over the following kernel static analyzer targets
 sa:
-	make sa_clangtidy
-	make sa_sparse
-	make sa_gcc
-	make sa_flawfinder
-	make sa_cppcheck
+	$(MAKE) sa_clangtidy
+	$(MAKE) sa_sparse
+	$(MAKE) sa_gcc
+	$(MAKE) sa_flawfinder
+	$(MAKE) sa_cppcheck
 
 # static analysis with clang-tidy
 sa_clangtidy:
-ifeq (,$(shell which clang-tidy 2>/dev/null))
+ifeq (,$(shell which clang-tidy))
 	$(error ERROR: install clang-tidy first)
 endif
-	make clean
+	$(MAKE) clean
 	@echo
 	@echo -n "\e[1m\e[41m"
 	@echo "--- static analysis with clang-tidy ---"
@@ -240,10 +255,10 @@ endif
 
 # static analysis with sparse
 sa_sparse:
-ifeq (,$(shell which sparse 2>/dev/null))
+ifeq (,$(shell which sparse))
 	$(error ERROR: install sparse first)
 endif
-	make clean
+	$(MAKE) clean
 	@echo
 	@echo -n "\e[1m\e[41m"
 	@echo "--- static analysis with sparse ---"
@@ -251,24 +266,24 @@ endif
 	@echo
 # If you feel it's too much, use C=1 instead
 # NOTE: deliberately IGNORING warnings from kernel headers!
-	-make -Wsparse-all C=2 CHECK="/usr/bin/sparse --os=linux --arch=$(ARCH)" -C $(KDIR) M=$(PWD) modules 2>&1 |egrep -v "^\./include/.*\.h|^\./arch/.*\.h"
+	-$(MAKE) -Wsparse-all C=2 CHECK="/usr/bin/sparse --os=linux --arch=$(ARCH)" -C $(KDIR) M=$(PWD) modules 2>&1 |egrep -v "^\./include/.*\.h|^\./arch/.*\.h"
 
 # static analysis with gcc
 sa_gcc:
-	make clean
+	$(MAKE) clean
 	@echo
 	@echo -n "\e[1m\e[41m"
 	@echo "--- static analysis with gcc ---"
 	@echo -n "\e[0m"
 	@echo
-	-make W=1 -C $(KDIR) M=$(PWD) modules
+	-$(MAKE) W=1 -C $(KDIR) M=$(PWD) modules
 
 # static analysis with flawfinder
 sa_flawfinder:
-ifeq (,$(shell which flawfinder 2>/dev/null))
+ifeq (,$(shell which flawfinder))
 	$(error ERROR: install flawfinder first)
 endif
-	make clean
+	$(MAKE) clean
 	@echo
 	@echo -n "\e[1m\e[41m"
 	@echo "--- static analysis with flawfinder ---"
@@ -278,10 +293,10 @@ endif
 
 # static analysis with cppcheck
 sa_cppcheck:
-ifeq (,$(shell which cppcheck 2>/dev/null))
+ifeq (,$(shell which cppcheck))
 	$(error ERROR: install cppcheck first)
 endif
-	make clean
+	$(MAKE) clean
 	@echo
 	@echo -n "\e[1m\e[41m"
 	@echo "--- static analysis with cppcheck ---"
@@ -292,7 +307,7 @@ endif
 # Packaging: just generates a tar.xz of the source as of now
 tarxz-pkg:
 	rm -f ../${FNAME_C}.tar.xz 2>/dev/null
-	make clean
+	$(MAKE) clean
 	@echo
 	@echo -n "\e[1m\e[41m"
 	@echo "--- packaging ---"
@@ -310,7 +325,7 @@ help:
 	@echo -n "\e[0m"
 	@echo
 	@echo 'TIP: Type make <tab><tab> to show all valid targets'
-	@echo 'FYI: KDIR=${KDIR} ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} ccflags-y="${ccflags-y}" KEEP_DEBUG_INFO=${KEEP_DEBUG_INFO} DBG_STRIP=${DBG_STRIP}'
+	@echo 'FYI: KDIR=${KDIR} ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} KEEP_DEBUG_INFO=${KEEP_DEBUG_INFO} DBG_STRIP=${DBG_STRIP}'
 
 	@echo
 	@echo -n "\e[1m\e[34m"
@@ -319,7 +334,6 @@ help:
 	@echo 'typing "make" or "all" target : builds the kernel module object (the .ko)'
 	@echo 'install     : installs the kernel module(s) to INSTALL_MOD_PATH (default here: /lib/modules/$(shell uname -r)/).'
 	@echo '            : Takes care of performing debug-only symbols stripping iff KEEP_DEBUG_INFO=n and not using module signature'
-	@echo 'dt          : compiles the Device Tree Blob (DTB) from the DTS file (applicable to ARM, PPC, RISC-V, etc)'
 	@echo 'nsdeps      : namespace dependencies resolution; for possibly importing namespaces'
 	@echo 'clean       : cleanup - remove all kernel objects, temp files/dirs, etc'
 
@@ -367,3 +381,6 @@ help:
 	@echo '  change this Makefile CC variable to "gcc-12" (or whatever) and retry'
 	@echo
 	@echo 'help       : this help target'
+
+endif   # ifneq ($(KERNELRELEASE),)
+
